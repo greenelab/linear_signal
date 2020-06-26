@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # # Evaluation of Batch Effect Correction
-# This notebook asks whether batch effect correction works for correcting inter-study differences and/or interplatform differences.
+# This notebook evaluates the extent to which limma and ComBat correct for batch effects by plotting the results and seeing to what extent the inter-batch differences remain in the first two PCs
 
 # In[1]:
 
@@ -11,7 +11,6 @@ import collections
 import json
 import os
 import pickle
-from typing import Text, Dict, Union, List
 
 import pandas as pd
 import sklearn
@@ -161,12 +160,6 @@ embedding_df = pd.DataFrame.from_dict({'sample': list(compendium_df.index),
                                       })
 
 
-# In[ ]:
-
-
-
-
-
 # In[14]:
 
 
@@ -201,7 +194,7 @@ ggplot(embedding_df, aes(x='pc1', y='pc2', color='study')) + geom_point()
 # In[18]:
 
 
-ggplot(embedding_df, aes(x='pc1', y='pc2', color='platform')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='platform')) + geom_point()
 
 
 # In[19]:
@@ -290,13 +283,19 @@ embedding_df.head()
 # In[29]:
 
 
-ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='platform')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='platform')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='platform')) + geom_point()
+print(plot)
 
 
 # In[30]:
 
 
-ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='platform')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='platform')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='platform')) + geom_point()
+print(plot)
 
 
 # In[31]:
@@ -310,13 +309,19 @@ ggplot(embedding_df, aes(x='full_correction_pc1', y='full_correction_pc2', color
 # In[32]:
 
 
-ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='study')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='study')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='study')) + geom_point()
+print(plot)
 
 
 # In[33]:
 
 
-ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='study')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='study')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='study')) + geom_point()
+print(plot)
 
 
 # ## Plot by label
@@ -324,13 +329,19 @@ ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='study')) + g
 # In[34]:
 
 
-ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='label')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='label')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='label')) + geom_point()
+print(plot)
 
 
 # In[35]:
 
 
-ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='label')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='label')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='label')) + geom_point()
+print(plot)
 
 
 # ## Limma Results
@@ -383,13 +394,19 @@ embedding_df.head()
 # In[41]:
 
 
-ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='platform')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='platform')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='platform')) + geom_point()
+print(plot)
 
 
 # In[42]:
 
 
-ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='platform')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='platform')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='platform')) + geom_point()
+print(plot)
 
 
 # ## Plot by study
@@ -397,13 +414,19 @@ ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='platform')) 
 # In[43]:
 
 
-ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='study')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='study')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='study')) + geom_point()
+print(plot)
 
 
 # In[44]:
 
 
-ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='study')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='study')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='study')) + geom_point()
+print(plot)
 
 
 # ## Plot by label
@@ -411,13 +434,19 @@ ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='study')) + g
 # In[45]:
 
 
-ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='label')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='label')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='study_pc1', y='study_pc2', color='label')) + geom_point()
+print(plot)
 
 
 # In[46]:
 
 
-ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='label')) + geom_point()
+plot = ggplot(embedding_df, aes(x='pc1', y='pc2', color='label')) + geom_point()
+print(plot)
+plot = ggplot(embedding_df, aes(x='platform_pc1', y='platform_pc2', color='label')) + geom_point()
+print(plot)
 
 
 # ## ComBat Conclusions
