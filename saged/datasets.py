@@ -1,6 +1,6 @@
 """ This file contains dataset objects for manipulating gene expression data """
 from abc import ABC, abstractmethod
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, List
 
 import numpy as np
 
@@ -37,8 +37,7 @@ class ExpressionDataset(ABC):
     @abstractmethod
     def __getitem__(self, idx: int) -> Tuple[np.array, np.array]:
         """
-        Allows access into the dataset to select a single datapoint and
-        its associated label
+        Allows access into the dataset to select a single datapoint and its associated label
 
         Arguments
         ---------
@@ -82,7 +81,7 @@ class ExpressionDataset(ABC):
 
     def subset_studies(self, fraction: float) -> float:
         """
-        This method is similar to subset_samples, but removes entire studies until the
+        This method is similar to `subset_samples`, but removes entire studies until the
         fraction of data remaining is less than the fraction passed in.
 
         As this will almost never result in the fraction being met exactly, the data fraction
@@ -98,6 +97,7 @@ class ExpressionDataset(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def subset_samples_for_label(self, fraction: float, label: str) -> None:
         """
         Limit the number of samples available for a single label.
@@ -108,6 +108,18 @@ class ExpressionDataset(ABC):
         ---------
         fraction: The fraction of the samples to keep
         label: The category of data to apply this subset to
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def subset_samples_to_labels(self, labels: List[str]) -> None:
+        """
+        Keep only the samples corresponding to the labels passed in.
+        Stacks with other labels; if `subset_samples_for_label`
+
+        Arguments
+        ---------
+        labels: The label or labels of samples to keep
         """
         raise NotImplementedError
 
