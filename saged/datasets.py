@@ -79,17 +79,21 @@ class ExpressionDataset(ABC):
         """
         raise NotImplementedError
 
-    def subset_studies(self, fraction: float) -> float:
+    def subset_studies(self, fraction: float = None, num_studies: int = None) -> float:
         """
         This method is similar to `subset_samples`, but removes entire studies until the
         fraction of data remaining is less than the fraction passed in.
 
         As this will almost never result in the fraction being met exactly, the data fraction
-        that actually comes out of the subsetting will be returned
+        that actually comes out of the subsetting will be returned.
+
+        Either `fraction` or `num_studies` must be specified. If both are specified,
+        `num_studies` will be given preference.
 
         Arguments
         ---------
         fraction: The fraction of the samples to keep
+        num_studies: The number of studies to keep
 
         Returns
         -------
@@ -126,13 +130,13 @@ class ExpressionDataset(ABC):
     @abstractmethod
     # For more info on using a forward reference for the type, see
     # https://github.com/python/mypy/issues/3661#issuecomment-313157498
-    def get_cv_splits(self, num_splits) -> Sequence["ExpressionDataset"]:
+    def get_cv_splits(self, num_splits: int) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of samples in each.
 
-        If multiple studies are present in the dataset, each dataset should only
-        have data from a single study
+        If multiple studies are present in the dataset, each study should only
+        be present in a single fold
 
         Arguments
         ---------
@@ -141,5 +145,34 @@ class ExpressionDataset(ABC):
         Returns
         -------
         subsets: A list of datasets, each composed of fractions of the original
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def train_test_split(self,
+                         train_fraction: float = None,
+                         train_study_count: int = None
+                        ) -> Sequence["ExpressionDataset"]:
+        """
+        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
+        function.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in one of the two portions.
+
+        Either `train_fraction` or `train_study_count` must be specified. If both
+        are specified, then `train_study_count` takes precedence.
+
+        Arguments
+        ---------
+        train_fraction: The minimum fraction of the data to be used as training data.
+            In reality, the fraction won't be met entirely due to the constraint of
+            preserving studies.
+        train_study_count: The number of studies to be included in the training set
+
+        Returns
+        -------
+        train: The dataset with around the amount of data specified by train_fraction
+        test: The dataset with the remaining data
         """
         raise NotImplementedError
