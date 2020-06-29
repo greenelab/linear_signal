@@ -17,7 +17,7 @@ class ExpressionDataset(ABC):
         Abstract initializer. When implemented this function should take in a datasource
         and use it to initialize the class member variables
         """
-        raise NotImplementedError
+        pass
 
     @abstractmethod
     def __len__(self) -> int:
@@ -41,9 +41,8 @@ class ExpressionDataset(ABC):
 
         Arguments
         ---------
+        idx: The index of the given item
 
-        Returns
-        -------
         Returns
         -------
         X: The gene expression data for the given index in a genes x 1 array
@@ -52,7 +51,7 @@ class ExpressionDataset(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_sklearn_data(self) -> Tuple[np.array, np.array]:
+    def get_all_data(self) -> Tuple[np.array, np.array]:
         """
         Returns all the expression data and labels from the dataset in the
         form of an (X,y) tuple where both X and y are numpy arrays
@@ -101,31 +100,6 @@ class ExpressionDataset(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
-    def subset_samples_for_label(self, fraction: float, label: str) -> None:
-        """
-        Limit the number of samples available for a single label.
-        For example, if you wanted to use only ten percent of the sepsis expression
-        samples across all studies, you would use this function.
-
-        Arguments
-        ---------
-        fraction: The fraction of the samples to keep
-        label: The category of data to apply this subset to
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def subset_samples_to_labels(self, labels: List[str]) -> None:
-        """
-        Keep only the samples corresponding to the labels passed in.
-        Stacks with other labels; if `subset_samples_for_label`
-
-        Arguments
-        ---------
-        labels: The label or labels of samples to keep
-        """
-        raise NotImplementedError
 
     @abstractmethod
     # For more info on using a forward reference for the type, see
@@ -174,5 +148,62 @@ class ExpressionDataset(ABC):
         -------
         train: The dataset with around the amount of data specified by train_fraction
         test: The dataset with the remaining data
+        """
+        raise NotImplementedError
+
+
+class LabeledDataset(ExpressionDataset):
+    @abstractmethod
+    def subset_samples_for_label(self, fraction: float, label: str) -> None:
+        """
+        Limit the number of samples available for a single label.
+        For example, if you wanted to use only ten percent of the sepsis expression
+        samples across all studies, you would use this function.
+
+        Arguments
+        ---------
+        fraction: The fraction of the samples to keep
+        label: The category of data to apply this subset to
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def subset_samples_to_labels(self, labels: List[str]) -> None:
+        """
+        Keep only the samples corresponding to the labels passed in.
+        Stacks with other labels; if `subset_samples_for_label`
+
+        Arguments
+        ---------
+        labels: The label or labels of samples to keep
+        """
+        raise NotImplementedError
+
+
+class UnlabeledDataset(ExpressionDataset):
+    @abstractmethod
+    def __getitem__(self, idx: int) -> np.array:
+        """
+        Allows access into the dataset to select a single datapoint
+
+        Arguments
+        ---------
+        idx: The index of the given item
+
+        Returns
+        -------
+        X: The gene expression data for the given index in a genes x 1 array
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_all_data(self) -> np.array:
+        """
+        Returns all the expression data from the dataset in the
+        form of a numpy array
+
+        Returns
+        -------
+        X: The gene expression data in a genes x samples array
         """
         raise NotImplementedError
