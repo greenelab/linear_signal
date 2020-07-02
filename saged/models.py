@@ -18,7 +18,7 @@ class ModelResults():
                  model_name: str,
                  progress_type: str,
                  loss_type: str,
-                 accuracy_metric_type: str
+                 metric_type: str
                 ) -> None:
         """
         Initialize the ModelResults object and keep track of its loss and other metrics.
@@ -28,11 +28,11 @@ class ModelResults():
         model_name: The name of the model that produced these results
         progress_type: The unit of the values that will be stored in the progress array
         loss_type: The name of the loss function being used
-        accuracy_metric_type: The name of the accuracy metric being used
+        metric_type: The name of the metric being used
         """
         self.name = model_name
         self.loss_type = loss_type
-        self.accuracy_metric_type = accuracy_metric_type
+        self.metric_type = metric_type
         self.progress_type = progress_type
 
         # Progress stores the number of iterations of type progress_type so far
@@ -47,27 +47,27 @@ class ModelResults():
     def add_progress(self,
                      progress: int,
                      loss: float,
-                     accuracy_metric: float,
+                     metric: float,
                      is_val: bool
                     ) -> None:
         """
-        Update the ModelResults with loss and accuracy metric information
+        Update the ModelResults with loss and metric information
 
         Arguments
         ---------
         progress: The step, epoch, etc. that this entry corresponds to
         loss: The value of the loss function at this time
-        accuracy_metric: The value of the accuracy metric at this time
+        metric: The value of the metric at this time
         is_val: Whether the results should be stored as validation metrics or training metrics
         """
         if is_val:
             self.val_progress.append(progress)
             self.val_loss.append(loss)
-            self.val_metric.append(accuracy_metric)
+            self.val_metric.append(metric)
         else:
             self.train_progress.append(progress)
             self.train_loss.append(loss)
-            self.train_metric.append(accuracy_metric)
+            self.train_metric.append(metric)
 
     def add_other(self,
                   metric_name: str,

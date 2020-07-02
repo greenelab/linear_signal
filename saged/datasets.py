@@ -9,7 +9,7 @@ class ExpressionDataset(ABC):
     """
     The base dataset defining the API for datasets in this project. This class is
     based on the Dataset object from pytorch
-    (https://pytorch.org/docs/stable/_modules/torch/utils/data/dataset.html#Dataset
+    (https://pytorch.org/docs/stable/_modules/torch/utils/data/dataset.html#Dataset)
     """
     @abstractmethod
     def __init__(self) -> None:
@@ -64,7 +64,7 @@ class ExpressionDataset(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def subset_samples(self, fraction: float) -> None:
+    def subset_samples(self, fraction: float, seed: int = 42) -> "ExpressionDataset":
         """
         Limit the amount of data available to be returned in proportion to
         the total amount of data that was present in the dataset.
@@ -75,16 +75,21 @@ class ExpressionDataset(ABC):
         Arguments
         ---------
         fraction: The fraction of the samples to keep
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        self: The object after subsetting
         """
         raise NotImplementedError
 
-    def subset_studies(self, fraction: float = None, num_studies: int = None) -> float:
+    def subset_studies(self,
+                       fraction: float = None,
+                       num_studies: int = None,
+                       seed: int = 42) -> "ExpressionDataset":
         """
         This method is similar to `subset_samples`, but removes entire studies until the
         fraction of data remaining is less than the fraction passed in.
-
-        As this will almost never result in the fraction being met exactly, the data fraction
-        that actually comes out of the subsetting will be returned.
 
         Either `fraction` or `num_studies` must be specified. If both are specified,
         `num_studies` will be given preference.
@@ -93,18 +98,18 @@ class ExpressionDataset(ABC):
         ---------
         fraction: The fraction of the samples to keep
         num_studies: The number of studies to keep
+        seed: The seed for the random number generator involved in subsetting
 
         Returns
         -------
-        true_fraction: The fraction of the samples that were actually kept
+        self: The object after subsetting
         """
         raise NotImplementedError
-
 
     @abstractmethod
     # For more info on using a forward reference for the type, see
     # https://github.com/python/mypy/issues/3661#issuecomment-313157498
-    def get_cv_splits(self, num_splits: int) -> Sequence["ExpressionDataset"]:
+    def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of samples in each.
@@ -115,6 +120,7 @@ class ExpressionDataset(ABC):
         Arguments
         ---------
         num_splits: The number of groups to split the dataset into
+        seed: The seed for the random number generator involved in subsetting
 
         Returns
         -------
@@ -125,7 +131,8 @@ class ExpressionDataset(ABC):
     @abstractmethod
     def train_test_split(self,
                          train_fraction: float = None,
-                         train_study_count: int = None
+                         train_study_count: int = None,
+                         seed: int = 42,
                         ) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
@@ -143,6 +150,7 @@ class ExpressionDataset(ABC):
             In reality, the fraction won't be met entirely due to the constraint of
             preserving studies.
         train_study_count: The number of studies to be included in the training set
+        seed: The seed for the random number generator involved in subsetting
 
         Returns
         -------
@@ -154,7 +162,10 @@ class ExpressionDataset(ABC):
 
 class LabeledDataset(ExpressionDataset):
     @abstractmethod
-    def subset_samples_for_label(self, fraction: float, label: str) -> None:
+    def subset_samples_for_label(self, fraction: float,
+                                 label: str,
+                                 seed: int = 42,
+                                ) -> "LabeledDataset":
         """
         Limit the number of samples available for a single label.
         For example, if you wanted to use only ten percent of the sepsis expression
@@ -164,11 +175,19 @@ class LabeledDataset(ExpressionDataset):
         ---------
         fraction: The fraction of the samples to keep
         label: The category of data to apply this subset to
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        self: The subsetted version of the dataset
         """
         raise NotImplementedError
 
     @abstractmethod
-    def subset_samples_to_labels(self, labels: List[str]) -> None:
+    def subset_samples_to_labels(self,
+                                 labels: List[str],
+                                 seed: int = 42,
+                                 ) -> "LabeledDataset":
         """
         Keep only the samples corresponding to the labels passed in.
         Stacks with other labels; if `subset_samples_for_label`
@@ -176,6 +195,11 @@ class LabeledDataset(ExpressionDataset):
         Arguments
         ---------
         labels: The label or labels of samples to keep
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        self: The subsetted version of the dataset
         """
         raise NotImplementedError
 
