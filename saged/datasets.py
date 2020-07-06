@@ -1,11 +1,12 @@
 """ This file contains dataset objects for manipulating gene expression data """
+import random
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Sequence, Tuple, List, Union
+from typing import Sequence, Tuple, List, Union, Set
 
 import numpy as np
 
-from utils import parse_label_file, parse_metadata_file, load_compendium_file
+import utils
 
 
 class ExpressionDataset(ABC):
@@ -106,6 +107,10 @@ class ExpressionDataset(ABC):
         Returns
         -------
         self: The object after subsetting
+
+        Raises
+        ------
+        ValueError: Neither fraction nor num_studies were specified
         """
         raise NotImplementedError
 
@@ -252,9 +257,12 @@ class RefineBioLabeledDataset(LabeledDataset):
         label_path: The path to the labels for the samples in the compendium
         metadata_path: The path to a file containing metadata for the samples
         """
-        self.metadata = parse_metadata_file(metadata_path)
-        self.all_expression = load_compendium_file(compendium_path)
-        self.sample_to_label = parse_label_file(label_path)
+        self.metadata = utils.parse_metadata_file(metadata_path)
+        self.all_expression = utils.load_compendium_file(compendium_path)
+        self.sample_to_label = utils.parse_label_file(label_path)
+        self.sample_to_study = utils.map_sample_to_study(self.metadata,
+                                                         list(self.all_expression.columns)
+                                                         )
 
         # We will handle subsetting by creating views of the full dataset.
         # Most functions will access current_expression instead of all_expression.
@@ -323,7 +331,42 @@ class RefineBioLabeledDataset(LabeledDataset):
         -------
         self: The object after subsetting
         """
-        raise NotImplementedError
+        samples_to_keep = int(len(self.all_expression.index) * fraction)
+        self.current_expression = self.all_expression.sample(samples_to_keep,
+                                                             axis='rows',
+                                                             random_state=seed,
+                                                             )
+
+        return self
+
+    def get_studies(self) -> Set[str]:
+        """
+        Return a list of study identifiers that contains all samples in
+        current_expression
+
+        Returns
+        -------
+        studies: The set of study identifiers
+        """
+        if (self.data_changed is None
+                or self.data_changed
+                or self.studies is None):
+
+            self.data_changed = False
+            samples = self.current_expression.columns
+
+            studies = set()
+            for sample in samples:
+                try:
+                    studies.add(self.sample_to_study[sample])
+                except KeyError:
+                    pass
+
+            self.studies = studies
+
+            return self.studies
+        else:
+            return self.studies
 
     def subset_studies(self,
                        fraction: float = None,
@@ -345,10 +388,44 @@ class RefineBioLabeledDataset(LabeledDataset):
         Returns
         -------
         self: The object after subsetting
-        """
-        raise NotImplementedError
 
-    @abstractmethod
+        Raises
+        ------
+        ValueError: Neither fraction nor num_studies were specified
+        """
+        random.seed(seed)
+
+        studies = self.get_studies()
+        samples = self.all_expression.columns
+
+        if fraction is None:
+            if num_studies is None:
+                raise ValueError("Either fraction or num_studies must have a value")
+            # Subset by number of studies
+            else:
+                studies_to_keep = random.sample(studies, num_studies)
+                samples_to_keep = [sample for sample in samples
+                                   if self.sample_to_study[sample] in studies_to_keep
+                                   ]
+                self.current_expression = self.all_expression.loc[:, samples_to_keep]
+
+        # Subset by fraction
+        else:
+            total_samples = len(self.all_expression.columns)
+            samples_to_keep = []
+            shuffled_studies = random.sample(studies, len(studies))
+
+            for study in shuffled_studies:
+                if len(samples_to_keep) < fraction * total_samples:
+                    break
+                studies_to_keep.append(study)
+                samples_to_keep = [sample for sample in samples
+                                   if self.sample_to_study[sample] in studies_to_keep
+                                   ]
+
+        self.data_changed = True
+        return self
+
     # For more info on using a forward reference for the type, see
     # https://github.com/python/mypy/issues/3661#issuecomment-313157498
     def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
@@ -370,7 +447,6 @@ class RefineBioLabeledDataset(LabeledDataset):
         """
         raise NotImplementedError
 
-    @abstractmethod
     def train_test_split(self,
                          train_fraction: float = None,
                          train_study_count: int = None,
@@ -420,6 +496,7 @@ class RefineBioLabeledDataset(LabeledDataset):
         -------
         self: The subsetted version of the dataset
         """
+        self.data_changed = True
         raise NotImplementedError
 
     def subset_samples_to_labels(self,
@@ -439,4 +516,5 @@ class RefineBioLabeledDataset(LabeledDataset):
         -------
         self: The subsetted version of the dataset
         """
+        self.data_changed = True
         raise NotImplementedError
