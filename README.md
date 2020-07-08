@@ -1,6 +1,6 @@
 # SAGED
 
-![Status Badge](https://github.com/greenelab/saged/workflows/Python%20Tests/badge.svg)
+![Status Badge](https://github.com/greenelab/saged/workflows/PythonTests/badge.svg)
 
 
 This repository contains analyses designed to determine whether the semi-supervised learning
