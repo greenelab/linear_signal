@@ -30,4 +30,5 @@ jobs:
     - name: Test with pytest
       run: |
         conda install pytest
+        pip install .
         $CONDA/bin/pytest
