@@ -82,10 +82,10 @@ def download_human_compendium(token: str,
     query_params = json.dumps({'primary_organism_name': 'HOMO_SAPIENS',
                                'compendium_version': 2,
                                'quant_sf_only': False
-                             })
+                               })
     headers = {'Content-Type': 'application/json',
                'API-KEY': token
-              }
+               }
     query_url = API_URL_BASE + 'compendia/{}/'.format(compendium_id)
 
     response = requests.get(query_url, query_params, headers=headers).json()
@@ -113,10 +113,10 @@ def get_compendium_id(token: str) -> int:
     query_params = json.dumps({'primary_organism_name': 'HOMO_SAPIENS',
                                'compendium_version': 2,
                                'quant_sf_only': False
-                             })
+                               })
     headers = {'Content-Type': 'application/json',
                'API-KEY': token
-              }
+               }
 
     done = False
     query_url = API_URL_BASE + 'compendia/'
@@ -125,8 +125,8 @@ def get_compendium_id(token: str) -> int:
         results = response['results']
         for compendium_data in results:
             if (compendium_data['primary_organism_name'] == 'HOMO_SAPIENS' and
-                not compendium_data['quant_sf_only']
-               ):
+                    not compendium_data['quant_sf_only']):
+
                 return compendium_data['id']
 
         query_url = response['next']
