@@ -30,6 +30,6 @@ jobs:
     - name: Test with pytest
       run: |
         $CONDA/bin/pip install .
-        R_HOME=`$CONDA/bin/R RHOME`
+        export R_HOME=`$CONDA/bin/R RHOME`
         conda install pytest
         $CONDA/bin/pytest
