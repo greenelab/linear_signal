@@ -19,7 +19,7 @@ class ModelResults():
                  progress_type: str,
                  loss_type: str,
                  metric_type: str
-                ) -> None:
+                 ) -> None:
         """
         Initialize the ModelResults object and keep track of its loss and other metrics.
 
@@ -49,7 +49,7 @@ class ModelResults():
                      loss: float,
                      metric: float,
                      is_val: bool
-                    ) -> None:
+                     ) -> None:
         """
         Update the ModelResults with loss and metric information
 
@@ -73,7 +73,7 @@ class ModelResults():
                   metric_name: str,
                   metric_val: Union[int, float],
                   metric_progress: int
-                 ) -> None:
+                  ) -> None:
         """
         Add information about an additional metric to the model
 
@@ -91,7 +91,7 @@ class ModelResults():
         else:
             self.other['metric_name'] = {'vals': [metric_val],
                                          'progress': [metric_progress]
-                                        }
+                                         }
 
 
 class ExpressionModel(ABC):
