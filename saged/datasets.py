@@ -394,6 +394,8 @@ class RefineBioLabeledDataset(LabeledDataset):
         -------
         studies: The set of study identifiers
         """
+        # self.data_changed isn't set by the init function, so calling get_studies before any
+        # subsetting needs to check whether the data_changed attribute exists
         if (not hasattr(self, 'data_changed')
                 or self.data_changed
                 or self.studies is None):
@@ -643,16 +645,19 @@ class RefineBioLabeledDataset(LabeledDataset):
         random.seed(seed)
 
         all_samples = self.get_samples()
-        samples_without_label = [sample for sample in all_samples
-                                 if self.sample_to_label[sample] != label]
+        samples_with_label = []
+        samples_without_label = []
 
-        label_samples = [sample for sample in all_samples
-                         if self.sample_to_label[sample] == label]
+        for sample in all_samples:
+            if self.sample_to_label[sample] == label:
+                samples_with_label.append(sample)
+            else:
+                samples_without_label.append(sample)
 
-        num_to_keep = int(len(label_samples) * fraction)
-        label_samples_to_keep = random.sample(label_samples, num_to_keep)
+        num_to_keep = int(len(samples_with_label) * fraction)
+        samples_with_label_to_keep = random.sample(samples_with_label, num_to_keep)
 
-        samples_to_keep = samples_without_label + label_samples_to_keep
+        samples_to_keep = samples_without_label + samples_with_label_to_keep
 
         self.current_expression = self.current_expression.loc[:, samples_to_keep]
 

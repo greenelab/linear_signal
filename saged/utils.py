@@ -194,6 +194,7 @@ def parse_label_file(label_file_path: Union[str, Path]) -> Dict[str, str]:
 
     for label in label_to_sample:
         for sample in label_to_sample[label]:
+            assert sample not in sample_to_label
             sample_to_label[sample] = label
 
     return sample_to_label
