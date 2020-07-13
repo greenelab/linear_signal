@@ -317,7 +317,7 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         -------
         length: The number of samples currently available in the dataset
         """
-        return len(self.current_expression.index)
+        return len(self.current_expression.columns)
 
     def __getitem__(self, idx: int) -> Tuple[np.array, np.array]:
         """
@@ -371,7 +371,7 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         """
         samples_to_keep = int(len(self) * fraction)
         self.current_expression = self.current_expression.sample(samples_to_keep,
-                                                                 axis='rows',
+                                                                 axis='columns',
                                                                  random_state=seed,
                                                                  )
         self.data_changed = True
@@ -734,7 +734,7 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         -------
         length: The number of samples currently available in the dataset
         """
-        return len(self.current_expression.index)
+        return len(self.current_expression.columns)
 
     def __getitem__(self, idx: int) -> Tuple[np.array, np.array]:
         """
@@ -805,6 +805,7 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
                 samples_without_label.append(sample)
 
         num_to_keep = int(len(samples_with_label) * fraction)
+
         samples_with_label_to_keep = random.sample(samples_with_label, num_to_keep)
 
         samples_to_keep = samples_without_label + samples_with_label_to_keep
