@@ -476,8 +476,48 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         self.data_changed = True
         return self
 
-    # For more info on using a forward reference for the type, see
-    # https://github.com/python/mypy/issues/3661#issuecomment-313157498
+    def get_cv_expression(self, num_splits: int, seed: int = 42) -> List[pd.DataFrame]:
+        """
+        Split the expression present in the dataset into `num_splits` partitions for
+        use in cross-validation
+
+        Arguments
+        ---------
+        num_splits: The number of groups to split the dataset into
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        cv_dataframes: The expression dataframe views for each cv split
+        """
+        random.seed(seed)
+
+        samples = self.get_samples()
+        studies = self.get_studies()
+        shuffled_studies = random.sample(studies, len(studies))
+
+        base_study_count = len(studies) // num_splits
+        leftover = len(studies) % num_splits
+        study_index = 0
+
+        cv_dataframes = []
+        for i in range(num_splits):
+            study_count = base_study_count
+            if i < leftover:
+                study_count += 1
+
+            current_studies = shuffled_studies[study_index:study_index+study_count]
+            study_index += study_count
+
+            current_samples = utils.get_samples_in_studies(samples,
+                                                           current_studies,
+                                                           self.sample_to_study)
+
+            cv_expression = self.all_expression.loc[:, current_samples]
+            cv_dataframes.append(cv_expression)
+
+        return cv_dataframes
+
     def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
@@ -495,53 +535,26 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         -------
         subsets: A list of datasets, each composed of fractions of the original
         """
-        random.seed(seed)
-
-        samples = self.get_samples()
-        studies = self.get_studies()
-        shuffled_studies = random.sample(studies, len(studies))
-
-        base_study_count = len(studies) // num_splits
-        leftover = len(studies) % num_splits
-        study_index = 0
+        cv_dataframes = self.get_cv_expression(num_splits, seed)
 
         cv_datasets = []
-
-        for i in range(num_splits):
-            study_count = base_study_count
-            if i < leftover:
-                study_count += 1
-
-            current_studies = shuffled_studies[study_index:study_index+study_count]
-            study_index += study_count
-
-            current_samples = utils.get_samples_in_studies(samples,
-                                                           current_studies,
-                                                           self.sample_to_study)
-            print(len(current_samples))
-            cv_expression = self.all_expression.loc[:, current_samples]
-
-            cv_dataset = RefineBioUnlabeledDataset(cv_expression,
+        for expression_df in cv_dataframes:
+            cv_dataset = RefineBioUnlabeledDataset(expression_df,
                                                    self.sample_to_study,
                                                    )
             cv_datasets.append(cv_dataset)
 
         return cv_datasets
 
-    def train_test_split(self,
-                         train_fraction: float = None,
-                         train_study_count: int = None,
-                         seed: int = 42,
-                         ) -> Sequence["ExpressionDataset"]:
+    def get_train_test_expression(self,
+                                  train_fraction: float = None,
+                                  train_study_count: int = None,
+                                  seed: int = 42,
+                                  ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
-        function.
-
-        If multiple studies are present in the dataset, each study should only
-        be present in one of the two portions.
-
-        Either `train_fraction` or `train_study_count` must be specified. If both
-        are specified, then `train_study_count` takes precedence.
+        Split the expression into a train fraction and a test fraction.
+        This function does the heavy lifting for train_test_split, but is abstracted
+        out because different datasets will be formed at the end based on the calling class
 
         Arguments
         ---------
@@ -553,8 +566,8 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
 
         Returns
         -------
-        train: The dataset with around the amount of data specified by train_fraction
-        test: The dataset with the remaining data
+        train_expression: The expression to be used in training
+        test_expression: The expression to be used as a test set
 
         Raises
         ------
@@ -609,6 +622,45 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
 
         train_expression = self.all_expression.loc[:, train_samples]
         test_expression = self.all_expression.loc[:, test_samples]
+
+        return train_expression, test_expression
+
+    def train_test_split(self,
+                         train_fraction: float = None,
+                         train_study_count: int = None,
+                         seed: int = 42,
+                         ) -> Sequence["ExpressionDataset"]:
+        """
+        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
+        function.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in one of the two portions.
+
+        Either `train_fraction` or `train_study_count` must be specified. If both
+        are specified, then `train_study_count` takes precedence.
+
+        Arguments
+        ---------
+        train_fraction: The minimum fraction of the data to be used as training data.
+            In reality, the fraction won't be met entirely due to the constraint of
+            preserving studies.
+        train_study_count: The number of studies to be included in the training set
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        train: The dataset with around the amount of data specified by train_fraction
+        test: The dataset with the remaining data
+
+        Raises
+        ------
+        ValueError if neither train_fraction nor train_study count are specified
+        """
+        train_expression, test_expression = self.get_train_test_expression(train_fraction,
+                                                                           train_study_count,
+                                                                           seed,
+                                                                           )
 
         train_dataset = RefineBioUnlabeledDataset(train_expression,
                                                   self.sample_to_study,
@@ -788,8 +840,6 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
 
         return self
 
-    # For more info on using a forward reference for the type, see
-    # https://github.com/python/mypy/issues/3661#issuecomment-313157498
     def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
@@ -807,33 +857,11 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         -------
         subsets: A list of datasets, each composed of fractions of the original
         """
-        random.seed(seed)
-
-        samples = self.get_samples()
-        studies = self.get_studies()
-        shuffled_studies = random.sample(studies, len(studies))
-
-        base_study_count = len(studies) // num_splits
-        leftover = len(studies) % num_splits
-        study_index = 0
+        cv_dataframes = self.get_cv_expression(num_splits, seed)
 
         cv_datasets = []
-
-        for i in range(num_splits):
-            study_count = base_study_count
-            if i < leftover:
-                study_count += 1
-
-            current_studies = shuffled_studies[study_index:study_index+study_count]
-            study_index += study_count
-
-            current_samples = utils.get_samples_in_studies(samples,
-                                                           current_studies,
-                                                           self.sample_to_study)
-            print(len(current_samples))
-            cv_expression = self.all_expression.loc[:, current_samples]
-
-            cv_dataset = RefineBioLabeledDataset(cv_expression,
+        for expression_df in cv_dataframes:
+            cv_dataset = RefineBioLabeledDataset(expression_df,
                                                  self.sample_to_label,
                                                  self.sample_to_study,
                                                  )
@@ -873,55 +901,10 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         ------
         ValueError if neither train_fraction nor train_study count are specified
         """
-        random.seed(seed)
-
-        studies = self.get_studies()
-        samples = self.get_samples()
-        shuffled_studies = random.sample(studies, len(studies))
-        train_studies = []
-        test_studies = []
-
-        if train_fraction is None and train_study_count is None:
-            raise ValueError("Either train_fraction or train_study_count must have a value")
-
-        if train_study_count is not None:
-            # Split by number of train studies
-            train_studies = shuffled_studies[:train_study_count]
-            test_studies = shuffled_studies[train_study_count:]
-
-        # Subset by fraction
-        else:
-            total_samples = len(samples)
-            train_samples = []
-            samples_to_keep = []
-            studies_to_keep = set()
-            last_study_index = 0
-            shuffled_studies = random.sample(studies, len(studies))
-
-            for study in shuffled_studies:
-                if len(samples_to_keep) > train_fraction * total_samples:
-                    break
-                studies_to_keep.add(study)
-
-                # This is inefficient compared to adding samples for each study as the study is
-                # added, but
-                samples_to_keep = utils.get_samples_in_studies(samples,
-                                                               studies_to_keep,
-                                                               self.sample_to_study)
-                last_study_index += 1
-
-            train_studies = shuffled_studies[:last_study_index]
-            test_studies = shuffled_studies[last_study_index:]
-
-        train_samples = utils.get_samples_in_studies(samples,
-                                                     train_studies,
-                                                     self.sample_to_study)
-        test_samples = utils.get_samples_in_studies(samples,
-                                                    test_studies,
-                                                    self.sample_to_study)
-
-        train_expression = self.all_expression.loc[:, train_samples]
-        test_expression = self.all_expression.loc[:, test_samples]
+        train_expression, test_expression = self.get_train_test_expression(train_fraction,
+                                                                           train_study_count,
+                                                                           seed,
+                                                                           )
 
         train_dataset = RefineBioLabeledDataset(train_expression,
                                                 self.sample_to_label,
