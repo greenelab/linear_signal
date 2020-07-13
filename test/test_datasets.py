@@ -89,9 +89,21 @@ def test_get_all_data(labeled_datasets, unlabeled_datasets):
 def test_subset_samples(all_datasets, fraction):
     for dataset in all_datasets:
         total_samples = len(dataset)
+        print(total_samples)
 
-        subset_dataset = dataset.subset_samples(fraction, seed=42)
+        subset_dataset = dataset.subset_samples(fraction, seed=1)
+        subset_samples = subset_dataset.get_samples()
         assert len(subset_dataset) == int(total_samples * fraction)
+        dataset.reset_filters()
+
+        subset_dataset = dataset.subset_samples(fraction, seed=2)
+        new_subset = subset_dataset.get_samples()
+        print(id(subset_samples), id(new_subset))
+        assert subset_samples != new_subset  # Make sure randomization works
+        dataset.reset_filters()
+
+        subset_dataset = dataset.subset_samples(fraction, seed=1)
+        assert subset_samples == subset_dataset.get_samples()  # Make sure the seed works
         dataset.reset_filters()
 
 
@@ -119,28 +131,42 @@ def test_get_studies():
                           (None, None)
                           ])
 def test_subset_studies(all_datasets, fraction, num_studies):
-    seed = 42
     for dataset in all_datasets:
-
         if num_studies is None and fraction is None:
             with pytest.raises(ValueError):
-                dataset.subset_studies(fraction, num_studies, seed)
+                dataset.subset_studies(fraction, num_studies, seed=1)
             continue
 
+        samples = None
         if num_studies is not None:
-            subset_dataset = dataset.subset_studies(fraction, num_studies, seed)
+            subset_dataset = dataset.subset_studies(fraction, num_studies, seed=1)
+
+            samples = subset_dataset.get_samples()
             studies = subset_dataset.get_studies()
+
             assert len(studies) == num_studies
 
         else:
             all_samples = dataset.get_samples()
 
-            subset_dataset = dataset.subset_studies(fraction, num_studies, seed)
+            subset_dataset = dataset.subset_studies(fraction, num_studies, seed=1)
             samples = subset_dataset.get_samples()
 
             assert len(samples) > len(all_samples) * fraction
 
         dataset.reset_filters()
+
+        # There are only six studies, so tests will spuriously fail when selecting many studies
+        if fraction == .1 or num_studies == 1:
+            # Ensure randomization works
+            subset_dataset = dataset.subset_studies(fraction, num_studies, seed=2)
+            assert samples != subset_dataset.get_samples()
+            dataset.reset_filters()
+
+            # Ensure setting random seed works
+            subset_dataset = dataset.subset_studies(fraction, num_studies, seed=1)
+            assert samples == subset_dataset.get_samples()
+            dataset.reset_filters()
 
 
 @pytest.mark.parametrize('num_splits', [1, 2, 6])
@@ -172,6 +198,22 @@ def test_get_cv_splits(all_datasets, num_splits):
         assert cv_studies == original_studies
         # All samples should be accounted for in the splits
         assert cv_samples == original_samples
+
+
+@pytest.mark.parametrize('num_splits', [6])
+def test_get_cv_randomness(all_datasets, num_splits):
+    for dataset in all_datasets:
+        cv_datasets = dataset.get_cv_splits(num_splits, seed=1)
+        different_cv_datasets = dataset.get_cv_splits(num_splits, seed=2)
+        same_cv_datasets = dataset.get_cv_splits(num_splits, seed=1)
+
+        different_works = False
+        for d1, d2, d3 in zip(cv_datasets, different_cv_datasets, same_cv_datasets):
+            assert d1.get_studies() == d3.get_studies()
+            if d1.get_studies() != d2.get_studies():
+                different_works = True
+
+        assert different_works
 
 
 @pytest.mark.parametrize("train_fraction,train_study_count",
@@ -246,13 +288,12 @@ def test_train_test_split(all_datasets, train_fraction, train_study_count):
                           (1, 'label6'),
                           ])
 def test_subset_samples_for_label(labeled_datasets, fraction, subset_label):
-    seed = 42
-
     for dataset in labeled_datasets:
+        dataset.reset_filters()
         all_samples = dataset.get_samples()
         sample_to_label = dataset.sample_to_label
 
-        dataset = dataset.subset_samples_for_label(fraction, subset_label, seed)
+        dataset = dataset.subset_samples_for_label(fraction, subset_label, seed=1)
         subset_samples = dataset.get_samples()
 
         labels = set([label for label in sample_to_label.values()])
@@ -272,6 +313,20 @@ def test_subset_samples_for_label(labeled_datasets, fraction, subset_label):
             else:
                 assert all_sample_counts[label] == subset_sample_counts[label]
 
+        dataset.reset_filters()
+
+        # Don't test randomization on groups that are too small
+        if subset_sample_counts[subset_label] < 10:
+            continue
+
+        # Make sure randomization works
+        dataset = dataset.subset_samples_for_label(fraction, subset_label, seed=2)
+        assert subset_samples != dataset.get_samples()
+        dataset.reset_filters()
+
+        # Make sure setting a seed works
+        dataset = dataset.subset_samples_for_label(fraction, subset_label, seed=1)
+        assert subset_samples == dataset.get_samples()
         dataset.reset_filters()
 
 
