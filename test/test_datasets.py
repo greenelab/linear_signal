@@ -23,7 +23,12 @@ def labeled_datasets():
 
 @pytest.fixture(scope="module")
 def unlabeled_datasets():
+    labeled_dataset = create_refinebio_labeled_dataset()
+    converted_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(labeled_dataset)
+
     dataset_list = []
+    dataset_list.append(create_refinebio_unlabeled_dataset())
+    dataset_list.append(converted_dataset)
 
     return dataset_list
 
@@ -43,6 +48,18 @@ def create_refinebio_labeled_dataset():
     dataset = datasets.RefineBioLabeledDataset.from_paths(expression_path,
                                                           label_path,
                                                           metadata_path)
+
+    return dataset
+
+
+def create_refinebio_unlabeled_dataset():
+    """ Create an unlabeled dataset from test data """
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    expression_path = os.path.join(test_dir, 'data', 'test_expression.tsv')
+    metadata_path = os.path.join(test_dir, 'data', 'test_metadata.json')
+
+    dataset = datasets.RefineBioUnlabeledDataset.from_paths(expression_path,
+                                                            metadata_path)
 
     return dataset
 
