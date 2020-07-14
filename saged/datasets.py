@@ -63,7 +63,7 @@ class ExpressionDataset(ABC):
 
         Returns
         -------
-        X: The gene expression data in a genes x samples array
+        X: The gene expression data in a samples x genes array
         y: The label corresponding to each sample in X
         """
         raise NotImplementedError
@@ -342,9 +342,9 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
 
         Returns
         -------
-        X: The gene expression data in a genes x samples array
+        X: The gene expression data in a samples x genes array
         """
-        X = self.current_expression.values
+        X = self.current_expression.values.T
 
         return X
 
@@ -761,11 +761,11 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
 
         Returns
         -------
-        X: The gene expression data in a genes x samples array
+        X: The gene expression data in a samples x genes array
         y: The label corresponding to each sample in X
         """
 
-        X = self.current_expression.values
+        X = self.current_expression.values.T
         sample_ids = self.get_samples()
         labels = [self.sample_to_label[sample] for sample in sample_ids]
         y = np.array(labels)

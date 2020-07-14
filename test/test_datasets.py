@@ -79,7 +79,7 @@ def test_get_all_data(labeled_datasets, unlabeled_datasets):
         X, y = dataset.get_all_data()
         assert type(X) is np.ndarray
         assert type(y) is np.ndarray
-        assert X.shape[1] == y.shape[0]
+        assert X.shape[0] == y.shape[0]
 
     for dataset in unlabeled_datasets:
         assert type(X) is np.ndarray
