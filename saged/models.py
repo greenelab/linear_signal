@@ -169,33 +169,6 @@ class ExpressionModel(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
-    def get_params(self) -> Dict[str, Any]:
-        """
-        Return the model's parameters
-
-        Returns
-        -------
-        params: A numpy array containing the model's parameters
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def load_params(self, params: Dict[str, Any]) -> "ExpressionModel":
-        """
-        Set the models current state with the parameters passed in
-
-        Arguments
-        ---------
-        params: The parameters containing the model's new state
-
-        Returns
-        -------
-        model: The updated instance of the model
-        """
-        raise NotImplementedError
-
-
 class LogisticRegression(ExpressionModel):
     """ A model API similar to the scikit-learn API that will specify the
     base acceptable functions for models in this module's benchmarking code
@@ -272,28 +245,3 @@ class LogisticRegression(ExpressionModel):
         """
         with open(model_path, 'rb') as model_file:
             return pickle.load(model_file)
-
-    def get_params(self):
-        """
-        Return the model's parameters
-
-        Returns
-        -------
-        params: A numpy array containing the model's parameters
-        """
-        return self.model.get_params()
-
-    def load_params(self, params: Dict[str, Any]) -> "ExpressionModel":
-        """
-        Set the models current state with the parameters passed in
-
-        Arguments
-        ---------
-        params: The parameters containing the model's new state
-
-        Returns
-        -------
-        model: The updated instance of the model
-        """
-        self.model = self.model.set_params(params)
-        return self.model
