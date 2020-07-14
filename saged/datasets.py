@@ -246,27 +246,23 @@ class UnlabeledDataset(ExpressionDataset):
         raise NotImplementedError
 
 
-class RefineBioLabeledDataset(LabeledDataset):
-    """ A dataset designed to store labeled data from a refine.bio compendium """
+class RefineBioUnlabeledDataset(UnlabeledDataset):
+    """ A dataset containing data from a refine.bio compendium without labels """
     def __init__(self,
                  expression_df: pd.DataFrame,
-                 sample_to_label: Dict[str, str],
-                 sample_to_study: Dict[str, str],
+                 sample_to_study: Dict[str, str]
                  ):
         """
-        An initializer for the RefineBioLabeledDataset. Typically this initializer
-        will not be used directly, but will instead be called by
-        RefineBioLabeledDataset.from_paths
+        An initializer for the class. Typically this initializer will not be used directly,
+        but will instead be called by `RefineBioUnlabeledDataset.from_paths()`
 
         Arguments
         ---------
         expression_df: The dataframe containing expression data where rows are genes and
             columns are samples
-        sample_to_label: A mapping between sample accessions and their phenotype labels
         sample_to_study: A mapping between sample accessions and their study accessions
         """
         self.all_expression = expression_df
-        self.sample_to_label = sample_to_label
         self.sample_to_study = sample_to_study
 
         # We will handle subsetting by creating views of the full dataset.
@@ -276,16 +272,14 @@ class RefineBioLabeledDataset(LabeledDataset):
     @classmethod
     def from_paths(class_object,
                    compendium_path: Union[str, Path],
-                   label_path: Union[str, Path],
                    metadata_path: Union[str, Path],
-                   ) -> None:
+                   ) -> "RefineBioUnlabeledDataset":
         """
         A function to create a new object from paths to its data
 
         Arguments
         ---------
         compendium_path: The path to the compendium of expression data
-        label_path: The path to the labels for the samples in the compendium
         metadata_path: The path to a file containing metadata for the samples
 
         Returns
@@ -294,12 +288,24 @@ class RefineBioLabeledDataset(LabeledDataset):
         """
         metadata = utils.parse_metadata_file(metadata_path)
         all_expression = utils.load_compendium_file(compendium_path)
-        sample_to_label = utils.parse_label_file(label_path)
         sample_to_study = utils.map_sample_to_study(metadata,
                                                     list(all_expression.columns)
                                                     )
 
-        new_dataset = class_object(all_expression, sample_to_label, sample_to_study)
+        new_dataset = class_object(all_expression, sample_to_study)
+        return new_dataset
+
+    @classmethod
+    def from_labeled_dataset(class_object,
+                             dataset: "RefineBioLabeledDataset") -> "RefineBioUnlabeledDataset":
+        """
+        Create a new unlabeled dataset instance from a labeled dataset
+
+        Arguments
+        ---------
+        dataset: The labeled refinebio datase to be converted
+        """
+        new_dataset = class_object(dataset.all_expression, dataset.sample_to_study)
         return new_dataset
 
     def __len__(self) -> int:
@@ -311,11 +317,11 @@ class RefineBioLabeledDataset(LabeledDataset):
         -------
         length: The number of samples currently available in the dataset
         """
-        return len(self.current_expression.index)
+        return len(self.current_expression.columns)
 
     def __getitem__(self, idx: int) -> Tuple[np.array, np.array]:
         """
-        Allows access into the dataset to select a single datapoint and its associated label
+        Allows access into the dataset to select a single datapoint
 
         Arguments
         ---------
@@ -324,30 +330,23 @@ class RefineBioLabeledDataset(LabeledDataset):
         Returns
         -------
         sample: The gene expression data for the given index in a genes x 1 array
-        label: The label corresponding to the sample in X
         """
         sample_id = self.get_samples()[idx]
         sample = self.current_expression[sample_id].values
-        label = np.array(self.sample_to_label[sample_id])
-        return sample, label
+        return sample
 
     def get_all_data(self) -> Tuple[np.array, np.array]:
         """
-        Returns all the expression data and labels from the dataset in the
-        form of an (X,y) tuple where both X and y are numpy arrays
+        Returns all the expression data from the dataset in the
+        form of numpy array
 
         Returns
         -------
         X: The gene expression data in a genes x samples array
-        y: The label corresponding to each sample in X
         """
-
         X = self.current_expression.values
-        sample_ids = self.get_samples()
-        labels = [self.sample_to_label[sample] for sample in sample_ids]
-        y = np.array(labels)
 
-        return X, y
+        return X
 
     def reset_filters(self):
         """
@@ -372,7 +371,7 @@ class RefineBioLabeledDataset(LabeledDataset):
         """
         samples_to_keep = int(len(self) * fraction)
         self.current_expression = self.current_expression.sample(samples_to_keep,
-                                                                 axis='rows',
+                                                                 axis='columns',
                                                                  random_state=seed,
                                                                  )
         self.data_changed = True
@@ -477,8 +476,48 @@ class RefineBioLabeledDataset(LabeledDataset):
         self.data_changed = True
         return self
 
-    # For more info on using a forward reference for the type, see
-    # https://github.com/python/mypy/issues/3661#issuecomment-313157498
+    def get_cv_expression(self, num_splits: int, seed: int = 42) -> List[pd.DataFrame]:
+        """
+        Split the expression present in the dataset into `num_splits` partitions for
+        use in cross-validation
+
+        Arguments
+        ---------
+        num_splits: The number of groups to split the dataset into
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        cv_dataframes: The expression dataframe views for each cv split
+        """
+        random.seed(seed)
+
+        samples = self.get_samples()
+        studies = self.get_studies()
+        shuffled_studies = random.sample(studies, len(studies))
+
+        base_study_count = len(studies) // num_splits
+        leftover = len(studies) % num_splits
+        study_index = 0
+
+        cv_dataframes = []
+        for i in range(num_splits):
+            study_count = base_study_count
+            if i < leftover:
+                study_count += 1
+
+            current_studies = shuffled_studies[study_index:study_index+study_count]
+            study_index += study_count
+
+            current_samples = utils.get_samples_in_studies(samples,
+                                                           current_studies,
+                                                           self.sample_to_study)
+
+            cv_expression = self.all_expression.loc[:, current_samples]
+            cv_dataframes.append(cv_expression)
+
+        return cv_dataframes
+
     def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
@@ -496,54 +535,26 @@ class RefineBioLabeledDataset(LabeledDataset):
         -------
         subsets: A list of datasets, each composed of fractions of the original
         """
-        random.seed(seed)
-
-        samples = self.get_samples()
-        studies = self.get_studies()
-        shuffled_studies = random.sample(studies, len(studies))
-
-        base_study_count = len(studies) // num_splits
-        leftover = len(studies) % num_splits
-        study_index = 0
+        cv_dataframes = self.get_cv_expression(num_splits, seed)
 
         cv_datasets = []
-
-        for i in range(num_splits):
-            study_count = base_study_count
-            if i < leftover:
-                study_count += 1
-
-            current_studies = shuffled_studies[study_index:study_index+study_count]
-            study_index += study_count
-
-            current_samples = utils.get_samples_in_studies(samples,
-                                                           current_studies,
-                                                           self.sample_to_study)
-            print(len(current_samples))
-            cv_expression = self.all_expression.loc[:, current_samples]
-
-            cv_dataset = RefineBioLabeledDataset(cv_expression,
-                                                 self.sample_to_label,
-                                                 self.sample_to_study,
-                                                 )
+        for expression_df in cv_dataframes:
+            cv_dataset = RefineBioUnlabeledDataset(expression_df,
+                                                   self.sample_to_study,
+                                                   )
             cv_datasets.append(cv_dataset)
 
         return cv_datasets
 
-    def train_test_split(self,
-                         train_fraction: float = None,
-                         train_study_count: int = None,
-                         seed: int = 42,
-                         ) -> Sequence["ExpressionDataset"]:
+    def get_train_test_expression(self,
+                                  train_fraction: float = None,
+                                  train_study_count: int = None,
+                                  seed: int = 42,
+                                  ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
-        function.
-
-        If multiple studies are present in the dataset, each study should only
-        be present in one of the two portions.
-
-        Either `train_fraction` or `train_study_count` must be specified. If both
-        are specified, then `train_study_count` takes precedence.
+        Split the expression into a train fraction and a test fraction.
+        This function does the heavy lifting for train_test_split, but is abstracted
+        out because different datasets will be formed at the end based on the calling class
 
         Arguments
         ---------
@@ -555,8 +566,8 @@ class RefineBioLabeledDataset(LabeledDataset):
 
         Returns
         -------
-        train: The dataset with around the amount of data specified by train_fraction
-        test: The dataset with the remaining data
+        train_expression: The expression to be used in training
+        test_expression: The expression to be used as a test set
 
         Raises
         ------
@@ -612,15 +623,154 @@ class RefineBioLabeledDataset(LabeledDataset):
         train_expression = self.all_expression.loc[:, train_samples]
         test_expression = self.all_expression.loc[:, test_samples]
 
-        train_dataset = RefineBioLabeledDataset(train_expression,
-                                                self.sample_to_label,
-                                                self.sample_to_study,
-                                                )
-        test_dataset = RefineBioLabeledDataset(test_expression,
-                                               self.sample_to_label,
-                                               self.sample_to_study,
-                                               )
+        return train_expression, test_expression
+
+    def train_test_split(self,
+                         train_fraction: float = None,
+                         train_study_count: int = None,
+                         seed: int = 42,
+                         ) -> Sequence["ExpressionDataset"]:
+        """
+        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
+        function.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in one of the two portions.
+
+        Either `train_fraction` or `train_study_count` must be specified. If both
+        are specified, then `train_study_count` takes precedence.
+
+        Arguments
+        ---------
+        train_fraction: The minimum fraction of the data to be used as training data.
+            In reality, the fraction won't be met entirely due to the constraint of
+            preserving studies.
+        train_study_count: The number of studies to be included in the training set
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        train: The dataset with around the amount of data specified by train_fraction
+        test: The dataset with the remaining data
+
+        Raises
+        ------
+        ValueError if neither train_fraction nor train_study count are specified
+        """
+        train_expression, test_expression = self.get_train_test_expression(train_fraction,
+                                                                           train_study_count,
+                                                                           seed,
+                                                                           )
+
+        train_dataset = RefineBioUnlabeledDataset(train_expression,
+                                                  self.sample_to_study,
+                                                  )
+        test_dataset = RefineBioUnlabeledDataset(test_expression,
+                                                 self.sample_to_study,
+                                                 )
         return train_dataset, test_dataset
+
+
+class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
+    """ A dataset designed to store labeled data from a refine.bio compendium """
+    def __init__(self,
+                 expression_df: pd.DataFrame,
+                 sample_to_label: Dict[str, str],
+                 sample_to_study: Dict[str, str],
+                 ):
+        """
+        An initializer for the RefineBioLabeledDataset. Typically this initializer
+        will not be used directly, but will instead be called by
+        RefineBioLabeledDataset.from_paths
+
+        Arguments
+        ---------
+        expression_df: The dataframe containing expression data where rows are genes and
+            columns are samples
+        sample_to_label: A mapping between sample accessions and their phenotype labels
+        sample_to_study: A mapping between sample accessions and their study accessions
+        """
+        self.all_expression = expression_df
+        self.sample_to_label = sample_to_label
+        self.sample_to_study = sample_to_study
+
+        self.current_expression = expression_df
+
+    @classmethod
+    def from_paths(class_object,
+                   compendium_path: Union[str, Path],
+                   label_path: Union[str, Path],
+                   metadata_path: Union[str, Path],
+                   ) -> None:
+        """
+        A function to create a new object from paths to its data
+
+        Arguments
+        ---------
+        compendium_path: The path to the compendium of expression data
+        label_path: The path to the labels for the samples in the compendium
+        metadata_path: The path to a file containing metadata for the samples
+
+        Returns
+        -------
+        new_dataset: The initialized dataset
+        """
+        metadata = utils.parse_metadata_file(metadata_path)
+        all_expression = utils.load_compendium_file(compendium_path)
+        sample_to_label = utils.parse_label_file(label_path)
+        sample_to_study = utils.map_sample_to_study(metadata,
+                                                    list(all_expression.columns)
+                                                    )
+
+        new_dataset = class_object(all_expression, sample_to_label, sample_to_study)
+        return new_dataset
+
+    def __len__(self) -> int:
+        """
+        Return the length of the dataset for use in determining
+        the size of an epoch
+
+        Returns
+        -------
+        length: The number of samples currently available in the dataset
+        """
+        return len(self.current_expression.columns)
+
+    def __getitem__(self, idx: int) -> Tuple[np.array, np.array]:
+        """
+        Allows access into the dataset to select a single datapoint and its associated label
+
+        Arguments
+        ---------
+        idx: The index of the given item
+
+        Returns
+        -------
+        sample: The gene expression data for the given index in a genes x 1 array
+        label: The label corresponding to the sample in X
+        """
+        sample_id = self.get_samples()[idx]
+        sample = self.current_expression[sample_id].values
+        label = np.array(self.sample_to_label[sample_id])
+        return sample, label
+
+    def get_all_data(self) -> Tuple[np.array, np.array]:
+        """
+        Returns all the expression data and labels from the dataset in the
+        form of an (X,y) tuple where both X and y are numpy arrays
+
+        Returns
+        -------
+        X: The gene expression data in a genes x samples array
+        y: The label corresponding to each sample in X
+        """
+
+        X = self.current_expression.values
+        sample_ids = self.get_samples()
+        labels = [self.sample_to_label[sample] for sample in sample_ids]
+        y = np.array(labels)
+
+        return X, y
 
     def subset_samples_for_label(self, fraction: float,
                                  label: str,
@@ -655,6 +805,7 @@ class RefineBioLabeledDataset(LabeledDataset):
                 samples_without_label.append(sample)
 
         num_to_keep = int(len(samples_with_label) * fraction)
+
         samples_with_label_to_keep = random.sample(samples_with_label, num_to_keep)
 
         samples_to_keep = samples_without_label + samples_with_label_to_keep
@@ -689,3 +840,79 @@ class RefineBioLabeledDataset(LabeledDataset):
         self.current_expression = self.current_expression.loc[:, samples_to_keep]
 
         return self
+
+    def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
+        """
+        Split the dataset into a list of smaller dataset objects with a roughly equal
+        number of studies in each.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in a single fold
+
+        Arguments
+        ---------
+        num_splits: The number of groups to split the dataset into
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        subsets: A list of datasets, each composed of fractions of the original
+        """
+        cv_dataframes = self.get_cv_expression(num_splits, seed)
+
+        cv_datasets = []
+        for expression_df in cv_dataframes:
+            cv_dataset = RefineBioLabeledDataset(expression_df,
+                                                 self.sample_to_label,
+                                                 self.sample_to_study,
+                                                 )
+            cv_datasets.append(cv_dataset)
+
+        return cv_datasets
+
+    def train_test_split(self,
+                         train_fraction: float = None,
+                         train_study_count: int = None,
+                         seed: int = 42,
+                         ) -> Sequence["ExpressionDataset"]:
+        """
+        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
+        function.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in one of the two portions.
+
+        Either `train_fraction` or `train_study_count` must be specified. If both
+        are specified, then `train_study_count` takes precedence.
+
+        Arguments
+        ---------
+        train_fraction: The minimum fraction of the data to be used as training data.
+            In reality, the fraction won't be met entirely due to the constraint of
+            preserving studies.
+        train_study_count: The number of studies to be included in the training set
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        train: The dataset with around the amount of data specified by train_fraction
+        test: The dataset with the remaining data
+
+        Raises
+        ------
+        ValueError if neither train_fraction nor train_study count are specified
+        """
+        train_expression, test_expression = self.get_train_test_expression(train_fraction,
+                                                                           train_study_count,
+                                                                           seed,
+                                                                           )
+
+        train_dataset = RefineBioLabeledDataset(train_expression,
+                                                self.sample_to_label,
+                                                self.sample_to_study,
+                                                )
+        test_dataset = RefineBioLabeledDataset(test_expression,
+                                               self.sample_to_label,
+                                               self.sample_to_study,
+                                               )
+        return train_dataset, test_dataset
