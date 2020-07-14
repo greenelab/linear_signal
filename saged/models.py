@@ -1,11 +1,13 @@
 """ A module containing the models to be trained on gene expression data """
 
+import pickle
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Dict, Any
 
 import numpy as np
+import sklearn.linear_model
 
-from datasets import LabeledDataset
+from saged.datasets import LabeledDataset, UnlabeledDataset
 
 
 class ModelResults():
@@ -95,7 +97,8 @@ class ModelResults():
 
 
 class ExpressionModel(ABC):
-    """ A model API similar to the scikit-learn API that will specify the
+    """
+    A model API similar to the scikit-learn API that will specify the
     base acceptable functions for models in this module's benchmarking code
     """
 
@@ -105,6 +108,21 @@ class ExpressionModel(ABC):
         here in case inheriting classes decide to call `super()`
         """
         pass
+
+    @abstractmethod
+    def load_model(classobject, model_path):
+        """
+        Read a pickeled model from a file and return it
+
+        Arguments
+        ---------
+        model_path: The location where the model is stored
+
+        Returns
+        -------
+        model: The model saved at `model_path`
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def fit(self, dataset: LabeledDataset) -> ModelResults:
@@ -122,8 +140,9 @@ class ExpressionModel(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def predict(self, dataset: np.array) -> np.array:
+    def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
         """
+        Predict the labels for a
 
         Arguments
         ---------
@@ -134,3 +153,147 @@ class ExpressionModel(ABC):
         predictions: A numpy array of predictions
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def save_model(self, out_path: str) -> None:
+        """
+        Write the model to a file
+
+        Arguments
+        ---------
+        out_path: The path to the file to write the classifier to
+
+        Raises
+        ------
+        FileNotFoundError if out_path isn't openable
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_params(self) -> Dict[str, Any]:
+        """
+        Return the model's parameters
+
+        Returns
+        -------
+        params: A numpy array containing the model's parameters
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def load_params(self, params: Dict[str, Any]) -> "ExpressionModel":
+        """
+        Set the models current state with the parameters passed in
+
+        Arguments
+        ---------
+        params: The parameters containing the model's new state
+
+        Returns
+        -------
+        model: The updated instance of the model
+        """
+        raise NotImplementedError
+
+
+class LogisticRegression(ExpressionModel):
+    """ A model API similar to the scikit-learn API that will specify the
+    base acceptable functions for models in this module's benchmarking code
+    """
+
+    def __init__(self, seed: int = 42) -> None:
+        """
+        The initializer the LogisticRegression class
+
+        seed: The random seed to be used by the model
+        """
+        self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
+
+    def fit(self, dataset: LabeledDataset) -> ModelResults:
+        """
+        Train a model using the given labeled data
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+
+        Returns
+        -------
+        self: The fitted model
+        """
+        X, y = dataset.get_all_data()
+
+        self.model = self.model.fit(X, y)
+        return self
+
+    def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
+        """
+        Use the model to predict the labels for a given unlabeled dataset
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose labels should be predicted
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        """
+        X = dataset.get_all_data()
+        return self.model.predict(X)
+
+    def save_model(self, out_path: str) -> None:
+        """
+        Write the classifier to a file
+
+        Arguments
+        ---------
+        out_path: The path to the file to write the classifier to
+
+        Raises
+        ------
+        FileNotFoundError if out_path isn't openable
+        """
+
+        with open(out_path, 'wb') as out_file:
+            pickle.dump(self, out_file)
+
+    @classmethod
+    def load_model(classobject, model_path):
+        """
+        Read a pickeled model from a file and return it
+
+        Arguments
+        ---------
+        model_path: The location where the model is stored
+
+        Returns
+        -------
+        model: The model saved at `model_path`
+        """
+        with open(model_path, 'rb') as model_file:
+            return pickle.load(model_file)
+
+    def get_params(self):
+        """
+        Return the model's parameters
+
+        Returns
+        -------
+        params: A numpy array containing the model's parameters
+        """
+        return self.model.get_params()
+
+    def load_params(self, params: Dict[str, Any]) -> "ExpressionModel":
+        """
+        Set the models current state with the parameters passed in
+
+        Arguments
+        ---------
+        params: The parameters containing the model's new state
+
+        Returns
+        -------
+        model: The updated instance of the model
+        """
+        self.model = self.model.set_params(params)
+        return self.model
