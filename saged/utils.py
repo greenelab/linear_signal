@@ -8,8 +8,10 @@ from typing import Dict, Set, Text, Union, List
 
 import numpy as np
 import pandas as pd
+import torch
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
+from sklearn.metrics import accuracy_score
 
 
 BLOOD_KEYS = ['blood',
@@ -281,3 +283,29 @@ def get_samples_in_studies(samples: List[str],
     """
     subset_samples = [sample for sample in samples if sample_to_study[sample] in studies]
     return subset_samples
+
+
+def count_correct(outputs: np.ndarray, labels: np.ndarray) -> int:
+    """
+    Calculate the nubmer of correct predictions in the given batch
+
+    Arguments
+    ---------
+    predictions: The labels the model predicted
+    labels: The ground truth labels for the batch
+
+    Returns
+    -------
+    num_correct: The number of correct predictions in the batch
+    """
+    predictions = None
+    # Binary classification
+    if len(predictions.shape) == 1:
+        predictions = [1 if p > 0 else 0 for p in outputs]
+    # Multiclass classification
+    else:
+        predictions = torch.argmax(outputs, dim=-1)
+
+    num_correct = accuracy_score(labels, predictions)
+
+    return num_correct

@@ -4,13 +4,17 @@ import pickle
 from abc import ABC, abstractmethod
 from typing import Union, Iterable
 
+import neptune
 import numpy as np
 import sklearn.linear_model
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from neptune.experiments import Experiment
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
+import saged.utils as utils
 from saged.datasets import LabeledDataset, UnlabeledDataset
 
 
@@ -364,19 +368,106 @@ class SupervisedNet(ExpressionModel):
                    )
 
     @abstractmethod
-    def fit(self, dataset: LabeledDataset) -> ModelResults:
+    def fit(self, dataset: LabeledDataset, config: dict) -> "SupervisedNet":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
+        config: A namespace of hyperparameters to be used in the model
 
         Returns
         -------
         results: The metrics produced during the training process
         """
-        raise NotImplementedError
+        # Set device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # Initialize hyperparameters from config
+        seed = config['seed']
+        epochs = config['epochs']
+        batch_size = config['batch_size']
+        experiment_name = config['experiment_name']
+        experiment_description = config['experiment_description']
+        log_progress = config['log_progress']
+
+        # Split dataset and create dataloaders
+        train_dataset, tune_dataset = dataset.train_test_split(train_fraction=.8,
+                                                               seed=seed)
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
+        tune_loader = DataLoader(tune_dataset, batch_size=1)
+
+        self.model.to(device)
+
+        if log_progress:
+            # Set up the neptune experiment
+            neptune.create_experiment(name=experiment_name,
+                                      description=experiment_description,
+                                      params=config
+                                      )
+
+            # Track the baseline (always predicting the most common class)
+            label_counts = tune_dataset.map_labels_to_counts.values()
+            tune_baseline = max(label_counts) / sum(label_counts)
+            neptune.log_metric('tune_baseline', tune_baseline)
+
+        best_tune_loss = None
+
+        for epoch in tqdm(range(epochs)):
+            train_loss = 0
+            train_correct = 0
+            self.model.train()
+
+            for batch in train_loader:
+                expression, labels = batch
+                expression.to(device)
+                labels.to(device)
+
+                # TODO Calculate class weights
+
+                self.optimizer.zero_grad()
+                output = self.model(expression)
+                loss = self.loss_fn(output, labels)
+                loss.backward()
+                self.optimizer.step()
+
+                train_loss += loss.item()
+                train_correct += utils.count_correct(output, labels)
+
+            with torch.no_grad():
+                self.model.eval()
+
+                tune_loss = 0
+                tune_correct = 0
+
+                for batch in tune_loader:
+                    expression, labels = batch
+                    expression = expression.to(device)
+                    labels = labels.to(device)
+
+                    # TODO calculate batch weights
+
+                    output = self.model(expression)
+                    tune_loss = self.loss_fn(output, labels)
+                    tune_correct += utils.count_correct(output, labels)
+
+            train_acc = train_correct / len(train_dataset)
+            tune_acc = tune_correct / len(tune_dataset)
+
+            if log_progress:
+                neptune.log_metric('train_loss', epoch, train_loss)
+                neptune.log_metric('train_acc', epoch, train_acc)
+                neptune.log_metric('tune_loss', epoch, tune_loss)
+                neptune.log_metric('tune_acc', epoch, tune_acc)
+
+            # Save model if applicable
+            if 'save_path' in config:
+                if best_tune_loss is None or tune_loss < best_tune_loss:
+                    best_tune_loss = tune_loss
+                    self.save_model(config['save_path'])
+
+        return self
 
     @abstractmethod
     def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
@@ -396,5 +487,5 @@ class SupervisedNet(ExpressionModel):
     def get_parameters(self) -> Iterable[torch.Tensor]:
         return self.model.state_dict()
 
-    def load_parameters(self, parameters: dict):
+    def load_parameters(self, parameters: dict) -> "SupervisedNet":
         self.model.load_state_dict(parameters)

@@ -772,6 +772,24 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
 
         return X, y
 
+    def map_labels_to_counts(self) -> Dict[str, int]:
+        """
+        Get the number of samples with each label
+
+        Returns
+        -------
+        label_counts: A dictionary mapping labels to the number of samples with each label
+        """
+        label_counts = {}
+
+        sample_ids = self.get_samples()
+        labels = np.array([self.sample_to_label[sample] for sample in sample_ids])
+        unique_elements, element_counts = np.unique(labels, return_counts=True)
+        for label, count in zip(unique_elements, element_counts):
+            label_counts[label] = count
+
+        return label_counts
+
     def subset_samples_for_label(self, fraction: float,
                                  label: str,
                                  seed: int = 42,
