@@ -309,6 +309,10 @@ class PytorchSupervised(ExpressionModel):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        torch.manual_seed = model_config['seed']
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
     @classmethod
     def load_model(classobject,
                    checkpoint_path: str,

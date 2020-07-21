@@ -133,9 +133,13 @@ def test_load_params(pytorch_models, dataset):
         model = model.fit(dataset)
         new_params = model.get_parameters()
 
+        diff = False
         for orig_key, trained_key in zip(original_params, new_params):
-            assert not np.array_equal(original_params[orig_key].cpu(),
-                                      new_params[trained_key].cpu())
+            if not np.array_equal(original_params[orig_key].cpu(),
+                                  new_params[trained_key].cpu()):
+                diff = True
+
+        assert diff is True
 
         model = model.load_parameters(original_params)
         loaded_params = model.get_parameters()
@@ -152,6 +156,9 @@ def test_pytorch_fit_predict(pytorch_models, dataset, config):
         model = model.fit(dataset)
         trained_params = model.get_parameters()
 
+        diff = False
         for orig_key, trained_key in zip(original_params, trained_params):
-            assert not np.array_equal(original_params[orig_key].cpu(),
-                                      trained_params[trained_key].cpu())
+            if not np.array_equal(original_params[orig_key].cpu(),
+                                  trained_params[trained_key].cpu()):
+                diff = True
+        assert diff is True
