@@ -28,5 +28,6 @@ Similar to batch effect figure, but control for study, platform, both, and neith
 
 ### Neptune setup instructions
 If you want to log training results, you will need to sign up for a free neptune account [here](https://neptune.ai/).
-The neptune module is already installed as part of the saged conda environment, but you'll need to grab an API token from the website.
-Store the token in a file in the repo, then update the `config.ini` file to store your neptune username and path to the token.
+1. The neptune module is already installed as part of the saged conda environment, but you'll need to grab an API token from the website.
+2. Create a neptune project for storing your logs.
+3. Store the token in a file in the repo, then update the `config.yml` file to store your neptune username, the path to the secrets file, and your username/project name.
