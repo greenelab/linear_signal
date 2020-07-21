@@ -6,6 +6,7 @@ from typing import Sequence, Tuple, List, Union, Set, Dict
 
 import numpy as np
 import pandas as pd
+from sklearn import preprocessing
 
 from saged import utils
 
@@ -694,6 +695,11 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         self.sample_to_label = sample_to_label
         self.sample_to_study = sample_to_study
 
+        encoder = preprocessing.LabelEncoder()
+        labels = [sample_to_label[sample] for sample in expression_df.columns]
+        encoder.fit(labels)
+        self.encoder = encoder
+
         self.current_expression = expression_df
 
     @classmethod
@@ -751,8 +757,10 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         """
         sample_id = self.get_samples()[idx]
         sample = self.current_expression[sample_id].values
-        label = np.array(self.sample_to_label[sample_id])
-        return sample, label
+        label = self.sample_to_label[sample_id]
+        encoded_label = self.encoder.transform([label])  # Braces are necessary to be a 1d array
+
+        return sample, encoded_label
 
     def get_all_data(self) -> Tuple[np.array, np.array]:
         """
@@ -768,9 +776,17 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         X = self.current_expression.values.T
         sample_ids = self.get_samples()
         labels = [self.sample_to_label[sample] for sample in sample_ids]
-        y = np.array(labels)
+        y = self.encoder.transform(labels)
 
         return X, y
+
+    def recode(self) -> None:
+        """
+        Retrain the encoder to contain only the labels present in current_expression instead
+        of all the labels in the dataset
+        """
+        labels = [self.sample_to_label[sample] for sample in self.current_expression.columns]
+        self.encoder.fit(labels)
 
     def map_labels_to_counts(self) -> Dict[str, int]:
         """
@@ -784,7 +800,9 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
 
         sample_ids = self.get_samples()
         labels = np.array([self.sample_to_label[sample] for sample in sample_ids])
+
         unique_elements, element_counts = np.unique(labels, return_counts=True)
+
         for label, count in zip(unique_elements, element_counts):
             label_counts[label] = count
 

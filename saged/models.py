@@ -1,5 +1,6 @@
 """ A module containing the models to be trained on gene expression data """
 
+import copy
 import pickle
 from abc import ABC, abstractmethod
 from typing import Union, Iterable
@@ -10,7 +11,6 @@ import sklearn.linear_model
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from neptune.experiments import Experiment
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -259,29 +259,31 @@ class LogisticRegression(ExpressionModel):
 class ThreeLayerClassifier(nn.Module):
     """ A basic three layer neural net for use in wrappers like FullyConnectedNet """
     def __init__(self, model_params: dict):
+        super(ThreeLayerClassifier, self).__init__()
         input_size = model_params['input_size']
+        output_size = model_params['output_size']
 
         self.fc1 = nn.Linear(input_size, input_size // 2)
         self.fc2 = nn.Linear(input_size // 2, input_size // 4)
-        self.fc3 = nn.Linear(input_size // 4, 1)
+        self.fc3 = nn.Linear(input_size // 4, output_size)
 
-    def forward(self, x: torch.Tenor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x).view(-1)
+        x = self.fc3(x)
 
         return x
 
 
-class SupervisedNet(ExpressionModel):
+class PytorchSupervised(ExpressionModel):
     """
     A wrapper class implementing the ExpressionModel API while remaining modular enough
     to accept any supervised classifier implementing the nn.Module API
     """
     def __init__(self,
-                 experiment: Experiment,
+                 config: dict,
                  optimizer: torch.optim.Optimizer,
-                 loss_fn: torch.nn._WeightedLoss,
+                 loss_class: torch.nn.modules.loss._WeightedLoss,
                  model_class: nn.Module) -> None:
         """
         Standard model init function. We use pass instead of raising a NotImplementedError
@@ -289,45 +291,38 @@ class SupervisedNet(ExpressionModel):
 
         Arguments
         ---------
-        experiment: The neptune experiment for the model. Enables logging and tracks
-            hyperparameter information
+        config: The configuration information for the model
         optimizer: The optimizer to be used when training the model
-        loss_fn: The loss function class to use
+        loss_class: The loss function class to use
         model_class: The type of classifier to use
         """
-        experiment.set_property('model', str(type(model_class)))
-        self.experiment = experiment
-        model_params = experiment.get_properties()
-
-        self.model = model_class(model_params)
-        lr = model_params['lr']
-        weight_decay = model_params.get('weight_decay', 0)
-        self.optimizer = optimizer(self.model.get_parameters(),
+        model_config = config['model']
+        self.config = config
+        self.model = model_class(model_config)
+        lr = float(model_config['lr'])
+        weight_decay = float(model_config.get('weight_decay', 0))
+        self.optimizer = optimizer(self.model.parameters(),
                                    lr=lr,
                                    weight_decay=weight_decay)
 
-        # Load the weight for each class if the loss function is a weighted loss
-        if torch.nn._WeightedLoss in loss_fn.__bases__:
-            weight = model_params.get('weight', None)
-            self.loss_fn = loss_fn(weight=weight)
-        else:
-            self.loss_fn = loss_fn()
+        self.loss_class = loss_class
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     @classmethod
     def load_model(classobject,
                    checkpoint_path: str,
-                   experiment: Experiment,
+                   config: dict,
                    optimizer: torch.optim.Optimizer,
-                   loss_fn: torch.nn._WeightedLoss,
-                   model_class: nn.Module) -> "SupervisedNet":
+                   loss_fn: torch.nn.modules.loss._WeightedLoss,
+                   model_class: nn.Module) -> "PytorchSupervised":
         """
         Read a pickeled model from a file and return it
 
         Arguments
         ---------
         checkpoint_path: The location where the model is stored
-        experiment: The neptune experiment for the model. Enables logging and tracks
-            hyperparameter information
+        config: The configuration information for the model
         optimizer: The optimizer to be used when training the model
         loss_fn: The loss function class to use
         model_class: The type of classifier to use
@@ -336,7 +331,7 @@ class SupervisedNet(ExpressionModel):
         -------
         model: The loaded model
         """
-        model = classobject(experiment,
+        model = classobject(config,
                             optimizer,
                             loss_fn,
                             model_class)
@@ -347,7 +342,6 @@ class SupervisedNet(ExpressionModel):
 
         return model
 
-    @abstractmethod
     def save_model(self, out_path: str) -> None:
         """
         Write the model to a file
@@ -362,53 +356,66 @@ class SupervisedNet(ExpressionModel):
         """
         torch.save({
                     'model_state_dict': self.model.state_dict(),
-                    'optimizer_state_dict': self.optimizer.state_dicT(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
                     },
                    out_path
                    )
 
-    @abstractmethod
-    def fit(self, dataset: LabeledDataset, config: dict) -> "SupervisedNet":
+    def fit(self, dataset: LabeledDataset) -> "PytorchSupervised":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
-        config: A namespace of hyperparameters to be used in the model
 
         Returns
         -------
         results: The metrics produced during the training process
         """
         # Set device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = self.device
 
         # Initialize hyperparameters from config
-        seed = config['seed']
-        epochs = config['epochs']
-        batch_size = config['batch_size']
-        experiment_name = config['experiment_name']
-        experiment_description = config['experiment_description']
-        log_progress = config['log_progress']
+        model_config = self.config['model']
+        seed = model_config['seed']
+        epochs = model_config['epochs']
+        batch_size = model_config['batch_size']
+        experiment_name = model_config['experiment_name']
+        experiment_description = model_config['experiment_description']
+        log_progress = model_config['log_progress']
+        train_fraction = model_config.get('train_fraction', None)
+        train_count = model_config.get('train_study_count', None)
 
         # Split dataset and create dataloaders
-        train_dataset, tune_dataset = dataset.train_test_split(train_fraction=.8,
+        train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
+                                                               train_study_count=train_count,
                                                                seed=seed)
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
 
         self.model.to(device)
 
+        self.loss_fn = self.loss_class()
+        # If the loss function is weighted, weight losses based on the classes' prevalance
+
+        if torch.nn.modules.loss._WeightedLoss in self.loss_class.__bases__:
+            # TODO calculate class weights
+            self.loss_fn = self.loss_class(weight=None)
+
         if log_progress:
             # Set up the neptune experiment
-            neptune.create_experiment(name=experiment_name,
-                                      description=experiment_description,
-                                      params=config
-                                      )
+            utils.initialize_neptune(self.config)
+            experiment = neptune.create_experiment(name=experiment_name,
+                                                   description=experiment_description,
+                                                   params=self.config
+                                                   )
+
+            experiment.set_property('model', str(type(self.model)))
 
             # Track the baseline (always predicting the most common class)
-            label_counts = tune_dataset.map_labels_to_counts.values()
+            label_counts = tune_dataset.map_labels_to_counts().values()
+
             tune_baseline = max(label_counts) / sum(label_counts)
             neptune.log_metric('tune_baseline', tune_baseline)
 
@@ -421,19 +428,19 @@ class SupervisedNet(ExpressionModel):
 
             for batch in train_loader:
                 expression, labels = batch
-                expression.to(device)
-                labels.to(device)
-
-                # TODO Calculate class weights
+                expression = expression.float().to(device)
+                labels = labels.to(device)
 
                 self.optimizer.zero_grad()
                 output = self.model(expression)
-                loss = self.loss_fn(output, labels)
+
+                loss = self.loss_fn(output.unsqueeze(-1), labels)
                 loss.backward()
                 self.optimizer.step()
 
                 train_loss += loss.item()
                 train_correct += utils.count_correct(output, labels)
+                # TODO f1 score
 
             with torch.no_grad():
                 self.model.eval()
@@ -443,14 +450,14 @@ class SupervisedNet(ExpressionModel):
 
                 for batch in tune_loader:
                     expression, labels = batch
-                    expression = expression.to(device)
+                    expression = expression.float().to(device)
                     labels = labels.to(device)
 
-                    # TODO calculate batch weights
-
                     output = self.model(expression)
-                    tune_loss = self.loss_fn(output, labels)
+
+                    tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
                     tune_correct += utils.count_correct(output, labels)
+                    # TODO f1 score
 
             train_acc = train_correct / len(train_dataset)
             tune_acc = tune_correct / len(tune_dataset)
@@ -462,17 +469,16 @@ class SupervisedNet(ExpressionModel):
                 neptune.log_metric('tune_acc', epoch, tune_acc)
 
             # Save model if applicable
-            if 'save_path' in config:
+            if 'save_path' in model_config:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(config['save_path'])
+                    self.save_model(model_config['save_path'])
 
         return self
 
-    @abstractmethod
     def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
         """
-        Predict the labels for a
+        Predict the labels for an unlabeled dataset
 
         Arguments
         ---------
@@ -482,10 +488,17 @@ class SupervisedNet(ExpressionModel):
         -------
         predictions: A numpy array of predictions
         """
-        raise NotImplementedError
+        data = dataset.get_all_data()
+        X = torch.Tensor(data).float().to(self.device)
+
+        self.model.eval()
+        output = self.model(X)
+        predictions = utils.sigmoid_to_predictions(output)
+        return predictions
 
     def get_parameters(self) -> Iterable[torch.Tensor]:
-        return self.model.state_dict()
+        return copy.deepcopy(self.model.state_dict())
 
-    def load_parameters(self, parameters: dict) -> "SupervisedNet":
+    def load_parameters(self, parameters: dict) -> "PytorchSupervised":
         self.model.load_state_dict(parameters)
+        return self
