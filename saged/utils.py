@@ -299,12 +299,7 @@ def sigmoid_to_predictions(model_output: np.ndarray) -> torch.Tensor:
     -------
     The integer labels predicted by the model
     """
-    # Binary classification
-    if len(model_output.shape) == 1:
-        return torch.Tensor([1 if p > 0 else 0 for p in model_output])
-    # Multiclass classification
-    else:
-        return torch.argmax(model_output, dim=-1)
+    return torch.argmax(model_output, dim=-1)
 
 
 def count_correct(outputs: torch.Tensor, labels: torch.Tensor) -> int:
