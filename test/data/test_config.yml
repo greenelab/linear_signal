@@ -10,6 +10,7 @@ model:
     input_size: 5
     output_size: 6
     train_study_count: 4
+    device: "cpu"
 neptune:
     username: "ben-heil"
     project: "test"

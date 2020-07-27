@@ -304,7 +304,7 @@ def sigmoid_to_predictions(model_output: np.ndarray) -> torch.Tensor:
 
 def count_correct(outputs: torch.Tensor, labels: torch.Tensor) -> int:
     """
-    Calculate the nubmer of correct predictions in the given batch
+    Calculate the number of correct predictions in the given batch
 
     Arguments
     ---------

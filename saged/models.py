@@ -286,8 +286,7 @@ class PytorchSupervised(ExpressionModel):
                  loss_class: torch.nn.modules.loss._WeightedLoss,
                  model_class: nn.Module) -> None:
         """
-        Standard model init function. We use pass instead of raising a NotImplementedError
-        here in case inheriting classes decide to call `super()`
+        Standard model init function for a supervised model
 
         Arguments
         ---------
@@ -296,6 +295,7 @@ class PytorchSupervised(ExpressionModel):
         loss_class: The loss function class to use
         model_class: The type of classifier to use
         """
+        # TODO create custom config parsing function to document the parameters
         model_config = config['model']
         self.config = config
         self.model = model_class(model_config)
@@ -307,7 +307,7 @@ class PytorchSupervised(ExpressionModel):
 
         self.loss_class = loss_class
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(model_config.get('device', 'cpu'))
 
         torch.manual_seed = model_config['seed']
         torch.backends.cudnn.deterministic = True
@@ -321,7 +321,7 @@ class PytorchSupervised(ExpressionModel):
                    loss_fn: torch.nn.modules.loss._WeightedLoss,
                    model_class: nn.Module) -> "PytorchSupervised":
         """
-        Read a pickeled model from a file and return it
+        Read a pickled model from a file and return it
 
         Arguments
         ---------

@@ -695,10 +695,10 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         self.sample_to_label = sample_to_label
         self.sample_to_study = sample_to_study
 
-        encoder = preprocessing.LabelEncoder()
+        label_encoder = preprocessing.LabelEncoder()
         labels = [sample_to_label[sample] for sample in expression_df.columns]
-        encoder.fit(labels)
-        self.encoder = encoder
+        label_encoder.fit(labels)
+        self.label_encoder = label_encoder
 
         self.current_expression = expression_df
 
@@ -758,7 +758,7 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         sample_id = self.get_samples()[idx]
         sample = self.current_expression[sample_id].values
         label = self.sample_to_label[sample_id]
-        encoded_label = self.encoder.transform([label])  # Braces are necessary to be a 1d array
+        encoded_label = self.label_encoder.transform([label])
 
         return sample, encoded_label
 
@@ -776,17 +776,17 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         X = self.current_expression.values.T
         sample_ids = self.get_samples()
         labels = [self.sample_to_label[sample] for sample in sample_ids]
-        y = self.encoder.transform(labels)
+        y = self.label_encoder.transform(labels)
 
         return X, y
 
     def recode(self) -> None:
         """
-        Retrain the encoder to contain only the labels present in current_expression instead
+        Retrain the label encoder to contain only the labels present in current_expression instead
         of all the labels in the dataset
         """
         labels = [self.sample_to_label[sample] for sample in self.current_expression.columns]
-        self.encoder.fit(labels)
+        self.label_encoder.fit(labels)
 
     def map_labels_to_counts(self) -> Dict[str, int]:
         """
