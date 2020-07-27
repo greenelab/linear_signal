@@ -6,6 +6,7 @@ from typing import Sequence, Tuple, List, Union, Set, Dict
 
 import numpy as np
 import pandas as pd
+from sklearn import preprocessing
 
 from saged import utils
 
@@ -63,7 +64,7 @@ class ExpressionDataset(ABC):
 
         Returns
         -------
-        X: The gene expression data in a genes x samples array
+        X: The gene expression data in a samples x genes array
         y: The label corresponding to each sample in X
         """
         raise NotImplementedError
@@ -342,9 +343,9 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
 
         Returns
         -------
-        X: The gene expression data in a genes x samples array
+        X: The gene expression data in a samples x genes array
         """
-        X = self.current_expression.values
+        X = self.current_expression.values.T
 
         return X
 
@@ -694,6 +695,11 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         self.sample_to_label = sample_to_label
         self.sample_to_study = sample_to_study
 
+        label_encoder = preprocessing.LabelEncoder()
+        labels = [sample_to_label[sample] for sample in expression_df.columns]
+        label_encoder.fit(labels)
+        self.label_encoder = label_encoder
+
         self.current_expression = expression_df
 
     @classmethod
@@ -751,8 +757,10 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         """
         sample_id = self.get_samples()[idx]
         sample = self.current_expression[sample_id].values
-        label = np.array(self.sample_to_label[sample_id])
-        return sample, label
+        label = self.sample_to_label[sample_id]
+        encoded_label = self.label_encoder.transform([label])
+
+        return sample, encoded_label
 
     def get_all_data(self) -> Tuple[np.array, np.array]:
         """
@@ -761,16 +769,44 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
 
         Returns
         -------
-        X: The gene expression data in a genes x samples array
+        X: The gene expression data in a samples x genes array
         y: The label corresponding to each sample in X
         """
 
-        X = self.current_expression.values
+        X = self.current_expression.values.T
         sample_ids = self.get_samples()
         labels = [self.sample_to_label[sample] for sample in sample_ids]
-        y = np.array(labels)
+        y = self.label_encoder.transform(labels)
 
         return X, y
+
+    def recode(self) -> None:
+        """
+        Retrain the label encoder to contain only the labels present in current_expression instead
+        of all the labels in the dataset
+        """
+        labels = [self.sample_to_label[sample] for sample in self.current_expression.columns]
+        self.label_encoder.fit(labels)
+
+    def map_labels_to_counts(self) -> Dict[str, int]:
+        """
+        Get the number of samples with each label
+
+        Returns
+        -------
+        label_counts: A dictionary mapping labels to the number of samples with each label
+        """
+        label_counts = {}
+
+        sample_ids = self.get_samples()
+        labels = np.array([self.sample_to_label[sample] for sample in sample_ids])
+
+        unique_elements, element_counts = np.unique(labels, return_counts=True)
+
+        for label, count in zip(unique_elements, element_counts):
+            label_counts[label] = count
+
+        return label_counts
 
     def subset_samples_for_label(self, fraction: float,
                                  label: str,

@@ -6,10 +6,14 @@ import pickle
 from pathlib import Path
 from typing import Dict, Set, Text, Union, List
 
+import neptune
 import numpy as np
 import pandas as pd
+import torch
+import yaml
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
+from sklearn.metrics import accuracy_score
 
 
 BLOOD_KEYS = ['blood',
@@ -281,3 +285,60 @@ def get_samples_in_studies(samples: List[str],
     """
     subset_samples = [sample for sample in samples if sample_to_study[sample] in studies]
     return subset_samples
+
+
+def sigmoid_to_predictions(model_output: np.ndarray) -> torch.Tensor:
+    """
+    Convert the sigmoid output of a model to integer labels
+
+    Arguments
+    ---------
+    predictions: The labels the model predicted
+
+    Returns
+    -------
+    The integer labels predicted by the model
+    """
+    return torch.argmax(model_output, dim=-1)
+
+
+def count_correct(outputs: torch.Tensor, labels: torch.Tensor) -> int:
+    """
+    Calculate the number of correct predictions in the given batch
+
+    Arguments
+    ---------
+    outputs: The results produced by the model
+    labels: The ground truth labels for the batch
+
+    Returns
+    -------
+    num_correct: The number of correct predictions in the batch
+    """
+    predictions = sigmoid_to_predictions(outputs)
+    cpu_labels = labels.clone().cpu()
+    num_correct = accuracy_score(cpu_labels, predictions.cpu())
+
+    return num_correct
+
+
+def initialize_neptune(config: dict) -> None:
+    """
+    Connect to neptune server with our api key
+
+    Arguments
+    ---------
+    config: The configuration dictionary for the project
+    """
+    neptune_config = config['neptune']
+    username = neptune_config['username']
+    project = neptune_config['project']
+    qualified_name = f"{username}/{project}"
+    api_token = None
+
+    with open(config['locations']['secrets_file']) as secrets_file:
+        secrets = yaml.safe_load(secrets_file)
+        api_token = secrets['neptune_api_token']
+
+    neptune.init(api_token=api_token,
+                 project_qualified_name=qualified_name)

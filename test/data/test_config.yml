@@ -1,0 +1,20 @@
+model:
+    lr: .001
+    weight_decay: 0
+    seed: 42
+    epochs: 2
+    batch_size: 16
+    experiment_name: "Fit test"
+    experiment_description: "Test that the fit function and other related functions are working for ThreeLayerClassifier"
+    log_progress: False
+    input_size: 5
+    output_size: 6
+    train_study_count: 4
+    device: "cpu"
+neptune:
+    username: "ben-heil"
+    project: "test"
+locations:
+    project_dir: "/home/ben/repos/saged"
+    data_dir: "/home/ben/repos/saged/data"
+    secrets_file: "/home/ben/repos/saged/secrets.yml"
