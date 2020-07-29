@@ -506,3 +506,90 @@ class PytorchSupervised(ExpressionModel):
     def load_parameters(self, parameters: dict) -> "PytorchSupervised":
         self.model.load_state_dict(parameters)
         return self
+
+
+class UnsupervisedModel():
+    """
+    A model API defining the behavior of unsupervised models. Largely follows the sklearn model api
+    """
+    def __init__(self) -> None:
+        """
+        Standard model init function. We use pass instead of raising a NotImplementedError
+        here in case inheriting classes decide to call `super()`
+        """
+        pass
+
+    @abstractmethod
+    def load_model(classobject, model_path):
+        """
+        Read a pickeled model from a file and return it
+
+        Arguments
+        ---------
+        model_path: The location where the model is stored
+
+        Returns
+        -------
+        model: The model saved at `model_path`
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+        """
+        Train a model using the given unlabeled data
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+
+        Returns
+        -------
+        self: The trained version of the model
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+        """
+        Use the learned embedding from the model to embed the given dataset
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose labels should be predicted
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_model(self, out_path: str) -> None:
+        """
+        Write the model to a file
+
+        Arguments
+        ---------
+        out_path: The path to the file to write the classifier to
+
+        Raises
+        ------
+        FileNotFoundError if out_path isn't openable
+        """
+        raise NotImplementedError
+
+    def fit_transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+        """
+        Learn an embedding from the given data, then return the embedded data
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose embedding should be learned
+
+        Returns
+        -------
+        embedded_data: The dataset returned by the transform function
+        """
+        self.fit(dataset)
+        return self.transform(dataset)
