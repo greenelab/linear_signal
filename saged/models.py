@@ -616,6 +616,7 @@ class PCA(UnsupervisedModel):
         self.model = sklearn.decomposition.PCA(n_components=n_components,
                                                random_state=seed)
 
+    @classmethod
     def load_model(classobject, model_path):
         """
         Read a pickeled model from a file and return it
