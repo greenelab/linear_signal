@@ -1,5 +1,4 @@
 """ Test the functions implemented in models.py """
-
 import os
 
 import numpy as np
@@ -10,11 +9,21 @@ import yaml
 import test_datasets
 from saged import models, datasets
 
+N_COMPONENTS = 2
+
 
 @pytest.fixture(scope="module")
 def sklearn_models():
     model_list = []
     model_list.append(models.LogisticRegression())
+
+    return model_list
+
+
+@pytest.fixture(scope="module")
+def unsupervised_models():
+    model_list = []
+    model_list.append(create_PCA())
 
     return model_list
 
@@ -40,6 +49,13 @@ def config():
     return config_dict
 
 
+def create_PCA():
+    seed = 42
+
+    model = models.PCA(N_COMPONENTS, seed)
+    return model
+
+
 def create_three_layer_net():
     config = None
 
@@ -61,14 +77,13 @@ def create_three_layer_net():
 
 
 @pytest.fixture(scope="module")
-def all_models(sklearn_models, pytorch_models):
-    return sklearn_models + pytorch_models
-
-
-@pytest.fixture(scope="module")
 def dataset():
     return test_datasets.create_refinebio_labeled_dataset()
 
+
+@pytest.fixture(scope="module")
+def unlabeled_dataset():
+    return test_datasets.create_refinebio_labeled_dataset()
 
 def test_sklearn_fit_predict(sklearn_models, dataset):
     for model in sklearn_models:
@@ -162,3 +177,28 @@ def test_pytorch_fit_predict(pytorch_models, dataset, config):
                                   trained_params[trained_key].cpu()):
                 diff = True
         assert diff is True
+
+
+def test_unsupervised_fit_transform(unsupervised_models, dataset):
+    for model in unsupervised_models:
+        unlabeled_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(dataset)
+        X = unlabeled_dataset.get_all_data()
+
+        embedded_data = model.fit_transform(unlabeled_dataset)
+
+        embedded_X = embedded_data.get_all_data()
+
+        # Ensure the number of samples is maintained
+        assert X.shape[0] == embedded_X.shape[0]
+        # Ensure dimension was reduced
+        assert embedded_X.shape[1] == N_COMPONENTS
+
+        # Ensure sample ids are preserved
+        assert embedded_data.get_samples() == unlabeled_dataset.get_samples()
+
+
+def test_pca_save_load(dataset):
+    model = create_PCA()
+
+    embedded_data = model.fit_transform(unlabeled_dataset)
+
