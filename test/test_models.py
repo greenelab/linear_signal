@@ -82,24 +82,27 @@ def dataset():
 
 
 @pytest.fixture(scope="module")
-def unlabeled_dataset():
-    return test_datasets.create_refinebio_labeled_dataset()
+def unlabeled_dataset(dataset):
+    unlabeled_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(dataset)
+    return unlabeled_dataset
 
-def test_sklearn_fit_predict(sklearn_models, dataset):
+
+def test_sklearn_fit_predict(sklearn_models,
+                             dataset,
+                             unlabeled_dataset):
     for model in sklearn_models:
         model = model.fit(dataset)
-
-        unlabeled_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(dataset)
 
         predictions = model.predict(unlabeled_dataset)
         assert type(predictions) == np.ndarray
 
 
-def test_sklearn_save_load_model(sklearn_models, dataset):
+def test_sklearn_save_load_model(sklearn_models,
+                                 dataset,
+                                 unlabeled_dataset):
     for model in sklearn_models:
         model.fit(dataset)
 
-        unlabeled_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(dataset)
         predictions = model.predict(unlabeled_dataset)
 
         model.save_model('model_test.pkl')
@@ -112,11 +115,13 @@ def test_sklearn_save_load_model(sklearn_models, dataset):
         os.remove('model_test.pkl')
 
 
-def test_pytorch_save_load_model(pytorch_models, dataset, config):
+def test_pytorch_save_load_model(pytorch_models,
+                                 dataset,
+                                 config,
+                                 unlabeled_dataset):
     for model in pytorch_models:
         model.fit(dataset)
 
-        unlabeled_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(dataset)
         predictions = model.predict(unlabeled_dataset)
 
         model.save_model('model_test.pkl')
@@ -179,9 +184,8 @@ def test_pytorch_fit_predict(pytorch_models, dataset, config):
         assert diff is True
 
 
-def test_unsupervised_fit_transform(unsupervised_models, dataset):
+def test_unsupervised_fit_transform(unsupervised_models, unlabeled_dataset):
     for model in unsupervised_models:
-        unlabeled_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(dataset)
         X = unlabeled_dataset.get_all_data()
 
         embedded_data = model.fit_transform(unlabeled_dataset)
@@ -197,8 +201,16 @@ def test_unsupervised_fit_transform(unsupervised_models, dataset):
         assert embedded_data.get_samples() == unlabeled_dataset.get_samples()
 
 
-def test_pca_save_load(dataset):
+def test_pca_save_load(unlabeled_dataset):
     model = create_PCA()
 
     embedded_data = model.fit_transform(unlabeled_dataset)
 
+    model.save_model('model_test.pkl')
+    loaded_model = type(model).load_model('model_test.pkl')
+
+    new_embedded = loaded_model.transform(unlabeled_dataset)
+
+    assert np.array_equal(embedded_data, new_embedded)
+
+    os.remove('model_test.pkl')
