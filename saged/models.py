@@ -112,7 +112,8 @@ class ExpressionModel(ABC):
     base acceptable functions for models in this module's benchmarking code
     """
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 config: dict) -> None:
         """
         Standard model init function. We use pass instead of raising a NotImplementedError
         here in case inheriting classes decide to call `super()`
@@ -185,13 +186,17 @@ class LogisticRegression(ExpressionModel):
     base acceptable functions for models in this module's benchmarking code
     """
 
-    def __init__(self, seed: int = 42) -> None:
+    def __init__(self,
+                 config: dict,
+                 ) -> None:
         """
         The initializer the LogisticRegression class
 
-        seed: The random seed to be used by the model
+        Arguments
+        ---------
+        config: The configuration dictionary for the model
         """
-        self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
+        self.model = sklearn.linear_model.LogisticRegression(random_state=config.seed)
 
     def fit(self, dataset: LabeledDataset) -> "LogisticRegression":
         """
@@ -242,13 +247,14 @@ class LogisticRegression(ExpressionModel):
             pickle.dump(self, out_file)
 
     @classmethod
-    def load_model(classobject, model_path):
+    def load_model(classobject, model_path: str, config: dict):
         """
         Read a pickeled model from a file and return it
 
         Arguments
         ---------
         model_path: The location where the model is stored
+        config: The configuration file for initializing the model
 
         Returns
         -------
@@ -259,11 +265,11 @@ class LogisticRegression(ExpressionModel):
 
 
 class ThreeLayerClassifier(nn.Module):
-    """ A basic three layer neural net for use in wrappers like FullyConnectedNet """
-    def __init__(self, model_params: dict):
+    """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
+    def __init__(self, config: dict):
         super(ThreeLayerClassifier, self).__init__()
-        input_size = model_params['input_size']
-        output_size = model_params['output_size']
+        input_size = config['input_size']
+        output_size = config['output_size']
 
         self.fc1 = nn.Linear(input_size, input_size // 2)
         self.fc2 = nn.Linear(input_size // 2, input_size // 4)
@@ -284,8 +290,6 @@ class PytorchSupervised(ExpressionModel):
     """
     def __init__(self,
                  config: dict,
-                 optimizer: torch.optim.Optimizer,
-                 loss_class: torch.nn.modules.loss._WeightedLoss,
                  model_class: nn.Module) -> None:
         """
         Standard model init function for a supervised model
@@ -297,21 +301,32 @@ class PytorchSupervised(ExpressionModel):
         loss_class: The loss function class to use
         model_class: The type of classifier to use
         """
-        # TODO create custom config parsing function to document the parameters
-        model_config = config['model']
         self.config = config
-        self.model = model_class(model_config)
-        lr = float(model_config['lr'])
-        weight_decay = float(model_config.get('weight_decay', 0))
-        self.optimizer = optimizer(self.model.parameters(),
-                                   lr=lr,
-                                   weight_decay=weight_decay)
 
-        self.loss_class = loss_class
+        optimizer_name = config['optimizer']
+        optimizer_class = getattr(optimizer_name, torch.optim)
 
-        self.device = torch.device(model_config.get('device', 'cpu'))
+        loss_name = config['loss']
+        self.loss_class = getattr(loss_name, nn)
 
-        torch.manual_seed = model_config['seed']
+        model_name = config['model_type']
+
+        # We're invoking the old magic now. In python the answer to 'How do I get a class from
+        # the current file dynamically' is 'Dump all the global variables for the file, it will
+        # be there somewhere'
+        # https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
+        model_class = globals()[model_name]
+        self.model = model_class(config)
+
+        lr = config['lr']
+        weight_decay = 'weight_decay'
+        self.optimizer = optimizer_class(self.model.parameters(),
+                                         lr=lr,
+                                         weight_decay=weight_decay)
+
+        self.device = torch.device(config['device'])
+
+        torch.manual_seed = config['seed']
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
@@ -319,9 +334,7 @@ class PytorchSupervised(ExpressionModel):
     def load_model(classobject,
                    checkpoint_path: str,
                    config: dict,
-                   optimizer: torch.optim.Optimizer,
-                   loss_fn: torch.nn.modules.loss._WeightedLoss,
-                   model_class: nn.Module) -> "PytorchSupervised":
+                   ) -> "PytorchSupervised":
         """
         Read a pickled model from a file and return it
 
@@ -329,18 +342,12 @@ class PytorchSupervised(ExpressionModel):
         ---------
         checkpoint_path: The location where the model is stored
         config: The configuration information for the model
-        optimizer: The optimizer to be used when training the model
-        loss_fn: The loss function class to use
-        model_class: The type of classifier to use
 
         Returns
         -------
         model: The loaded model
         """
-        model = classobject(config,
-                            optimizer,
-                            loss_fn,
-                            model_class)
+        model = classobject(config)
 
         state_dicts = torch.load(checkpoint_path)
         model.load_parameters(state_dicts['model_state_dict'])
@@ -383,15 +390,15 @@ class PytorchSupervised(ExpressionModel):
         device = self.device
 
         # Initialize hyperparameters from config
-        model_config = self.config['model']
-        seed = model_config['seed']
-        epochs = model_config['epochs']
-        batch_size = model_config['batch_size']
-        experiment_name = model_config['experiment_name']
-        experiment_description = model_config['experiment_description']
-        log_progress = model_config['log_progress']
-        train_fraction = model_config.get('train_fraction', None)
-        train_count = model_config.get('train_study_count', None)
+        config = self.config
+        seed = config['seed']
+        epochs = config['epochs']
+        batch_size = config['batch_size']
+        experiment_name = config['experiment_name']
+        experiment_description = config['experiment_description']
+        log_progress = config['log_progress']
+        train_fraction = config.get('train_fraction', None)
+        train_count = config.get('train_study_count', None)
 
         # Split dataset and create dataloaders
         train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
@@ -475,10 +482,10 @@ class PytorchSupervised(ExpressionModel):
                 neptune.log_metric('tune_acc', epoch, tune_acc)
 
             # Save model if applicable
-            if 'save_path' in model_config:
+            if 'save_path' in config:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(model_config['save_path'])
+                    self.save_model(config['save_path'])
 
         return self
 
@@ -617,7 +624,7 @@ class PCA(UnsupervisedModel):
                                                random_state=seed)
 
     @classmethod
-    def load_model(classobject, model_path):
+    def load_model(classobject, model_path: str, config: dict):
         """
         Read a pickeled model from a file and return it
 
@@ -628,6 +635,7 @@ class PCA(UnsupervisedModel):
         Returns
         -------
         model: The model saved at `model_path`
+        config: The configuration file for initializing the model
         """
         with open(model_path, 'rb') as model_file:
             return pickle.load(model_file)
