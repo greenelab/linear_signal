@@ -187,16 +187,16 @@ class LogisticRegression(ExpressionModel):
     """
 
     def __init__(self,
-                 config: dict,
+                 seed: int,
                  ) -> None:
         """
         The initializer the LogisticRegression class
 
         Arguments
         ---------
-        config: The configuration dictionary for the model
+        seed: The random seed ot use in training
         """
-        self.model = sklearn.linear_model.LogisticRegression(random_state=config.seed)
+        self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
 
     def fit(self, dataset: LabeledDataset) -> "LogisticRegression":
         """
@@ -247,14 +247,15 @@ class LogisticRegression(ExpressionModel):
             pickle.dump(self, out_file)
 
     @classmethod
-    def load_model(classobject, model_path: str, config: dict):
+    def load_model(classobject, model_path: str, **kwargs):
         """
         Read a pickeled model from a file and return it
 
         Arguments
         ---------
         model_path: The location where the model is stored
-        config: The configuration file for initializing the model
+        **kwargs: To be consistent with the API this function takes in config info even though
+                  it doesn't need it
 
         Returns
         -------
@@ -266,10 +267,10 @@ class LogisticRegression(ExpressionModel):
 
 class ThreeLayerClassifier(nn.Module):
     """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
-    def __init__(self, config: dict):
+    def __init__(self,
+                 input_size: int,
+                 output_size: int):
         super(ThreeLayerClassifier, self).__init__()
-        input_size = config['input_size']
-        output_size = config['output_size']
 
         self.fc1 = nn.Linear(input_size, input_size // 2)
         self.fc2 = nn.Linear(input_size // 2, input_size // 4)
@@ -289,51 +290,88 @@ class PytorchSupervised(ExpressionModel):
     to accept any supervised classifier implementing the nn.Module API
     """
     def __init__(self,
-                 config: dict,
-                 model_class: nn.Module) -> None:
+                 optimizer_name: str,
+                 loss_name: str,
+                 model_name: str,
+                 lr: float,
+                 weight_decay: float,
+                 device: str,
+                 seed: int,
+                 epochs: int,
+                 batch_size: int,
+                 log_progress: bool,
+                 experiment_name: str = None,
+                 experiment_description: str = None,
+                 save_path: str = None,
+                 train_fraction: float = None,
+                 train_count: float = None,
+                 **kwargs,
+                 ) -> None:
         """
         Standard model init function for a supervised model
 
         Arguments
         ---------
-        config: The configuration information for the model
-        optimizer: The optimizer to be used when training the model
-        loss_class: The loss function class to use
-        model_class: The type of classifier to use
+        optimizer_name: The name of the optimizer class to be used when training the model
+        loss_name: The loss function class to use
+        model_name: The type of classifier to use
+        lr: The learning rate for the optimizer
+        weight_decay: The weight decay for the optimizer
+        device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
+        seed: The random seed to use in stochastic operations
+        epochs: The number of epochs to train the model
+        batch_size: The number of items in each training batch
+        log_progress: True if you want to use neptune to log progress, otherwise False
+        experiment_name: A short name for the experiment you're running for use in neptune logs
+        experiment_description: A description for the experiment you're running
+        save_path: The path to save the model to
+        train_fraction: The percent of samples to use in training
+        train_count: The number of studies to use in training
+        **kwargs: Arguments for use in the underlying classifier
+
+        Notes
+        -----
+        Either `train_count` or `train_fraction` should be None but not both
         """
-        self.config = config
+        # A piece of obscure python, this gets a dict of all python local variables.
+        # Since it is called at the start of a function it gets all the arguments for the
+        # function as if they were passed in a dict. This is useful, because we can feed
+        # self.config to neptune to keep track of all our run's parameters
+        self.config = locals()
 
-        optimizer_name = config['optimizer']
         optimizer_class = getattr(optimizer_name, torch.optim)
-
-        loss_name = config['loss']
         self.loss_class = getattr(loss_name, nn)
 
-        model_name = config['model_type']
+        self.seed = seed
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.experiment_name = experiment_name
+        self.experiment_description = experiment_description
+        self.log_progress = log_progress
+        self.train_fraction = train_fraction
+        self.train_count = train_count
 
         # We're invoking the old magic now. In python the answer to 'How do I get a class from
         # the current file dynamically' is 'Dump all the global variables for the file, it will
         # be there somewhere'
         # https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
         model_class = globals()[model_name]
-        self.model = model_class(config)
+        self.model = model_class(**kwargs)
 
-        lr = config['lr']
-        weight_decay = 'weight_decay'
         self.optimizer = optimizer_class(self.model.parameters(),
                                          lr=lr,
                                          weight_decay=weight_decay)
 
-        self.device = torch.device(config['device'])
+        self.device = torch.device(device)
 
-        torch.manual_seed = config['seed']
+        torch.manual_seed = seed
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
     @classmethod
     def load_model(classobject,
                    checkpoint_path: str,
-                   config: dict,
+                   **kwargs
                    ) -> "PytorchSupervised":
         """
         Read a pickled model from a file and return it
@@ -341,13 +379,12 @@ class PytorchSupervised(ExpressionModel):
         Arguments
         ---------
         checkpoint_path: The location where the model is stored
-        config: The configuration information for the model
 
         Returns
         -------
         model: The loaded model
         """
-        model = classobject(config)
+        model = classobject(**kwargs)
 
         state_dicts = torch.load(checkpoint_path)
         model.load_parameters(state_dicts['model_state_dict'])
@@ -385,20 +422,24 @@ class PytorchSupervised(ExpressionModel):
         Returns
         -------
         results: The metrics produced during the training process
+
+        Raises
+        ------
+        AttributeError: If train_count and train_fraction are both None
         """
         # Set device
         device = self.device
 
-        # Initialize hyperparameters from config
-        config = self.config
-        seed = config['seed']
-        epochs = config['epochs']
-        batch_size = config['batch_size']
-        experiment_name = config['experiment_name']
-        experiment_description = config['experiment_description']
-        log_progress = config['log_progress']
-        train_fraction = config.get('train_fraction', None)
-        train_count = config.get('train_study_count', None)
+        seed = self.seed
+        epochs = self.epochs
+        batch_size = self.batch_size
+        experiment_name = self.experiment_name
+        experiment_description = self.experiment_description
+        log_progress = self.log_progress
+
+        train_fraction = getattr(self, 'train_fraction', None)
+        if train_fraction is None:
+            train_count = self.train_count
 
         # Split dataset and create dataloaders
         train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
@@ -482,10 +523,11 @@ class PytorchSupervised(ExpressionModel):
                 neptune.log_metric('tune_acc', epoch, tune_acc)
 
             # Save model if applicable
-            if 'save_path' in config:
+            save_path = getattr(self, 'save_path', None)
+            if save_path is not None:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(config['save_path'])
+                    self.save_model(save_path)
 
         return self
 
@@ -624,7 +666,7 @@ class PCA(UnsupervisedModel):
                                                random_state=seed)
 
     @classmethod
-    def load_model(classobject, model_path: str, config: dict):
+    def load_model(classobject, model_path: str, **kwargs):
         """
         Read a pickeled model from a file and return it
 
@@ -635,7 +677,6 @@ class PCA(UnsupervisedModel):
         Returns
         -------
         model: The model saved at `model_path`
-        config: The configuration file for initializing the model
         """
         with open(model_path, 'rb') as model_file:
             return pickle.load(model_file)
