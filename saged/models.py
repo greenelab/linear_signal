@@ -7,7 +7,9 @@ from typing import Union, Iterable
 
 import neptune
 import numpy as np
+import pandas as pd
 import sklearn.linear_model
+import sklearn.decomposition
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,7 +17,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import saged.utils as utils
-from saged.datasets import LabeledDataset, UnlabeledDataset
+from saged.datasets import LabeledDataset, UnlabeledDataset, RefineBioUnlabeledDataset
 
 
 class ModelResults():
@@ -506,3 +508,180 @@ class PytorchSupervised(ExpressionModel):
     def load_parameters(self, parameters: dict) -> "PytorchSupervised":
         self.model.load_state_dict(parameters)
         return self
+
+
+class UnsupervisedModel():
+    """
+    A model API defining the behavior of unsupervised models. Largely follows the sklearn model api
+    """
+    def __init__(self) -> None:
+        """
+        Standard model init function. We use pass instead of raising a NotImplementedError
+        here in case inheriting classes decide to call `super()`
+        """
+        pass
+
+    @abstractmethod
+    def load_model(classobject, model_path):
+        """
+        Read a pickeled model from a file and return it
+
+        Arguments
+        ---------
+        model_path: The location where the model is stored
+
+        Returns
+        -------
+        model: The model saved at `model_path`
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+        """
+        Train a model using the given unlabeled data
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+
+        Returns
+        -------
+        self: The trained version of the model
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+        """
+        Use the learned embedding from the model to embed the given dataset
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose labels should be predicted
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def save_model(self, out_path: str) -> None:
+        """
+        Write the model to a file
+
+        Arguments
+        ---------
+        out_path: The path to the file to write the classifier to
+
+        Raises
+        ------
+        FileNotFoundError if out_path isn't openable
+        """
+        raise NotImplementedError
+
+    def fit_transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+        """
+        Learn an embedding from the given data, then return the embedded data
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose embedding should be learned
+
+        Returns
+        -------
+        embedded_data: The dataset returned by the transform function
+        """
+        self.fit(dataset)
+        return self.transform(dataset)
+
+
+class PCA(UnsupervisedModel):
+    """
+    A wrapper for the sklearn PCA function
+    """
+    def __init__(self,
+                 n_components: int,
+                 seed: int = 42) -> None:
+        """
+        PCA initialization function
+
+        Arguments
+        ---------
+        n_components: The number of principal components to keep. That is to say, the dimenstion
+                      to which the input will be embedded to
+        seed: The random seed
+        """
+        self.model = sklearn.decomposition.PCA(n_components=n_components,
+                                               random_state=seed)
+
+    @classmethod
+    def load_model(classobject, model_path):
+        """
+        Read a pickeled model from a file and return it
+
+        Arguments
+        ---------
+        model_path: The location where the model is stored
+
+        Returns
+        -------
+        model: The model saved at `model_path`
+        """
+        with open(model_path, 'rb') as model_file:
+            return pickle.load(model_file)
+
+    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+        """
+        Train a model using the given unlabeled data
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+
+        Returns
+        -------
+        self: The trained version of the model
+        """
+        X = dataset.get_all_data()
+        self.model = self.model.fit(X)
+
+        return self
+
+    def transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+        """
+        Use the learned embedding from the model to embed the given dataset
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose labels should be predicted
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        """
+        X = dataset.get_all_data()
+        X_embedded = self.model.transform(X)
+
+        embedded_df = pd.DataFrame(data=X_embedded.T, columns=dataset.get_samples())
+
+        embedded_dataset = RefineBioUnlabeledDataset(embedded_df,
+                                                     dataset.sample_to_study
+                                                     )
+        return embedded_dataset
+
+    def save_model(self, out_path: str) -> None:
+        """
+        Write the model to a file
+
+        Arguments
+        ---------
+        out_path: The path to the file to write the classifier to
+
+        Raises
+        ------
+        FileNotFoundError if out_path isn't openable
+        """
+        with open(out_path, 'wb') as out_file:
+            pickle.dump(self, out_file)
