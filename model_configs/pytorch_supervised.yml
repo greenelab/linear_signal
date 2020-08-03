@@ -1,0 +1,16 @@
+name: "PytorchSupervised"
+optimizer: "Adam"
+loss: "CrossEntropyLoss"
+lr: .001
+weight_decay: 0
+device: "gpu"
+seed: 42
+epochs: 10
+batch_size: 16
+experiment_name: "PytorchSupervised"
+experiment_description: "Train a supervised pytorch model"
+log_progress: True
+train_fraction: .8
+save_path: "logs/models/pytorch_supervised.pt"
+
+# config.input_size and config.output_size should be set dynamically
