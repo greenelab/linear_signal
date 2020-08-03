@@ -57,6 +57,19 @@ class ExpressionDataset(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    @classmethod
+    def from_config(class_object,
+                    ) -> "RefineBioUnlabeledDataset":
+        """
+        A function to initialize a RefineBioUnlabeledDataset object given a config dict
+
+        Returns
+        -------
+        new_dataset: The initialized dataset
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_all_data(self) -> Tuple[np.array, np.array]:
         """
         Returns all the expression data and labels from the dataset in the
@@ -66,6 +79,29 @@ class ExpressionDataset(ABC):
         -------
         X: The gene expression data in a samples x genes array
         y: The label corresponding to each sample in X
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_features(self) -> List[str]:
+        """
+        Return the list of the ids of all features in the dataset. Usually these will be genes,
+        but may be PCs or other latent dimensions if the dataset is transformed
+
+        Returns
+        -------
+        features: The features ids for all features in the dataset
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_samples(self) -> List[str]:
+        """
+        Return the sample ids for all samples in the dataset
+
+        Returns
+        -------
+        samples: The list of sample ids
         """
         raise NotImplementedError
 
@@ -217,6 +253,17 @@ class LabeledDataset(ExpressionDataset):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def get_classes(self) -> Set[str]:
+        """
+        Return the set of all class labels in the current dataset
+
+        Returns
+        -------
+        classes: The set of class labels
+        """
+        raise NotImplementedError
+
 
 class UnlabeledDataset(ExpressionDataset):
     @abstractmethod
@@ -249,6 +296,7 @@ class UnlabeledDataset(ExpressionDataset):
 
 class RefineBioUnlabeledDataset(UnlabeledDataset):
     """ A dataset containing data from a refine.bio compendium without labels """
+
     def __init__(self,
                  expression_df: pd.DataFrame,
                  sample_to_study: Dict[str, str]
@@ -271,10 +319,10 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         self.current_expression = expression_df
 
     @classmethod
-    def from_paths(class_object,
-                   compendium_path: Union[str, Path],
-                   metadata_path: Union[str, Path],
-                   ) -> "RefineBioUnlabeledDataset":
+    def from_config(class_object,
+                    compendium_path: Union[str, Path],
+                    metadata_path: Union[str, Path],
+                    ) -> "RefineBioUnlabeledDataset":
         """
         A function to create a new object from paths to its data
 
@@ -384,6 +432,17 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         Return the list of sample accessions for all samples currently available in the dataset
         """
         return list(self.current_expression.columns)
+
+    def get_features(self) -> List[str]:
+        """
+        Return the list of the ids of all features in the dataset. Usually these will be genes,
+        but may be PCs or other latent dimensions if the dataset is transformed
+
+        Returns
+        -------
+        features: The features ids for all features in the dataset
+        """
+        return list(self.current_expression.index)
 
     def get_studies(self) -> Set[str]:
         """
@@ -703,11 +762,11 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         self.current_expression = expression_df
 
     @classmethod
-    def from_paths(class_object,
-                   compendium_path: Union[str, Path],
-                   label_path: Union[str, Path],
-                   metadata_path: Union[str, Path],
-                   ) -> None:
+    def from_config(class_object,
+                    compendium_path: Union[str, Path],
+                    label_path: Union[str, Path],
+                    metadata_path: Union[str, Path],
+                    ) -> None:
         """
         A function to create a new object from paths to its data
 
@@ -779,6 +838,20 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
         y = self.label_encoder.transform(labels)
 
         return X, y
+
+    def get_classes(self) -> Set[str]:
+        """
+        Return the set of all class labels in the current dataset
+
+        Returns
+        -------
+        classes: The set of class labels
+        """
+        classes = set()
+        for sample in self.get_samples():
+            classes.add(self.sample_to_label[sample])
+
+        return classes
 
     def recode(self) -> None:
         """
