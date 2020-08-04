@@ -3,7 +3,7 @@
 import copy
 import pickle
 from abc import ABC, abstractmethod
-from typing import Union, Iterable
+from typing import Union, Iterable, Tuple
 
 import neptune
 import numpy as np
@@ -153,7 +153,7 @@ class ExpressionModel(ABC):
     @abstractmethod
     def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
         """
-        Predict the labels for a
+        Predict the labels for a dataset
 
         Arguments
         ---------
@@ -162,6 +162,22 @@ class ExpressionModel(ABC):
         Returns
         -------
         predictions: A numpy array of predictions
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the predicted and true labels for a dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        labels: The true labels to compare the predictions against
         """
         raise NotImplementedError
 
@@ -229,6 +245,22 @@ class LogisticRegression(ExpressionModel):
         """
         X = dataset.get_all_data()
         return self.model.predict(X)
+
+    def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the predicted and true labels for a dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        labels: The true labels to compare the predictions against
+        """
+        X, y = dataset.get_all_data()
+        return self.model.predict(X), y
 
     def save_model(self, out_path: str) -> None:
         """
@@ -550,6 +582,27 @@ class PytorchSupervised(ExpressionModel):
         output = self.model(X)
         predictions = utils.sigmoid_to_predictions(output)
         return predictions
+
+    def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the predicted and true labels for a dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        labels: The true labels to compare the predictions against
+        """
+        X, y = dataset.get_all_data()
+        X = torch.Tensor(X).float().to(self.device)
+
+        self.model.eval()
+        output = self.model(X)
+        predictions = utils.sigmoid_to_predictions(output)
+        return predictions, y
 
     def get_parameters(self) -> Iterable[torch.Tensor]:
         return copy.deepcopy(self.model.state_dict())
