@@ -330,13 +330,12 @@ def initialize_neptune(config: dict) -> None:
     ---------
     config: The configuration dictionary for the project
     """
-    neptune_config = config['neptune']
-    username = neptune_config['username']
-    project = neptune_config['project']
+    username = config['username']
+    project = config['project']
     qualified_name = f"{username}/{project}"
     api_token = None
 
-    with open(config['locations']['secrets_file']) as secrets_file:
+    with open(config['secrets_file']) as secrets_file:
         secrets = yaml.safe_load(secrets_file)
         api_token = secrets['neptune_api_token']
 

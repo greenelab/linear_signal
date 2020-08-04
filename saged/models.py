@@ -490,8 +490,6 @@ class PytorchSupervised(ExpressionModel):
             self.loss_fn = self.loss_class(weight=None)
 
         if log_progress:
-            # Set up the neptune experiment
-            utils.initialize_neptune(self.config)
             experiment = neptune.create_experiment(name=experiment_name,
                                                    description=experiment_description,
                                                    params=self.config

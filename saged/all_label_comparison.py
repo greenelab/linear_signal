@@ -5,19 +5,15 @@ classes in the dataset
 import argparse
 
 import sklearn.metrics
+import yaml
 
 from saged import utils, datasets, models
-# TODO update model base class to require input shape and output shape
-# TODO update dataset base clas to require `get_features` and `get_samples` functions
-# TODO update labeleddataset class to require get_classes
-# TODO write utils.parse_config_file to parse the yaml config files
+
 # TODO make a mixed data class for storing labeled and unlabeled data
 # TODO make sure mixed data class has a subset_to_samples method
 # TODO have mixed data class return labels with -1 for unlabeled
 # TODO change PCA class to adapt to accept mixed data
-# TODO require constructor from a list of other datasets for the dataset class
-# TODO write an evaluate function for labeleddataset classes that returns the predicted and true
-#      labels
+# TODO update tests
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -35,17 +31,25 @@ if __name__ == '__main__':
                              'for training. For more information about this file read the '
                              'comments in the example_model.yml file',
                         default=None)
+    parser.add_argument('--neptune_config',
+                        help='A yaml formatted file containing init information for '
+                             'neptune logging')
     parser.add_argument('--seed',
                         help='The random seed to be used in the experiment',
                         type=int,
                         default=42)
     args = parser.parse_args()
 
-    dataset_config = utils.parse_config_file(args.dataset_config)
-    supervised_config = utils.parse_config_file(args.supervised_config)
+    dataset_config = yaml.safe_load(args.dataset_config)
+    supervised_config = yaml.safe_load(args.supervised_config)
 
     # Parse config file
     # Load dataset
+
+    neptune_config_file = getattr('neptune_config', args)
+    if neptune_config_file is not None:
+        neptune_config = yaml.safe_load(neptune_config_file)
+        utils.initialize_neptune(neptune_config)
 
     # Get the class of dataset to use with this configuration
     DatasetClass = getattr(dataset_config['name'], datasets)
@@ -68,7 +72,7 @@ if __name__ == '__main__':
         val_data = labeled_splits[i]
 
         if args.unsupervised_config is not None:
-            unsupervised_config = utils.parse_config_file(args.unsupervised_config)
+            unsupervised_config = yaml.safe_load(args.unsupervised_config)
 
             # Initialize the unsupervised model
             UnsupervisedClass = getattr(unsupervised_config['name'], models)
