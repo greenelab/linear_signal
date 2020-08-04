@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import saged.utils as utils
-from saged.datasets import LabeledDataset, UnlabeledDataset, RefineBioUnlabeledDataset
+from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset, RefineBioUnlabeledDataset
 
 
 class ModelResults():
@@ -637,7 +637,7 @@ class UnsupervisedModel():
         raise NotImplementedError
 
     @abstractmethod
-    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+    def fit(self, dataset: Union[UnlabeledDataset, MixedDatset]) -> "UnsupervisedModel":
         """
         Train a model using the given unlabeled data
 
@@ -732,7 +732,7 @@ class PCA(UnsupervisedModel):
         with open(model_path, 'rb') as model_file:
             return pickle.load(model_file)
 
-    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+    def fit(self, dataset: Union[UnlabeledDataset, MixedDataset]) -> "UnsupervisedModel":
         """
         Train a model using the given unlabeled data
 
@@ -749,7 +749,9 @@ class PCA(UnsupervisedModel):
 
         return self
 
-    def transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+    def transform(self,
+                  dataset: Union[UnlabeledDataset, MixedDataset])-> Union[UnlabeledDataset,
+                                                                          MixedDataset]:
         """
         Use the learned embedding from the model to embed the given dataset
 
@@ -759,17 +761,14 @@ class PCA(UnsupervisedModel):
 
         Returns
         -------
-        predictions: A numpy array of predictions
+        self: The transformed version of the dataset passed in
         """
         X = dataset.get_all_data()
         X_embedded = self.model.transform(X)
 
-        embedded_df = pd.DataFrame(data=X_embedded.T, columns=dataset.get_samples())
+        self.set_all_data(X_embedded.T)
 
-        embedded_dataset = RefineBioUnlabeledDataset(embedded_df,
-                                                     dataset.sample_to_study
-                                                     )
-        return embedded_dataset
+        return self
 
     def save_model(self, out_path: str) -> None:
         """
