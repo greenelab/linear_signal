@@ -345,6 +345,51 @@ class RefineBioUnlabeledDataset(UnlabeledDataset):
         return new_dataset
 
     @classmethod
+    def from_list(class_object,
+                  dataset_list: Sequence["RefineBioUnlabeledDataset"],
+                  ) -> "RefineBioUnlabeledDataset":
+        """
+        Create a dataset by combining a list of other datasets
+
+        Arguments
+        ---------
+        dataset_list: The list of datasets to combine
+
+        Returns
+        -------
+        combined_dataset: The dataset created from the other datasets
+
+        Raises
+        ------
+        ValueError: If no datasets are in the list
+        """
+        if len(dataset_list) == 0:
+            raise ValueError('The provided list of datasets is empty')
+
+        elif len(dataset_list) == 1:
+            return dataset_list[0]
+
+        else:
+            combined_dataframe = dataset_list[0].current_expression
+
+            for dataset in dataset_list[1:]:
+                current_dataframe = dataset.current_expression
+
+                # Ensure no sample gets duplicated
+                # https://stackoverflow.com/questions/19125091/pandas-merge-how-to-avoid-duplicating-columns
+                cols_to_use = current_dataframe.columns.difference(combined_dataframe.columns)
+
+                # Combine dataframes
+                combined_dataframe = pd.merge(combined_dataframe,
+                                              current_dataframe[cols_to_use],
+                                              left_index=True,
+                                              right_index=True,
+                                              how='outer')
+
+            combined_dataset = RefineBioUnlabeledDataset(combined_dataframe)
+            return combined_dataset
+
+    @classmethod
     def from_labeled_dataset(class_object,
                              dataset: "RefineBioLabeledDataset") -> "RefineBioUnlabeledDataset":
         """
@@ -766,9 +811,9 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
                     compendium_path: Union[str, Path],
                     label_path: Union[str, Path],
                     metadata_path: Union[str, Path],
-                    ) -> None:
+                    ) -> "RefineBioLabeledDataset":
         """
-        A function to create a new object from paths to its data
+        Create a new dataset from paths to its data
 
         Arguments
         ---------
@@ -789,6 +834,55 @@ class RefineBioLabeledDataset(RefineBioUnlabeledDataset):
 
         new_dataset = class_object(all_expression, sample_to_label, sample_to_study)
         return new_dataset
+
+    @classmethod
+    def from_list(class_object,
+                  dataset_list: Sequence["RefineBioLabeledDataset"],
+                  ) -> "RefineBioLabeledDataset":
+        """
+        Create a dataset by combining a list of other datasets
+
+        Arguments
+        ---------
+        dataset_list: The list of datasets to combine
+
+        Returns
+        -------
+        combined_dataset: The dataset created from the other datasets
+
+        Raises
+        ------
+        ValueError: If no datasets are in the list
+        """
+        if len(dataset_list) == 0:
+            raise ValueError('The provided list of datasets is empty')
+
+        elif len(dataset_list) == 1:
+            return dataset_list[0]
+
+        else:
+            combined_dataframe = dataset_list[0].current_expression
+            combined_labels = dataset_list[0].sample_to_label
+
+            for dataset in dataset_list[1:]:
+                current_dataframe = dataset.current_expression
+                current_labels = dataset.sample_to_label
+
+                # Ensure no sample gets duplicated
+                # https://stackoverflow.com/questions/19125091/pandas-merge-how-to-avoid-duplicating-columns
+                cols_to_use = current_dataframe.columns.difference(combined_dataframe.columns)
+
+                # Combine dataframes
+                combined_dataframe = pd.merge(combined_dataframe,
+                                              current_dataframe[cols_to_use],
+                                              left_index=True,
+                                              right_index=True,
+                                              how='outer')
+                # Combine labels (double start expands a dictionary into key-value pairs)
+                combined_labels = {**combined_labels, **current_labels}
+
+            combined_dataset = RefineBioLabeledDataset(combined_dataframe, combined_labels)
+            return combined_dataset
 
     def __len__(self) -> int:
         """
