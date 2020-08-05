@@ -46,9 +46,8 @@ if __name__ == '__main__':
     # Parse config file
     # Load dataset
 
-    neptune_config_file = getattr('neptune_config', args)
-    if neptune_config_file is not None:
-        neptune_config = yaml.safe_load(neptune_config_file)
+    if args.neptune_config_file is not None:
+        neptune_config = yaml.safe_load(args.neptune_config_file)
         utils.initialize_neptune(neptune_config)
 
     # Get the class of dataset to use with this configuration
@@ -62,8 +61,8 @@ if __name__ == '__main__':
 
     # Train the model on each fold
     accuracies = []
-    train_studies = []
-    train_sample_counts = []
+    supervised_train_studies = []
+    supervised_train_sample_counts = []
     for i in range(len(labeled_splits)):
         train_list = labeled_splits[:i] + labeled_splits[i+1:]
 
@@ -86,24 +85,28 @@ if __name__ == '__main__':
             unsupervised_model.fit(available_data)
             train_data = unsupervised_model.transform(train_data)
 
-        SupervisedClass = getattr(supervised_config['name'], models)
-        supervised_model = SupervisedClass(supervised_config)
+        if args.supervised_config is not None:
 
-        # Train the model on the training data
-        supervised_model.fit(train_data)
+            SupervisedClass = getattr(supervised_config['name'], models)
+            supervised_model = SupervisedClass(supervised_config)
 
-        predictions, true_labels = supervised_model.evaluate(val_data)
+            # Train the model on the training data
+            supervised_model.fit(train_data)
 
-        # TODO more measures than Top-1 accuracy
-        accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
+            predictions, true_labels = supervised_model.evaluate(val_data)
 
-        accuracies.append(accuracy)
-        train_studies.append(','.join(train_data.get_studies()))
-        train_sample_counts.append(len(train_data))
+            # TODO more measures than Top-1 accuracy
+            accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
+
+            accuracies.append(accuracy)
+            supervised_train_studies.append(','.join(train_data.get_studies()))
+            supervised_train_sample_counts.append(len(train_data))
 
     with open(args.out_file, 'w') as out_file:
         out_file.write('accuracy\ttrain studies\ttrain sample count\n')
-        for accuracy, train_study_str, train_samples in zip(accuracies,
-                                                            train_studies,
-                                                            train_sample_counts):
-            out_file.write(f'{accuracy}\t{train_study_str}\t{train_samples}\n')
+        for (accuracy,
+             train_study_str,
+             supervised_train_samples) in zip(accuracies,
+                                              supervised_train_studies,
+                                              supervised_train_sample_counts):
+            out_file.write(f'{accuracy}\t{train_study_str}\t{supervised_train_samples}\n')
