@@ -1275,15 +1275,33 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
 
         return X
 
-    # TODO implement me
-    def get_labeled() -> LabeledDataset:
+    def get_labeled(self) -> RefineBioLabeledDataset:
         """
         Return the labeled samples from the dataset
         """
-        raise NotImplementedError
+        samples = self.get_samples()
+        labeled_samples = [sample for sample in samples if sample in self.sample_to_label]
 
-    def get_unlabeled() -> UnlabeledDataset:
+        labeled_expression = self.current_expression.loc[:, labeled_samples]
+
+        new_dataset = RefineBioLabeledDataset(labeled_expression,
+                                              self.sample_to_label,
+                                              self.sample_to_study,
+                                              )
+
+        return new_dataset
+
+    def get_unlabeled(self) -> RefineBioUnlabeledDataset:
         """
         Return the unlabeled samples from the dataset
         """
-        raise NotImplementedError
+        samples = self.get_samples()
+        unlabeled_samples = [sample for sample in samples if sample not in self.sample_to_label]
+
+        unlabeled_expression = self.current_expression.loc[:, unlabeled_samples]
+
+        new_dataset = RefineBioLabeledDataset(unlabeled_expression,
+                                              self.sample_to_study,
+                                              )
+
+        return new_dataset
