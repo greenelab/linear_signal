@@ -9,6 +9,7 @@ import os
 
 import numpy as np
 import pytest
+import yaml
 
 from saged import datasets
 
@@ -19,7 +20,6 @@ def labeled_datasets():
     dataset_list.append(create_refinebio_labeled_dataset())
 
     return dataset_list
-
 
 @pytest.fixture(scope="module")
 def unlabeled_datasets():
@@ -41,25 +41,25 @@ def all_datasets(labeled_datasets, unlabeled_datasets):
 def create_refinebio_labeled_dataset():
     """ Create a refinebio labeled dataset from test data """
     test_dir = os.path.dirname(os.path.abspath(__file__))
-    expression_path = os.path.join(test_dir, 'data', 'test_expression.tsv')
-    label_path = os.path.join(test_dir, 'data', 'test_labels.pkl')
-    metadata_path = os.path.join(test_dir, 'data', 'test_metadata.json')
+    config_file_path = os.path.join(test_dir, 'data', 'test_data_config.yml')
+    with open(config_file_path) as config_file:
+        config = yaml.safe_load(config_file)
 
-    dataset = datasets.RefineBioLabeledDataset.from_paths(expression_path,
-                                                          label_path,
-                                                          metadata_path)
-
+    dataset = datasets.RefineBioLabeledDataset.from_config(**config)
     return dataset
 
 
 def create_refinebio_unlabeled_dataset():
     """ Create an unlabeled dataset from test data """
     test_dir = os.path.dirname(os.path.abspath(__file__))
-    expression_path = os.path.join(test_dir, 'data', 'test_expression.tsv')
-    metadata_path = os.path.join(test_dir, 'data', 'test_metadata.json')
+    config_file_path = os.path.join(test_dir, 'data', 'test_data_config.yml')
+    with open(config_file_path) as config_file:
+        config = yaml.safe_load(config_file)
 
-    dataset = datasets.RefineBioUnlabeledDataset.from_paths(expression_path,
-                                                            metadata_path)
+    # We could write a config file without the labels, but this is easier
+    del(config['label_path'])
+
+    dataset = datasets.RefineBioUnlabeledDataset.from_config(**config)
 
     return dataset
 
@@ -344,3 +344,9 @@ def test_subset_samples_to_labels(labeled_datasets, labels):
         for sample in samples:
             assert dataset.sample_to_label[sample] in labels
         dataset.reset_filters()
+
+# TODO test set_all_data
+# TODO test subset_to_samples
+# TODO add MixedDataset
+# TODO test get_labeled_data
+# TODO test get_unlabeled_data

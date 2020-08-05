@@ -56,8 +56,8 @@ class ExpressionDataset(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def from_config(class_object,
                     ) -> "RefineBioUnlabeledDataset":
         """
@@ -300,6 +300,7 @@ class UnlabeledDataset(ExpressionDataset):
         """
         raise NotImplementedError
 
+
 class MixedDataset(LabeledDataset):
     """ A dataset containing both labeled and unlabeled samples """
     @abstractmethod
@@ -321,17 +322,17 @@ class RefineBioDataset(ExpressionDataset):
     """
     A class containing logic used by all the types of RefineBio datasets.
     The RefineBio dataset inheritance pattern is to inherit both this class and the class
-    denoting the type of dataset it is (LabeledDataset, UnlabeledDataset, or MixedDatset).
+    denoting the type of dataset it is (LabeledDataset, UnlabeledDataset, or MixedDataset).
     """
     @abstractmethod
     def __init__():
         pass
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def from_config():
         """
-        A function to initialize a RefineBioDataset object given a config dict
+        A function to initialize a RefineBioDataset object given the keywords in its config dict
 
         Returns
         -------
@@ -837,7 +838,7 @@ class RefineBioUnlabeledDataset(RefineBioDataset, UnlabeledDataset):
         return train_dataset, test_dataset
 
 
-class RefineBioLabeledDataset(RefineBioDataset, RefineBioUnlabeledDataset):
+class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
     """ A dataset designed to store labeled data from a refine.bio compendium """
     def __init__(self,
                  expression_df: pd.DataFrame,

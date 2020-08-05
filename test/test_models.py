@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 import pytest
-import torch
 import yaml
 
 import test_datasets
@@ -15,7 +14,7 @@ N_COMPONENTS = 2
 @pytest.fixture(scope="module")
 def sklearn_models():
     model_list = []
-    model_list.append(models.LogisticRegression())
+    model_list.append(models.LogisticRegression(seed=42))
 
     return model_list
 
@@ -29,50 +28,39 @@ def unsupervised_models():
 
 
 @pytest.fixture(scope="module")
-def pytorch_models():
-    model_list = []
-    # Pytorch models go here
-    model_list.append(create_three_layer_net())
+def pytorch_configs():
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    config_dir = os.path.join(test_dir, 'data')
 
-    return model_list
+    configs = []
+
+    config_file_path = os.path.join(config_dir, 'three_layer_config.yml')
+    with open(config_file_path) as config_file:
+        configs.append(yaml.safe_load(config_file))
+
+    return configs
 
 
 @pytest.fixture(scope="module")
-def config():
-    config_dict = None
+def pytorch_models(dataset, pytorch_configs):
+    input_size = len(dataset.get_features())
+    output_size = len(dataset.get_classes())
 
-    test_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(test_dir, 'data', 'test_config.yml')
-    with open(config_path) as config_file:
-        config_dict = yaml.safe_load(config_file)
+    model_list = []
+    for config in pytorch_configs:
+        config['input_size'] = input_size
+        config['output_size'] = output_size
+        model_class = getattr(models, config['name'])
+        model = model_class(**config)
+        model_list.append(model)
 
-    return config_dict
+    return model_list
 
 
 def create_PCA():
     seed = 42
 
     model = models.PCA(N_COMPONENTS, seed)
-    return model
-
-
-def create_three_layer_net():
-    config = None
-
-    test_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(test_dir, 'data', 'test_config.yml')
-    with open(config_path) as config_file:
-        config = yaml.safe_load(config_file)
-
-    loss_fn = torch.nn.CrossEntropyLoss
-    optimizer = torch.optim.Adam
-    model_class = models.ThreeLayerClassifier
-
-    model = models.PytorchSupervised(config,
-                                     optimizer,
-                                     loss_fn,
-                                     model_class)
-
     return model
 
 
@@ -116,26 +104,19 @@ def test_sklearn_save_load_model(sklearn_models,
 
 
 def test_pytorch_save_load_model(pytorch_models,
+                                 pytorch_configs,
                                  dataset,
-                                 config,
                                  unlabeled_dataset):
-    for model in pytorch_models:
+    for model, config in zip(pytorch_models, pytorch_configs):
         model.fit(dataset)
 
         predictions = model.predict(unlabeled_dataset)
 
         model.save_model('model_test.pkl')
-        # FIXME These are the same as in create_three_layer_net, but really the information should
-        # probably be stored in the pickle file somehow
-        optimizer = torch.optim.Adam
-        loss_fn = torch.nn.CrossEntropyLoss
-        model_class = models.ThreeLayerClassifier
 
         loaded_model = type(model).load_model('model_test.pkl',
-                                              config,
-                                              optimizer,
-                                              loss_fn,
-                                              model_class)
+                                              **config,
+                                              )
         # Send model to gpu if applicable
         loaded_model.model.to(loaded_model.device)
 
@@ -169,7 +150,7 @@ def test_load_params(pytorch_models, dataset):
                                   loaded_params[loaded_key].cpu())
 
 
-def test_pytorch_fit_predict(pytorch_models, dataset, config):
+def test_pytorch_fit_predict(pytorch_models, dataset):
     for model in pytorch_models:
         original_params = model.get_parameters()
 

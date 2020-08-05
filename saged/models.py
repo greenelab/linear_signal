@@ -7,7 +7,6 @@ from typing import Union, Iterable, Tuple
 
 import neptune
 import numpy as np
-import pandas as pd
 import sklearn.linear_model
 import sklearn.decomposition
 import torch
@@ -17,7 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import saged.utils as utils
-from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset, RefineBioUnlabeledDataset
+from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset
 
 
 class ModelResults():
@@ -301,7 +300,16 @@ class ThreeLayerClassifier(nn.Module):
     """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
                  input_size: int,
-                 output_size: int):
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
         super(ThreeLayerClassifier, self).__init__()
 
         self.fc1 = nn.Linear(input_size, input_size // 2)
@@ -371,8 +379,8 @@ class PytorchSupervised(ExpressionModel):
         # self.config to neptune to keep track of all our run's parameters
         self.config = locals()
 
-        optimizer_class = getattr(optimizer_name, torch.optim)
-        self.loss_class = getattr(loss_name, nn)
+        optimizer_class = getattr(torch.optim, optimizer_name)
+        self.loss_class = getattr(nn, loss_name)
 
         self.seed = seed
         self.epochs = epochs
@@ -469,6 +477,8 @@ class PytorchSupervised(ExpressionModel):
         experiment_description = self.experiment_description
         log_progress = self.log_progress
 
+        train_count = None
+        train_fraction = None
         train_fraction = getattr(self, 'train_fraction', None)
         if train_fraction is None:
             train_count = self.train_count
@@ -637,7 +647,7 @@ class UnsupervisedModel():
         raise NotImplementedError
 
     @abstractmethod
-    def fit(self, dataset: Union[UnlabeledDataset, MixedDatset]) -> "UnsupervisedModel":
+    def fit(self, dataset: Union[UnlabeledDataset, MixedDataset]) -> "UnsupervisedModel":
         """
         Train a model using the given unlabeled data
 
@@ -761,14 +771,14 @@ class PCA(UnsupervisedModel):
 
         Returns
         -------
-        self: The transformed version of the dataset passed in
+        dataset: The transformed version of the dataset passed in
         """
         X = dataset.get_all_data()
         X_embedded = self.model.transform(X)
 
-        self.set_all_data(X_embedded.T)
+        dataset.set_all_data(X_embedded.T)
 
-        return self
+        return dataset
 
     def save_model(self, out_path: str) -> None:
         """
