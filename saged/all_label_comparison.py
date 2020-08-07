@@ -9,11 +9,6 @@ import yaml
 
 from saged import utils, datasets, models
 
-# TODO make a mixed data class for storing labeled and unlabeled data
-# TODO make sure mixed data class has a subset_to_samples method
-# TODO have mixed data class return labels with -1 for unlabeled
-# TODO change PCA class to adapt to accept mixed data
-# TODO update tests
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -40,21 +35,32 @@ if __name__ == '__main__':
                         default=42)
     args = parser.parse_args()
 
-    dataset_config = yaml.safe_load(args.dataset_config)
-    supervised_config = yaml.safe_load(args.supervised_config)
+    with open(args.dataset_config) as data_file:
+        dataset_config = yaml.safe_load(data_file)
+
+    with open(args.supervised_config) as supervised_file:
+        supervised_config = yaml.safe_load(supervised_file)
 
     # Parse config file
-    # Load dataset
 
-    if args.neptune_config_file is not None:
-        neptune_config = yaml.safe_load(args.neptune_config_file)
-        utils.initialize_neptune(neptune_config)
+    if args.neptune_config is not None:
+        with open(args.neptune_config) as neptune_file:
+            neptune_config = yaml.safe_load(neptune_file)
+            utils.initialize_neptune(neptune_config)
 
     # Get the class of dataset to use with this configuration
-    DatasetClass = getattr(dataset_config['name'], datasets)
-    all_data = DatasetClass(dataset_config)
+    MixedDatasetClass = getattr(datasets, dataset_config['name'])
+
+    # We no longer need this variable, and it isn't used in the constructor
+    del dataset_config['name']
+
+    print('Loading all data')
+    all_data = MixedDatasetClass.from_config(**dataset_config)
+    print('Subsetting labeled data')
     labeled_data = all_data.get_labeled()
+    print('Subsetting unlabeled data')
     unlabeled_data = all_data.get_unlabeled()
+    print('Splitting data')
 
     # Get fivefold cross-validation splits
     labeled_splits = labeled_data.get_cv_splits(num_splits=5, seed=args.seed)
@@ -67,15 +73,20 @@ if __name__ == '__main__':
         train_list = labeled_splits[:i] + labeled_splits[i+1:]
 
         # Extract the train and test datasets
-        train_data = DatasetClass.from_datasets(train_list)
+        LabeledDatasetClass = type(labeled_data)
+        train_data = LabeledDatasetClass.from_list(train_list)
         val_data = labeled_splits[i]
 
+        input_size = len(train_data.get_features())
+        output_size = len(train_data.get_classes())
+
         if args.unsupervised_config is not None:
-            unsupervised_config = yaml.safe_load(args.unsupervised_config)
+            with open(args.unsupervised_config) as unsupervised_file:
+                unsupervised_config = yaml.safe_load(unsupervised_file)
 
             # Initialize the unsupervised model
-            UnsupervisedClass = getattr(unsupervised_config['name'], models)
-            unsupervised_model = UnsupervisedClass(unsupervised_config)
+            UnsupervisedClass = getattr(models, unsupervised_config['name'])
+            unsupervised_model = UnsupervisedClass(**unsupervised_config)
 
             # Get all data not held in the val split
             available_data = all_data.subset_to_samples(train_data.get_samples() +
@@ -85,22 +96,25 @@ if __name__ == '__main__':
             unsupervised_model.fit(available_data)
             train_data = unsupervised_model.transform(train_data)
 
-        if args.supervised_config is not None:
+        with open(args.supervised_config) as supervised_file:
+            supervised_config = yaml.safe_load(supervised_file)
+            supervised_config['input_size'] = input_size
+            supervised_config['output_size'] = output_size
 
-            SupervisedClass = getattr(supervised_config['name'], models)
-            supervised_model = SupervisedClass(supervised_config)
+        SupervisedClass = getattr(models, supervised_config['name'])
+        supervised_model = SupervisedClass(**supervised_config)
 
-            # Train the model on the training data
-            supervised_model.fit(train_data)
+        # Train the model on the training data
+        supervised_model.fit(train_data)
 
-            predictions, true_labels = supervised_model.evaluate(val_data)
+        predictions, true_labels = supervised_model.evaluate(val_data)
 
-            # TODO more measures than Top-1 accuracy
-            accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
+        # TODO more measures than Top-1 accuracy
+        accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
 
-            accuracies.append(accuracy)
-            supervised_train_studies.append(','.join(train_data.get_studies()))
-            supervised_train_sample_counts.append(len(train_data))
+        accuracies.append(accuracy)
+        supervised_train_studies.append(','.join(train_data.get_studies()))
+        supervised_train_sample_counts.append(len(train_data))
 
     with open(args.out_file, 'w') as out_file:
         out_file.write('accuracy\ttrain studies\ttrain sample count\n')
