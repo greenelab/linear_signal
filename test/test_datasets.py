@@ -445,6 +445,40 @@ def test_get_samples(all_datasets):
         assert samples == true_samples
 
 
-# TODO add MixedDataset
-# TODO test get_labeled_data
-# TODO test get_unlabeled_data
+def test_get_labeled(mixed_datasets):
+    for dataset in mixed_datasets:
+        labeled_dataset = dataset.get_labeled()
+        unlabeled_dataset = dataset.get_unlabeled()
+
+        labeled_samples = set(labeled_dataset.get_samples())
+        unlabeled_samples = set(unlabeled_dataset.get_samples())
+        all_samples = set(dataset.get_samples())
+
+        assert labeled_samples.issubset(all_samples)
+        assert unlabeled_samples.issubset(all_samples)
+        labeled_samples.update(unlabeled_samples)
+        assert labeled_samples == all_samples
+
+        labeled_features = set(labeled_dataset.get_features())
+        unlabeled_features = set(unlabeled_dataset.get_features())
+        all_features = set(dataset.get_features())
+
+        assert labeled_features.issubset(all_features)
+        assert unlabeled_features.issubset(all_features)
+        labeled_features.update(unlabeled_features)
+        assert labeled_features == all_features
+
+
+def test_from_list(all_datasets):
+    for dataset in all_datasets:
+        dataset_list = dataset.get_cv_splits(num_splits=2, seed=42)
+
+        reformed_dataset = type(dataset).from_list(dataset_list)
+
+        original_samples = dataset.get_samples()
+        reformed_samples = reformed_dataset.get_samples()
+        assert set(original_samples) == set(reformed_samples)
+
+        original_features = dataset.get_features()
+        reformed_features = reformed_dataset.get_features()
+        assert set(original_features) == set(reformed_features)

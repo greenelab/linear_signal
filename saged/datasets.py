@@ -775,9 +775,11 @@ class RefineBioUnlabeledDataset(RefineBioDataset, UnlabeledDataset):
 
         else:
             combined_dataframe = dataset_list[0].current_expression
+            combined_studies = dataset_list[0].sample_to_study
 
             for dataset in dataset_list[1:]:
                 current_dataframe = dataset.current_expression
+                current_studies = dataset.sample_to_study
 
                 # Ensure no sample gets duplicated
                 # https://stackoverflow.com/questions/19125091/pandas-merge-how-to-avoid-duplicating-columns
@@ -789,8 +791,9 @@ class RefineBioUnlabeledDataset(RefineBioDataset, UnlabeledDataset):
                                               left_index=True,
                                               right_index=True,
                                               how='outer')
+                combined_studies = {**combined_studies, **current_studies}
 
-            combined_dataset = RefineBioUnlabeledDataset(combined_dataframe)
+            combined_dataset = RefineBioUnlabeledDataset(combined_dataframe, combined_studies)
             return combined_dataset
 
     @classmethod
@@ -968,10 +971,12 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
         else:
             combined_dataframe = dataset_list[0].current_expression
             combined_labels = dataset_list[0].sample_to_label
+            combined_studies = dataset_list[0].sample_to_study
 
             for dataset in dataset_list[1:]:
                 current_dataframe = dataset.current_expression
                 current_labels = dataset.sample_to_label
+                current_studies = dataset.sample_to_study
 
                 # Ensure no sample gets duplicated
                 # https://stackoverflow.com/questions/19125091/pandas-merge-how-to-avoid-duplicating-columns
@@ -985,8 +990,11 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
                                               how='outer')
                 # Combine labels (double start expands a dictionary into key-value pairs)
                 combined_labels = {**combined_labels, **current_labels}
+                combined_studies = {**combined_studies, **current_studies}
 
-            combined_dataset = RefineBioLabeledDataset(combined_dataframe, combined_labels)
+            combined_dataset = RefineBioLabeledDataset(combined_dataframe,
+                                                       combined_labels,
+                                                       combined_studies)
             return combined_dataset
 
     def __getitem__(self, idx: int) -> Tuple[np.array, np.array]:
@@ -1138,7 +1146,9 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
 
         return self
 
-    def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
+    def get_cv_splits(self,
+                      num_splits: int,
+                      seed: int = 42) -> Sequence["RefineBioLabeledDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of studies in each.
@@ -1250,7 +1260,7 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
                     compendium_path: Union[str, Path],
                     label_path: Union[str, Path],
                     metadata_path: Union[str, Path],
-                    ) -> "RefineBioLabeledDataset":
+                    ) -> "RefineBioMixedDataset":
         """
         Create a new dataset from paths to its data
 
@@ -1301,6 +1311,60 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
         sample = self.current_expression[sample_id].values
         return sample
 
+    @classmethod
+    def from_list(class_object,
+                  dataset_list: Sequence["RefineBioMixedDataset"],
+                  ) -> "RefineBioMixedDataset":
+        """
+        Create a dataset by combining a list of other datasets
+
+        Arguments
+        ---------
+        dataset_list: The list of datasets to combine
+
+        Returns
+        -------
+        combined_dataset: The dataset created from the other datasets
+
+        Raises
+        ------
+        ValueError: If no datasets are in the list
+        """
+        if len(dataset_list) == 0:
+            raise ValueError('The provided list of datasets is empty')
+
+        elif len(dataset_list) == 1:
+            return dataset_list[0]
+
+        else:
+            combined_dataframe = dataset_list[0].current_expression
+            combined_labels = dataset_list[0].sample_to_label
+            combined_studies = dataset_list[0].sample_to_study
+
+            for dataset in dataset_list[1:]:
+                current_dataframe = dataset.current_expression
+                current_labels = dataset.sample_to_label
+                current_studies = dataset.sample_to_study
+
+                # Ensure no sample gets duplicated
+                # https://stackoverflow.com/questions/19125091/pandas-merge-how-to-avoid-duplicating-columns
+                cols_to_use = current_dataframe.columns.difference(combined_dataframe.columns)
+
+                # Combine dataframes
+                combined_dataframe = pd.merge(combined_dataframe,
+                                              current_dataframe[cols_to_use],
+                                              left_index=True,
+                                              right_index=True,
+                                              how='outer')
+                # Combine labels (double start expands a dictionary into key-value pairs)
+                combined_labels = {**combined_labels, **current_labels}
+                combined_studies = {**combined_studies, **current_studies}
+
+            combined_dataset = RefineBioMixedDataset(combined_dataframe,
+                                                     combined_labels,
+                                                     combined_studies)
+            return combined_dataset
+
     def get_all_data(self) -> Tuple[np.array, np.array]:
         """
         Returns all the expression data from the dataset in the
@@ -1339,9 +1403,9 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
 
         unlabeled_expression = self.current_expression.loc[:, unlabeled_samples]
 
-        new_dataset = RefineBioLabeledDataset(unlabeled_expression,
-                                              self.sample_to_study,
-                                              )
+        new_dataset = RefineBioUnlabeledDataset(unlabeled_expression,
+                                                self.sample_to_study,
+                                                )
 
         return new_dataset
 
@@ -1391,3 +1455,34 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
                                              self.sample_to_study,
                                              )
         return train_dataset, test_dataset
+
+    def get_cv_splits(self,
+                      num_splits: int,
+                      seed: int = 42) -> Sequence["RefineBioMixedDataset"]:
+        """
+        Split the dataset into a list of smaller dataset objects with a roughly equal
+        number of studies in each.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in a single fold
+
+        Arguments
+        ---------
+        num_splits: The number of groups to split the dataset into
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        subsets: A list of datasets, each composed of fractions of the original
+        """
+        cv_dataframes = self.get_cv_expression(num_splits, seed)
+
+        cv_datasets = []
+        for expression_df in cv_dataframes:
+            cv_dataset = RefineBioMixedDataset(expression_df,
+                                               self.sample_to_label,
+                                               self.sample_to_study,
+                                               )
+            cv_datasets.append(cv_dataset)
+
+        return cv_datasets
