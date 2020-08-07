@@ -203,6 +203,7 @@ class LogisticRegression(ExpressionModel):
 
     def __init__(self,
                  seed: int,
+                 **kwargs,
                  ) -> None:
         """
         The initializer the LogisticRegression class
