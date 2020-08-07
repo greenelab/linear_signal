@@ -610,6 +610,7 @@ class PytorchSupervised(ExpressionModel):
         self.model.eval()
         output = self.model(X)
         predictions = utils.sigmoid_to_predictions(output)
+        predictions = predictions.cpu().numpy()
         return predictions, y
 
     def get_parameters(self) -> Iterable[torch.Tensor]:

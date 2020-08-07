@@ -195,3 +195,11 @@ def test_pca_save_load(unlabeled_dataset):
     assert np.array_equal(embedded_data, new_embedded)
 
     os.remove('model_test.pkl')
+
+
+def test_evaluate(pytorch_models, dataset):
+    for model in pytorch_models:
+        preds, true_labels = model.evaluate(dataset)
+
+        assert type(preds) == np.ndarray
+        assert type(true_labels) == np.ndarray
