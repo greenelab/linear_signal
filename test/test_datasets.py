@@ -426,23 +426,19 @@ def test_get_features(all_datasets):
 
 
 def test_get_samples(all_datasets):
+    # Get sample names
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    expression_path = os.path.join(current_dir, 'data/test_expression.tsv')
+    with open(expression_path) as expression_file:
+        true_samples = set(expression_file.readline().strip().split('\t'))
+
     for dataset in all_datasets:
+        print(type(dataset))
         samples = dataset.get_samples()
 
         random.seed(42)
 
-        # Get sample names as in `generate_test_data.py`
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        compendium_path = os.path.join(current_dir, '../data/HOMO_SAPIENS.tsv')
-
-        # Pull 200 random sample names from the compendium
-        compendium_head = None
-        with open(compendium_path, 'r') as compendium_file:
-            compendium_head = compendium_file.readline().strip().split('\t')
-
-        true_samples = random.sample(compendium_head, generate_test_data.NUM_SAMPLES)
-
-        assert samples == true_samples
+        assert set(samples) == true_samples
 
 
 def test_get_labeled(mixed_datasets):
