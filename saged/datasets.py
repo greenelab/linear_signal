@@ -138,6 +138,21 @@ class ExpressionDataset(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def subset_to_samples(self, samples: List[str]) -> "ExpressionDataset":
+        """
+        Limit the amount of data available to only the samples whose ids are provided
+
+        Arguments
+        ---------
+        samples: The samples to keep
+
+        Returns
+        -------
+        self: The class after subsetting
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def subset_studies(self,
                        fraction: float = None,
                        num_studies: int = None,
@@ -301,7 +316,7 @@ class UnlabeledDataset(ExpressionDataset):
         raise NotImplementedError
 
 
-class MixedDataset(LabeledDataset):
+class MixedDataset(ExpressionDataset):
     """ A dataset containing both labeled and unlabeled samples """
     @abstractmethod
     def get_labeled() -> LabeledDataset:
@@ -392,6 +407,34 @@ class RefineBioDataset(ExpressionDataset):
                                                                  axis='columns',
                                                                  random_state=seed,
                                                                  )
+        self.data_changed = True
+
+        return self
+
+    def subset_to_samples(self, samples: List[str]) -> "RefineBioDataset":
+        """
+        Limit the amount of data available to only the samples whose ids are provided
+
+        Arguments
+        ---------
+        samples: The samples to keep
+
+        Returns
+        -------
+        self: The class after subsetting
+
+        Raises
+        ------
+        KeyError: If there are samples in `samples` not present in the dataset
+        """
+        current_samples = set(self.get_samples())
+
+        for sample in samples:
+            if sample not in current_samples:
+                raise KeyError(f'Sample {sample} was not found in the dataset')
+
+        self.current_expression = self.current_expression.loc[:, samples]
+
         self.data_changed = True
 
         return self
@@ -1200,11 +1243,6 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
         self.sample_to_label = sample_to_label
         self.sample_to_study = sample_to_study
 
-        label_encoder = preprocessing.LabelEncoder()
-        labels = [sample_to_label[sample] for sample in expression_df.columns]
-        label_encoder.fit(labels)
-        self.label_encoder = label_encoder
-
         self.current_expression = expression_df
 
     @classmethod
@@ -1306,3 +1344,50 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
                                               )
 
         return new_dataset
+
+    def train_test_split(self,
+                         train_fraction: float = None,
+                         train_study_count: int = None,
+                         seed: int = 42,
+                         ) -> Sequence["RefineBioMixedDataset"]:
+        """
+        Split the dataset into two portions, as seen in scikit-learn's `train_test_split`
+        function.
+
+        If multiple studies are present in the dataset, each study should only
+        be present in one of the two portions.
+
+        Either `train_fraction` or `train_study_count` must be specified. If both
+        are specified, then `train_study_count` takes precedence.
+
+        Arguments
+        ---------
+        train_fraction: The minimum fraction of the data to be used as training data.
+            In reality, the fraction won't be met entirely due to the constraint of
+            preserving studies.
+        train_study_count: The number of studies to be included in the training set
+        seed: The seed for the random number generator involved in subsetting
+
+        Returns
+        -------
+        train: The dataset with around the amount of data specified by train_fraction
+        test: The dataset with the remaining data
+
+        Raises
+        ------
+        ValueError if neither train_fraction nor train_study count are specified
+        """
+        train_expression, test_expression = self.get_train_test_expression(train_fraction,
+                                                                           train_study_count,
+                                                                           seed,
+                                                                           )
+
+        train_dataset = RefineBioMixedDataset(train_expression,
+                                              self.sample_to_label,
+                                              self.sample_to_study,
+                                              )
+        test_dataset = RefineBioMixedDataset(test_expression,
+                                             self.sample_to_label,
+                                             self.sample_to_study,
+                                             )
+        return train_dataset, test_dataset

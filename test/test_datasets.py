@@ -6,22 +6,24 @@ base class it inherited from
 """
 
 import os
+import random
 
 import numpy as np
 import pytest
 import yaml
 
-from saged import datasets
+from saged import datasets, generate_test_data
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def labeled_datasets():
     dataset_list = []
     dataset_list.append(create_refinebio_labeled_dataset())
 
     return dataset_list
 
-@pytest.fixture(scope="module")
+
+@pytest.fixture(scope="function")
 def unlabeled_datasets():
     labeled_dataset = create_refinebio_labeled_dataset()
     converted_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(labeled_dataset)
@@ -33,9 +35,17 @@ def unlabeled_datasets():
     return dataset_list
 
 
-@pytest.fixture(scope="module")
-def all_datasets(labeled_datasets, unlabeled_datasets):
-    return labeled_datasets + unlabeled_datasets
+@pytest.fixture(scope='function')
+def mixed_datasets():
+    dataset_list = []
+    dataset_list.append(create_refinebio_mixed_dataset())
+
+    return dataset_list
+
+
+@pytest.fixture(scope="function")
+def all_datasets(labeled_datasets, unlabeled_datasets, mixed_datasets):
+    return labeled_datasets + unlabeled_datasets + mixed_datasets
 
 
 def create_refinebio_labeled_dataset():
@@ -61,6 +71,17 @@ def create_refinebio_unlabeled_dataset():
 
     dataset = datasets.RefineBioUnlabeledDataset.from_config(**config)
 
+    return dataset
+
+
+def create_refinebio_mixed_dataset():
+    """ Create a dataset with both labeled and unlabeled data """
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    config_file_path = os.path.join(test_dir, 'data', 'test_mixed_data_config.yml')
+    with open(config_file_path) as config_file:
+        config = yaml.safe_load(config_file)
+
+    dataset = datasets.RefineBioMixedDataset.from_config(**config)
     return dataset
 
 
@@ -105,6 +126,27 @@ def test_subset_samples(all_datasets, fraction):
         subset_dataset = dataset.subset_samples(fraction, seed=1)
         assert subset_samples == subset_dataset.get_samples()  # Make sure the seed works
         dataset.reset_filters()
+
+
+@pytest.mark.parametrize("samples",
+                         [(['GSM1368585', 'SRR4427914', 'GSM753652']),
+                          (['ERR1275178']),
+                          (['GSM1692420']),
+                          ])
+def test_subset_to_samples(all_datasets, samples):
+    for dataset in all_datasets:
+        dataset.subset_to_samples(samples)
+
+        subset_samples = dataset.get_samples()
+        assert set(subset_samples) == set(samples)
+        dataset.reset_filters()
+
+
+def test_subset_to_samples_raises_keyerror(all_datasets):
+    samples = ['ThisSampleDoesNotExist', 'SRR4427914']
+    for dataset in all_datasets:
+        with pytest.raises(KeyError):
+            dataset.subset_to_samples(samples)
 
 
 def test_get_studies():
@@ -345,8 +387,64 @@ def test_subset_samples_to_labels(labeled_datasets, labels):
             assert dataset.sample_to_label[sample] in labels
         dataset.reset_filters()
 
-# TODO test set_all_data
-# TODO test subset_to_samples
+
+def test_set_all_data(all_datasets):
+    for dataset in all_datasets:
+        current_data = dataset.get_all_data()
+
+        if issubclass(type(dataset), datasets.LabeledDataset):
+            # Throw out labels in a labeled dataset
+            current_data = current_data[0]
+
+        new_data = np.random.normal(size=(1337, len(dataset.get_samples())))
+        print(new_data.shape)
+
+        dataset.set_all_data(new_data)
+
+        assert not np.array_equal(new_data, current_data)
+
+        retrieved_new_data = dataset.get_all_data()
+
+        if issubclass(type(dataset), datasets.LabeledDataset):
+            # Throw out labels in a labeled dataset
+            retrieved_new_data = retrieved_new_data[0]
+
+        assert np.array_equal(new_data, retrieved_new_data.T)
+
+
+def test_get_features(all_datasets):
+    for dataset in all_datasets:
+        features = dataset.get_features()
+
+        # Generate the gene names as in generate_test_data
+        gene_names = []
+        for i in range(generate_test_data.NUM_GENES):
+            gene_base = 'ENSG0000000000'
+            gene_name = '{}{}'.format(gene_base, i)
+            gene_names.append(gene_name)
+        assert features == gene_names
+
+
+def test_get_samples(all_datasets):
+    for dataset in all_datasets:
+        samples = dataset.get_samples()
+
+        random.seed(42)
+
+        # Get sample names as in `generate_test_data.py`
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        compendium_path = os.path.join(current_dir, '../data/HOMO_SAPIENS.tsv')
+
+        # Pull 200 random sample names from the compendium
+        compendium_head = None
+        with open(compendium_path, 'r') as compendium_file:
+            compendium_head = compendium_file.readline().strip().split('\t')
+
+        true_samples = random.sample(compendium_head, generate_test_data.NUM_SAMPLES)
+
+        assert samples == true_samples
+
+
 # TODO add MixedDataset
 # TODO test get_labeled_data
 # TODO test get_unlabeled_data
