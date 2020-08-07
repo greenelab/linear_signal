@@ -62,6 +62,16 @@ label_file_path = os.path.join(out_directory, 'test_labels.pkl')
 with open(label_file_path, 'wb') as out_file:
     pickle.dump(label_tuple, out_file)
 
+# Write a subset of labels to a different file for use in MixedDatasets
+label_file_path = os.path.join(out_directory, 'test_subset_labels.pkl')
+for label in ['label3', 'label4', 'label5', 'label6']:
+    del label_to_samples[label]
+
+sample_set = set(samples)
+label_tuple = (label_to_samples, sample_set)
+with open(label_file_path, 'wb') as out_file:
+    pickle.dump(label_tuple, out_file)
+
 # Create pandas dataframe from data
 gene_names = []
 for i in range(NUM_GENES):
