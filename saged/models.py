@@ -762,8 +762,8 @@ class PCA(UnsupervisedModel):
         return self
 
     def transform(self,
-                  dataset: Union[UnlabeledDataset, MixedDataset])-> Union[UnlabeledDataset,
-                                                                          MixedDataset]:
+                  dataset: Union[UnlabeledDataset, MixedDataset]) -> Union[UnlabeledDataset,
+                                                                           MixedDataset]:
         """
         Use the learned embedding from the model to embed the given dataset
 
