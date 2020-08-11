@@ -522,7 +522,7 @@ class RefineBioDataset(ExpressionDataset):
             raise ValueError("Either fraction or num_studies must have a value")
         if num_studies is not None:
             # Subset by number of studies
-            studies_to_keep = random.sample(studies, num_studies)
+            studies_to_keep = utils.deterministic_shuffle_set(studies)[:num_studies]
             samples_to_keep = utils.get_samples_in_studies(samples,
                                                            studies_to_keep,
                                                            self.sample_to_study)
@@ -533,7 +533,7 @@ class RefineBioDataset(ExpressionDataset):
         else:
             total_samples = len(self.all_expression.columns)
             samples_to_keep = []
-            shuffled_studies = random.sample(studies, len(studies))
+            shuffled_studies = utils.deterministic_shuffle_set(studies)
             studies_to_keep = set()
 
             for study in shuffled_studies:
@@ -567,7 +567,7 @@ class RefineBioDataset(ExpressionDataset):
 
         samples = self.get_samples()
         studies = self.get_studies()
-        shuffled_studies = random.sample(studies, len(studies))
+        shuffled_studies = utils.deterministic_shuffle_set(studies)
 
         base_study_count = len(studies) // num_splits
         leftover = len(studies) % num_splits
@@ -650,7 +650,8 @@ class RefineBioDataset(ExpressionDataset):
 
         studies = self.get_studies()
         samples = self.get_samples()
-        shuffled_studies = random.sample(studies, len(studies))
+        shuffled_studies = utils.deterministic_shuffle_set(studies)
+
         train_studies = []
         test_studies = []
 
@@ -669,7 +670,7 @@ class RefineBioDataset(ExpressionDataset):
             samples_to_keep = []
             studies_to_keep = set()
             last_study_index = 0
-            shuffled_studies = random.sample(studies, len(studies))
+            shuffled_studies = utils.deterministic_shuffle_set(studies)
 
             for study in shuffled_studies:
                 if len(samples_to_keep) > train_fraction * total_samples:

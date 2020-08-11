@@ -4,7 +4,8 @@ import functools
 import json
 import pickle
 from pathlib import Path
-from typing import Dict, Set, Text, Union, List
+import random
+from typing import Any, Dict, Set, Text, Union, List
 
 import neptune
 import numpy as np
@@ -341,3 +342,22 @@ def initialize_neptune(config: dict) -> None:
 
     neptune.init(api_token=api_token,
                  project_qualified_name=qualified_name)
+
+
+def deterministic_shuffle_set(set_: set) -> List[Any]:
+    """
+    random.choice does not behave deterministically when used on sets, even if a seed is set.
+    This function sorts the list representation of the set and samples from it, preventing
+    determinism bugs
+
+    Arguments
+    ---------
+    set_: The set to shuffle
+
+    Returns
+    -------
+    shuffled_list: The shuffled list representation of the original set
+    """
+    shuffled_list = random.sample(sorted(list(set_)), len(set_))
+
+    return shuffled_list
