@@ -30,9 +30,13 @@ if __name__ == '__main__':
                         help='A yaml formatted file containing init information for '
                              'neptune logging')
     parser.add_argument('--seed',
-                        help='The random seed to be used in the experiment',
+                        help='The random seed to be used in splitting data',
                         type=int,
                         default=42)
+    parser.add_argument('--num_splits',
+                        help='The number of splits to use in cross-validation',
+                        type=int,
+                        default=5)
     args = parser.parse_args()
 
     with open(args.dataset_config) as data_file:
@@ -63,7 +67,7 @@ if __name__ == '__main__':
     print('Splitting data')
 
     # Get fivefold cross-validation splits
-    labeled_splits = labeled_data.get_cv_splits(num_splits=5, seed=args.seed)
+    labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
 
     # Train the model on each fold
     accuracies = []

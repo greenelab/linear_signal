@@ -110,7 +110,6 @@ def test_get_all_data(labeled_datasets, unlabeled_datasets):
 def test_subset_samples(all_datasets, fraction):
     for dataset in all_datasets:
         total_samples = len(dataset)
-        print(total_samples)
 
         subset_dataset = dataset.subset_samples(fraction, seed=1)
         subset_samples = subset_dataset.get_samples()
@@ -119,7 +118,6 @@ def test_subset_samples(all_datasets, fraction):
 
         subset_dataset = dataset.subset_samples(fraction, seed=2)
         new_subset = subset_dataset.get_samples()
-        print(id(subset_samples), id(new_subset))
         assert subset_samples != new_subset  # Make sure randomization works
         dataset.reset_filters()
 
@@ -397,7 +395,6 @@ def test_set_all_data(all_datasets):
             current_data = current_data[0]
 
         new_data = np.random.normal(size=(1337, len(dataset.get_samples())))
-        print(new_data.shape)
 
         dataset.set_all_data(new_data)
 
@@ -433,7 +430,6 @@ def test_get_samples(all_datasets):
         true_samples = set(expression_file.readline().strip().split('\t'))
 
     for dataset in all_datasets:
-        print(type(dataset))
         samples = dataset.get_samples()
 
         random.seed(42)

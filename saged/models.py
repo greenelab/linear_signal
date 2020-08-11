@@ -206,11 +206,11 @@ class LogisticRegression(ExpressionModel):
                  **kwargs,
                  ) -> None:
         """
-        The initializer the LogisticRegression class
+        The initializer for the LogisticRegression class
 
         Arguments
         ---------
-        seed: The random seed ot use in training
+        seed: The random seed to use in training
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
 

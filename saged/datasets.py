@@ -373,7 +373,8 @@ class RefineBioDataset(ExpressionDataset):
         Arguments
         ---------
         new_data: The variable x samples array to overwrite the old data with. The first dimension
-                  can be anything, but the sample dimension must remain the same as in the old data
+                  can be anything, but the sample dimension must remain the same as in the old
+                  data. The samples must also stay in the same order.
         """
         current_samples = self.get_samples()
         new_dataframe = pd.DataFrame(data=new_data, columns=current_samples)
@@ -791,6 +792,7 @@ class RefineBioUnlabeledDataset(RefineBioDataset, UnlabeledDataset):
                                               left_index=True,
                                               right_index=True,
                                               how='outer')
+                # Combine labels (double star dexpands a dictionary into key-value pairs)
                 combined_studies = {**combined_studies, **current_studies}
 
             combined_dataset = RefineBioUnlabeledDataset(combined_dataframe, combined_studies)
@@ -988,7 +990,7 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
                                               left_index=True,
                                               right_index=True,
                                               how='outer')
-                # Combine labels (double start expands a dictionary into key-value pairs)
+                # Combine labels (double star expands a dictionary into key-value pairs)
                 combined_labels = {**combined_labels, **current_labels}
                 combined_studies = {**combined_studies, **current_studies}
 
@@ -1356,7 +1358,7 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
                                               left_index=True,
                                               right_index=True,
                                               how='outer')
-                # Combine labels (double start expands a dictionary into key-value pairs)
+                # Combine labels (double star expands a dictionary into key-value pairs)
                 combined_labels = {**combined_labels, **current_labels}
                 combined_studies = {**combined_studies, **current_studies}
 
