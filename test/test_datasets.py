@@ -6,14 +6,16 @@ base class it inherited from
 """
 
 import os
+import random
 
 import numpy as np
 import pytest
+import yaml
 
-from saged import datasets
+from saged import datasets, generate_test_data
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def labeled_datasets():
     dataset_list = []
     dataset_list.append(create_refinebio_labeled_dataset())
@@ -21,7 +23,7 @@ def labeled_datasets():
     return dataset_list
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def unlabeled_datasets():
     labeled_dataset = create_refinebio_labeled_dataset()
     converted_dataset = datasets.RefineBioUnlabeledDataset.from_labeled_dataset(labeled_dataset)
@@ -33,34 +35,53 @@ def unlabeled_datasets():
     return dataset_list
 
 
-@pytest.fixture(scope="module")
-def all_datasets(labeled_datasets, unlabeled_datasets):
-    return labeled_datasets + unlabeled_datasets
+@pytest.fixture(scope='function')
+def mixed_datasets():
+    dataset_list = []
+    dataset_list.append(create_refinebio_mixed_dataset())
+
+    return dataset_list
+
+
+@pytest.fixture(scope="function")
+def all_datasets(labeled_datasets, unlabeled_datasets, mixed_datasets):
+    return labeled_datasets + unlabeled_datasets + mixed_datasets
 
 
 def create_refinebio_labeled_dataset():
     """ Create a refinebio labeled dataset from test data """
     test_dir = os.path.dirname(os.path.abspath(__file__))
-    expression_path = os.path.join(test_dir, 'data', 'test_expression.tsv')
-    label_path = os.path.join(test_dir, 'data', 'test_labels.pkl')
-    metadata_path = os.path.join(test_dir, 'data', 'test_metadata.json')
+    config_file_path = os.path.join(test_dir, 'data', 'test_data_config.yml')
+    with open(config_file_path) as config_file:
+        config = yaml.safe_load(config_file)
 
-    dataset = datasets.RefineBioLabeledDataset.from_paths(expression_path,
-                                                          label_path,
-                                                          metadata_path)
-
+    dataset = datasets.RefineBioLabeledDataset.from_config(**config)
     return dataset
 
 
 def create_refinebio_unlabeled_dataset():
     """ Create an unlabeled dataset from test data """
     test_dir = os.path.dirname(os.path.abspath(__file__))
-    expression_path = os.path.join(test_dir, 'data', 'test_expression.tsv')
-    metadata_path = os.path.join(test_dir, 'data', 'test_metadata.json')
+    config_file_path = os.path.join(test_dir, 'data', 'test_data_config.yml')
+    with open(config_file_path) as config_file:
+        config = yaml.safe_load(config_file)
 
-    dataset = datasets.RefineBioUnlabeledDataset.from_paths(expression_path,
-                                                            metadata_path)
+    # We could write a config file without the labels, but this is easier
+    del(config['label_path'])
 
+    dataset = datasets.RefineBioUnlabeledDataset.from_config(**config)
+
+    return dataset
+
+
+def create_refinebio_mixed_dataset():
+    """ Create a dataset with both labeled and unlabeled data """
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    config_file_path = os.path.join(test_dir, 'data', 'test_mixed_data_config.yml')
+    with open(config_file_path) as config_file:
+        config = yaml.safe_load(config_file)
+
+    dataset = datasets.RefineBioMixedDataset.from_config(**config)
     return dataset
 
 
@@ -89,7 +110,6 @@ def test_get_all_data(labeled_datasets, unlabeled_datasets):
 def test_subset_samples(all_datasets, fraction):
     for dataset in all_datasets:
         total_samples = len(dataset)
-        print(total_samples)
 
         subset_dataset = dataset.subset_samples(fraction, seed=1)
         subset_samples = subset_dataset.get_samples()
@@ -98,13 +118,33 @@ def test_subset_samples(all_datasets, fraction):
 
         subset_dataset = dataset.subset_samples(fraction, seed=2)
         new_subset = subset_dataset.get_samples()
-        print(id(subset_samples), id(new_subset))
         assert subset_samples != new_subset  # Make sure randomization works
         dataset.reset_filters()
 
         subset_dataset = dataset.subset_samples(fraction, seed=1)
         assert subset_samples == subset_dataset.get_samples()  # Make sure the seed works
         dataset.reset_filters()
+
+
+@pytest.mark.parametrize("samples",
+                         [(['GSM1368585', 'SRR4427914', 'GSM753652']),
+                          (['ERR1275178']),
+                          (['GSM1692420']),
+                          ])
+def test_subset_to_samples(all_datasets, samples):
+    for dataset in all_datasets:
+        dataset.subset_to_samples(samples)
+
+        subset_samples = dataset.get_samples()
+        assert set(subset_samples) == set(samples)
+        dataset.reset_filters()
+
+
+def test_subset_to_samples_raises_keyerror(all_datasets):
+    samples = ['ThisSampleDoesNotExist', 'SRR4427914']
+    for dataset in all_datasets:
+        with pytest.raises(KeyError):
+            dataset.subset_to_samples(samples)
 
 
 def test_get_studies():
@@ -344,3 +384,93 @@ def test_subset_samples_to_labels(labeled_datasets, labels):
         for sample in samples:
             assert dataset.sample_to_label[sample] in labels
         dataset.reset_filters()
+
+
+def test_set_all_data(all_datasets):
+    for dataset in all_datasets:
+        current_data = dataset.get_all_data()
+
+        if issubclass(type(dataset), datasets.LabeledDataset):
+            # Throw out labels in a labeled dataset
+            current_data = current_data[0]
+
+        new_data = np.random.normal(size=(1337, len(dataset.get_samples())))
+
+        dataset.set_all_data(new_data)
+
+        assert not np.array_equal(new_data, current_data)
+
+        retrieved_new_data = dataset.get_all_data()
+
+        if issubclass(type(dataset), datasets.LabeledDataset):
+            # Throw out labels in a labeled dataset
+            retrieved_new_data = retrieved_new_data[0]
+
+        assert np.array_equal(new_data, retrieved_new_data.T)
+
+
+def test_get_features(all_datasets):
+    for dataset in all_datasets:
+        features = dataset.get_features()
+
+        # Generate the gene names as in generate_test_data
+        gene_names = []
+        for i in range(generate_test_data.NUM_GENES):
+            gene_base = 'ENSG0000000000'
+            gene_name = '{}{}'.format(gene_base, i)
+            gene_names.append(gene_name)
+        assert features == gene_names
+
+
+def test_get_samples(all_datasets):
+    # Get sample names
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    expression_path = os.path.join(current_dir, 'data/test_expression.tsv')
+    with open(expression_path) as expression_file:
+        true_samples = set(expression_file.readline().strip().split('\t'))
+
+    for dataset in all_datasets:
+        samples = dataset.get_samples()
+
+        random.seed(42)
+
+        assert set(samples) == true_samples
+
+
+def test_get_labeled(mixed_datasets):
+    for dataset in mixed_datasets:
+        labeled_dataset = dataset.get_labeled()
+        unlabeled_dataset = dataset.get_unlabeled()
+
+        labeled_samples = set(labeled_dataset.get_samples())
+        unlabeled_samples = set(unlabeled_dataset.get_samples())
+        all_samples = set(dataset.get_samples())
+
+        assert labeled_samples.issubset(all_samples)
+        assert unlabeled_samples.issubset(all_samples)
+        labeled_samples.update(unlabeled_samples)
+        assert labeled_samples == all_samples
+
+        labeled_features = set(labeled_dataset.get_features())
+        unlabeled_features = set(unlabeled_dataset.get_features())
+        all_features = set(dataset.get_features())
+
+        assert labeled_features.issubset(all_features)
+        assert unlabeled_features.issubset(all_features)
+        labeled_features.update(unlabeled_features)
+        assert labeled_features == all_features
+
+
+def test_from_list(all_datasets):
+    for dataset in all_datasets:
+        dataset_list = dataset.get_cv_splits(num_splits=2, seed=42)
+
+        reformed_dataset = type(dataset).from_list(dataset_list)
+
+        original_samples = dataset.get_samples()
+        reformed_samples = reformed_dataset.get_samples()
+        assert set(original_samples) == set(reformed_samples)
+
+        original_features = dataset.get_features()
+        reformed_features = reformed_dataset.get_features()
+        assert set(original_features) == set(reformed_features)

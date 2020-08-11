@@ -3,11 +3,10 @@
 import copy
 import pickle
 from abc import ABC, abstractmethod
-from typing import Union, Iterable
+from typing import Union, Iterable, Tuple
 
 import neptune
 import numpy as np
-import pandas as pd
 import sklearn.linear_model
 import sklearn.decomposition
 import torch
@@ -17,7 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import saged.utils as utils
-from saged.datasets import LabeledDataset, UnlabeledDataset, RefineBioUnlabeledDataset
+from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset
 
 
 class ModelResults():
@@ -112,7 +111,8 @@ class ExpressionModel(ABC):
     base acceptable functions for models in this module's benchmarking code
     """
 
-    def __init__(self) -> None:
+    def __init__(self,
+                 config: dict) -> None:
         """
         Standard model init function. We use pass instead of raising a NotImplementedError
         here in case inheriting classes decide to call `super()`
@@ -152,7 +152,7 @@ class ExpressionModel(ABC):
     @abstractmethod
     def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
         """
-        Predict the labels for a
+        Predict the labels for a dataset
 
         Arguments
         ---------
@@ -161,6 +161,22 @@ class ExpressionModel(ABC):
         Returns
         -------
         predictions: A numpy array of predictions
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the predicted and true labels for a dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        labels: The true labels to compare the predictions against
         """
         raise NotImplementedError
 
@@ -185,11 +201,16 @@ class LogisticRegression(ExpressionModel):
     base acceptable functions for models in this module's benchmarking code
     """
 
-    def __init__(self, seed: int = 42) -> None:
+    def __init__(self,
+                 seed: int,
+                 **kwargs,
+                 ) -> None:
         """
-        The initializer the LogisticRegression class
+        The initializer for the LogisticRegression class
 
-        seed: The random seed to be used by the model
+        Arguments
+        ---------
+        seed: The random seed to use in training
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
 
@@ -225,6 +246,22 @@ class LogisticRegression(ExpressionModel):
         X = dataset.get_all_data()
         return self.model.predict(X)
 
+    def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the predicted and true labels for a dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        labels: The true labels to compare the predictions against
+        """
+        X, y = dataset.get_all_data()
+        return self.model.predict(X), y
+
     def save_model(self, out_path: str) -> None:
         """
         Write the classifier to a file
@@ -242,13 +279,15 @@ class LogisticRegression(ExpressionModel):
             pickle.dump(self, out_file)
 
     @classmethod
-    def load_model(classobject, model_path):
+    def load_model(classobject, model_path: str, **kwargs):
         """
         Read a pickeled model from a file and return it
 
         Arguments
         ---------
         model_path: The location where the model is stored
+        **kwargs: To be consistent with the API this function takes in config info even though
+                  it doesn't need it
 
         Returns
         -------
@@ -259,11 +298,20 @@ class LogisticRegression(ExpressionModel):
 
 
 class ThreeLayerClassifier(nn.Module):
-    """ A basic three layer neural net for use in wrappers like FullyConnectedNet """
-    def __init__(self, model_params: dict):
+    """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
         super(ThreeLayerClassifier, self).__init__()
-        input_size = model_params['input_size']
-        output_size = model_params['output_size']
 
         self.fc1 = nn.Linear(input_size, input_size // 2)
         self.fc2 = nn.Linear(input_size // 2, input_size // 4)
@@ -283,64 +331,101 @@ class PytorchSupervised(ExpressionModel):
     to accept any supervised classifier implementing the nn.Module API
     """
     def __init__(self,
-                 config: dict,
-                 optimizer: torch.optim.Optimizer,
-                 loss_class: torch.nn.modules.loss._WeightedLoss,
-                 model_class: nn.Module) -> None:
+                 optimizer_name: str,
+                 loss_name: str,
+                 model_name: str,
+                 lr: float,
+                 weight_decay: float,
+                 device: str,
+                 seed: int,
+                 epochs: int,
+                 batch_size: int,
+                 log_progress: bool,
+                 experiment_name: str = None,
+                 experiment_description: str = None,
+                 save_path: str = None,
+                 train_fraction: float = None,
+                 train_count: float = None,
+                 **kwargs,
+                 ) -> None:
         """
         Standard model init function for a supervised model
 
         Arguments
         ---------
-        config: The configuration information for the model
-        optimizer: The optimizer to be used when training the model
-        loss_class: The loss function class to use
-        model_class: The type of classifier to use
+        optimizer_name: The name of the optimizer class to be used when training the model
+        loss_name: The loss function class to use
+        model_name: The type of classifier to use
+        lr: The learning rate for the optimizer
+        weight_decay: The weight decay for the optimizer
+        device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
+        seed: The random seed to use in stochastic operations
+        epochs: The number of epochs to train the model
+        batch_size: The number of items in each training batch
+        log_progress: True if you want to use neptune to log progress, otherwise False
+        experiment_name: A short name for the experiment you're running for use in neptune logs
+        experiment_description: A description for the experiment you're running
+        save_path: The path to save the model to
+        train_fraction: The percent of samples to use in training
+        train_count: The number of studies to use in training
+        **kwargs: Arguments for use in the underlying classifier
+
+        Notes
+        -----
+        Either `train_count` or `train_fraction` should be None but not both
         """
-        # TODO create custom config parsing function to document the parameters
-        model_config = config['model']
-        self.config = config
-        self.model = model_class(model_config)
-        lr = float(model_config['lr'])
-        weight_decay = float(model_config.get('weight_decay', 0))
-        self.optimizer = optimizer(self.model.parameters(),
-                                   lr=lr,
-                                   weight_decay=weight_decay)
+        # A piece of obscure python, this gets a dict of all python local variables.
+        # Since it is called at the start of a function it gets all the arguments for the
+        # function as if they were passed in a dict. This is useful, because we can feed
+        # self.config to neptune to keep track of all our run's parameters
+        self.config = locals()
 
-        self.loss_class = loss_class
+        optimizer_class = getattr(torch.optim, optimizer_name)
+        self.loss_class = getattr(nn, loss_name)
 
-        self.device = torch.device(model_config.get('device', 'cpu'))
+        self.seed = seed
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.experiment_name = experiment_name
+        self.experiment_description = experiment_description
+        self.log_progress = log_progress
+        self.train_fraction = train_fraction
+        self.train_count = train_count
 
-        torch.manual_seed = model_config['seed']
+        # We're invoking the old magic now. In python the answer to 'How do I get a class from
+        # the current file dynamically' is 'Dump all the global variables for the file, it will
+        # be there somewhere'
+        # https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
+        model_class = globals()[model_name]
+        self.model = model_class(**kwargs)
+
+        self.optimizer = optimizer_class(self.model.parameters(),
+                                         lr=lr,
+                                         weight_decay=weight_decay)
+
+        self.device = torch.device(device)
+
+        torch.manual_seed = seed
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
     @classmethod
     def load_model(classobject,
                    checkpoint_path: str,
-                   config: dict,
-                   optimizer: torch.optim.Optimizer,
-                   loss_fn: torch.nn.modules.loss._WeightedLoss,
-                   model_class: nn.Module) -> "PytorchSupervised":
+                   **kwargs
+                   ) -> "PytorchSupervised":
         """
         Read a pickled model from a file and return it
 
         Arguments
         ---------
         checkpoint_path: The location where the model is stored
-        config: The configuration information for the model
-        optimizer: The optimizer to be used when training the model
-        loss_fn: The loss function class to use
-        model_class: The type of classifier to use
 
         Returns
         -------
         model: The loaded model
         """
-        model = classobject(config,
-                            optimizer,
-                            loss_fn,
-                            model_class)
+        model = classobject(**kwargs)
 
         state_dicts = torch.load(checkpoint_path)
         model.load_parameters(state_dicts['model_state_dict'])
@@ -378,20 +463,26 @@ class PytorchSupervised(ExpressionModel):
         Returns
         -------
         results: The metrics produced during the training process
+
+        Raises
+        ------
+        AttributeError: If train_count and train_fraction are both None
         """
         # Set device
         device = self.device
 
-        # Initialize hyperparameters from config
-        model_config = self.config['model']
-        seed = model_config['seed']
-        epochs = model_config['epochs']
-        batch_size = model_config['batch_size']
-        experiment_name = model_config['experiment_name']
-        experiment_description = model_config['experiment_description']
-        log_progress = model_config['log_progress']
-        train_fraction = model_config.get('train_fraction', None)
-        train_count = model_config.get('train_study_count', None)
+        seed = self.seed
+        epochs = self.epochs
+        batch_size = self.batch_size
+        experiment_name = self.experiment_name
+        experiment_description = self.experiment_description
+        log_progress = self.log_progress
+
+        train_count = None
+        train_fraction = None
+        train_fraction = getattr(self, 'train_fraction', None)
+        if train_fraction is None:
+            train_count = self.train_count
 
         # Split dataset and create dataloaders
         train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
@@ -410,8 +501,6 @@ class PytorchSupervised(ExpressionModel):
             self.loss_fn = self.loss_class(weight=None)
 
         if log_progress:
-            # Set up the neptune experiment
-            utils.initialize_neptune(self.config)
             experiment = neptune.create_experiment(name=experiment_name,
                                                    description=experiment_description,
                                                    params=self.config
@@ -475,10 +564,11 @@ class PytorchSupervised(ExpressionModel):
                 neptune.log_metric('tune_acc', epoch, tune_acc)
 
             # Save model if applicable
-            if 'save_path' in model_config:
+            save_path = getattr(self, 'save_path', None)
+            if save_path is not None:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(model_config['save_path'])
+                    self.save_model(save_path)
 
         return self
 
@@ -501,6 +591,28 @@ class PytorchSupervised(ExpressionModel):
         output = self.model(X)
         predictions = utils.sigmoid_to_predictions(output)
         return predictions
+
+    def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return the predicted and true labels for a dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        labels: The true labels to compare the predictions against
+        """
+        X, y = dataset.get_all_data()
+        X = torch.Tensor(X).float().to(self.device)
+
+        self.model.eval()
+        output = self.model(X)
+        predictions = utils.sigmoid_to_predictions(output)
+        predictions = predictions.cpu().numpy()
+        return predictions, y
 
     def get_parameters(self) -> Iterable[torch.Tensor]:
         return copy.deepcopy(self.model.state_dict())
@@ -537,7 +649,7 @@ class UnsupervisedModel():
         raise NotImplementedError
 
     @abstractmethod
-    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+    def fit(self, dataset: Union[UnlabeledDataset, MixedDataset]) -> "UnsupervisedModel":
         """
         Train a model using the given unlabeled data
 
@@ -617,7 +729,7 @@ class PCA(UnsupervisedModel):
                                                random_state=seed)
 
     @classmethod
-    def load_model(classobject, model_path):
+    def load_model(classobject, model_path: str, **kwargs):
         """
         Read a pickeled model from a file and return it
 
@@ -632,7 +744,7 @@ class PCA(UnsupervisedModel):
         with open(model_path, 'rb') as model_file:
             return pickle.load(model_file)
 
-    def fit(self, dataset: UnlabeledDataset) -> "UnsupervisedModel":
+    def fit(self, dataset: Union[UnlabeledDataset, MixedDataset]) -> "UnsupervisedModel":
         """
         Train a model using the given unlabeled data
 
@@ -649,7 +761,9 @@ class PCA(UnsupervisedModel):
 
         return self
 
-    def transform(self, dataset: UnlabeledDataset) -> UnlabeledDataset:
+    def transform(self,
+                  dataset: Union[UnlabeledDataset, MixedDataset]) -> Union[UnlabeledDataset,
+                                                                           MixedDataset]:
         """
         Use the learned embedding from the model to embed the given dataset
 
@@ -659,17 +773,14 @@ class PCA(UnsupervisedModel):
 
         Returns
         -------
-        predictions: A numpy array of predictions
+        dataset: The transformed version of the dataset passed in
         """
         X = dataset.get_all_data()
         X_embedded = self.model.transform(X)
 
-        embedded_df = pd.DataFrame(data=X_embedded.T, columns=dataset.get_samples())
+        dataset.set_all_data(X_embedded.T)
 
-        embedded_dataset = RefineBioUnlabeledDataset(embedded_df,
-                                                     dataset.sample_to_study
-                                                     )
-        return embedded_dataset
+        return dataset
 
     def save_model(self, out_path: str) -> None:
         """
