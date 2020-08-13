@@ -1,5 +1,6 @@
 # These paths are relative to the saged root directory.
 # If you want to run tests from somewhere else, you'll have to modify them
+name: "RefineBioMixedDataset"
 compendium_path: "test/data/test_expression.tsv"
 label_path: "test/data/test_labels.pkl"
 metadata_path: "test/data/test_metadata.json"
