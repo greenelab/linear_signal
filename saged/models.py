@@ -543,12 +543,14 @@ class PytorchSupervised(ExpressionModel):
             for batch in train_loader:
                 expression, labels = batch
                 expression = expression.float().to(device)
+                labels = labels.squeeze()
+
                 labels = labels.to(device)
 
                 self.optimizer.zero_grad()
                 output = self.model(expression)
 
-                loss = self.loss_fn(output.unsqueeze(-1), labels)
+                loss = self.loss_fn(output, labels)
                 loss.backward()
                 self.optimizer.step()
 
