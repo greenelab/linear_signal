@@ -134,6 +134,15 @@ class ExpressionModel(ABC):
         """
         raise NotImplementedError
 
+    def free_memory(self) -> None:
+        """
+        Some models need help freeing the memory allocated to them. Others do not.
+        This function is a placeholder that can be overridden by inheriting classes
+        if needed. PytorchSupervised is a good example of what a custom free_memory function
+        does.
+        """
+        pass
+
     @abstractmethod
     def fit(self, dataset: LabeledDataset) -> ModelResults:
         """
@@ -409,6 +418,16 @@ class PytorchSupervised(ExpressionModel):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+    def free_memory(self) -> None:
+        """
+        The model subclass and optimizer used by PytorchSupervised don't release their
+        GPU memory by default when the main class is deleted. This function fixes that
+
+        See https://github.com/greenelab/saged/issues/9 for more details
+        """
+        del self.model
+        del self.optimizer
+
     @classmethod
     def load_model(classobject,
                    checkpoint_path: str,
@@ -524,12 +543,14 @@ class PytorchSupervised(ExpressionModel):
             for batch in train_loader:
                 expression, labels = batch
                 expression = expression.float().to(device)
+                labels = labels.squeeze()
+
                 labels = labels.to(device)
 
                 self.optimizer.zero_grad()
                 output = self.model(expression)
 
-                loss = self.loss_fn(output.unsqueeze(-1), labels)
+                loss = self.loss_fn(output, labels)
                 loss.backward()
                 self.optimizer.step()
 

@@ -110,8 +110,9 @@ if __name__ == '__main__':
 
         # Train the model on the training data
         supervised_model.fit(train_data)
-
         predictions, true_labels = supervised_model.evaluate(val_data)
+
+        supervised_model.free_memory()
 
         # TODO more measures than Top-1 accuracy
         accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
