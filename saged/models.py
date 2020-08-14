@@ -736,7 +736,8 @@ class PCA(UnsupervisedModel):
     """
     def __init__(self,
                  n_components: int,
-                 seed: int = 42) -> None:
+                 seed: int = 42,
+                 **kwargs) -> None:
         """
         PCA initialization function
 
@@ -777,7 +778,10 @@ class PCA(UnsupervisedModel):
         -------
         self: The trained version of the model
         """
-        X = dataset.get_all_data()
+        if issubclass(type(dataset), LabeledDataset):
+            X = dataset.get_all_data()[0]
+        else:
+            X = dataset.get_all_data()
         self.model = self.model.fit(X)
 
         return self
@@ -796,7 +800,11 @@ class PCA(UnsupervisedModel):
         -------
         dataset: The transformed version of the dataset passed in
         """
-        X = dataset.get_all_data()
+        if issubclass(type(dataset), LabeledDataset):
+            X = dataset.get_all_data()[0]
+        else:
+            X = dataset.get_all_data()
+        print(X)
         X_embedded = self.model.transform(X)
 
         dataset.set_all_data(X_embedded.T)
