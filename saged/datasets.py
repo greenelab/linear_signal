@@ -258,6 +258,19 @@ class LabeledDataset(ExpressionDataset):
         raise NotImplementedError
 
     @abstractmethod
+    def get_all_data() -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Returns all the expression data and labels from the dataset in the
+        form of an (X,y) tuple where both X and y are numpy arrays
+
+        Returns
+        -------
+        X: The gene expression data in a samples x genes array
+        y: The label corresponding to each sample in X
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def subset_samples_to_labels(self,
                                  labels: List[str],
                                  ) -> "LabeledDataset":

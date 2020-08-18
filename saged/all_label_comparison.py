@@ -100,6 +100,15 @@ if __name__ == '__main__':
             unsupervised_model.fit(available_data)
             train_data = unsupervised_model.transform(train_data)
 
+            # Embed the validation data
+            val_data = unsupervised_model.transform(val_data)
+
+            # Adjust the input size since we aren't using the original dimensionality
+            input_size = len(train_data.get_features())
+
+            # Reset filters on all_data which were changed to create available_data
+            all_data.reset_filters()
+
         with open(args.supervised_config) as supervised_file:
             supervised_config = yaml.safe_load(supervised_file)
             supervised_config['input_size'] = input_size

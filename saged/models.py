@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import saged.utils as utils
-from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset
+from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset, ExpressionDataset
 
 
 class ModelResults():
@@ -736,7 +736,8 @@ class PCA(UnsupervisedModel):
     """
     def __init__(self,
                  n_components: int,
-                 seed: int = 42) -> None:
+                 seed: int = 42,
+                 **kwargs) -> None:
         """
         PCA initialization function
 
@@ -777,14 +778,15 @@ class PCA(UnsupervisedModel):
         -------
         self: The trained version of the model
         """
-        X = dataset.get_all_data()
+        if issubclass(type(dataset), LabeledDataset):
+            X = dataset.get_all_data()[0]
+        else:
+            X = dataset.get_all_data()
         self.model = self.model.fit(X)
 
         return self
 
-    def transform(self,
-                  dataset: Union[UnlabeledDataset, MixedDataset]) -> Union[UnlabeledDataset,
-                                                                           MixedDataset]:
+    def transform(self, dataset: ExpressionDataset) -> ExpressionDataset:
         """
         Use the learned embedding from the model to embed the given dataset
 
@@ -794,14 +796,23 @@ class PCA(UnsupervisedModel):
 
         Returns
         -------
-        dataset: The transformed version of the dataset passed in
+        dataset_copy: The transformed version of a copy of the dataset passed in
         """
-        X = dataset.get_all_data()
+        if issubclass(type(dataset), LabeledDataset):
+            X = dataset.get_all_data()[0]
+        else:
+            X = dataset.get_all_data()
         X_embedded = self.model.transform(X)
 
-        dataset.set_all_data(X_embedded.T)
+        # This is necessary to match the sklearn API by not overwriting the original dataset
+        # There may be an edge case where this breaks the get_studies function since the
+        # transformed and original dataset will share references to `is_changed`, but I don't
+        # think that will be the case.
+        dataset_copy = copy.copy(dataset)
 
-        return dataset
+        dataset_copy.set_all_data(X_embedded.T)
+
+        return dataset_copy
 
     def save_model(self, out_path: str) -> None:
         """
