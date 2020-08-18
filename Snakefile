@@ -10,13 +10,13 @@ wildcard_constraints:
 rule all:
     input:
         # all_label_comparisons outputs 
-        expand("results/{supervised}.{dataset}.{seed}.tsv", 
+        expand("results/all_labels.{supervised}.{dataset}.{seed}.tsv", 
                supervised=SUPERVISED,
                dataset=DATASETS,
                seed=range(0,5)
                ),
         # all_label_comparison_unsupervised
-        expand("results/{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
+        expand("results/all_labels.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
                unsupervised=UNSUPERVISED,
                supervised=SUPERVISED,
                dataset=DATASETS,
@@ -30,10 +30,10 @@ rule all_label_comparison:
     output:
         # There is a dot instead of an underscore here because I can't think of
         # a good regex way to differentiate between config file and dataset file names
-        "results/{supervised}.{dataset}.{seed}.tsv"
+        "results/all_labels.{supervised}.{dataset}.{seed}.tsv"
     shell:
         "python saged/all_label_comparison.py {input.dataset_config} {input.supervised_model} " 
-        "results/{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "results/all_labels.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed}"
 
@@ -47,10 +47,10 @@ rule all_label_comparison_unsupervised:
     output:
         # There is a dot instead of an underscore here because I can't think of
         # a good regex way to differentiate between config file and dataset file names
-        "results/{unsupervised}.{supervised}.{dataset}.{seed}.tsv"
+        "results/all_labels.{unsupervised}.{supervised}.{dataset}.{seed}.tsv"
     shell:
         "python saged/all_label_comparison.py {input.dataset_config} {input.supervised_model} "
-        "results/{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "results/all_labels.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--unsupervised_config {input.unsupervised_model} " 
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed}"
