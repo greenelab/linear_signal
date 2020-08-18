@@ -235,7 +235,7 @@ def load_compendium_file(compendium_path: Union[str, Path]) -> pd.DataFrame:
     -------
     expression_df: A dataframe where the rows are genes anbd the columns are samples
     """
-    expression_df = pd.read_csv(compendium_path, sep='\t', index_col=0)
+    expression_df = pd.read_pickle(compendium_path)
 
     return expression_df
 
