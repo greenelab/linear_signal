@@ -241,7 +241,6 @@ def load_compendium_file(compendium_path: Union[str, Path]) -> pd.DataFrame:
     except pickle.UnpicklingError:
         expression_df = pd.read_csv(compendium_path, sep='\t', index_col=0)
 
-
     return expression_df
 
 
