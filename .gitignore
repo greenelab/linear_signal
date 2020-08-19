@@ -4,3 +4,4 @@ logs/
 *__pycache__*
 *.egg-info*
 *secrets.yml*
+.snakemake
