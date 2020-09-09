@@ -545,6 +545,10 @@ class PytorchSupervised(ExpressionModel):
                 expression = expression.float().to(device)
                 labels = labels.squeeze()
 
+                # Single element batches get squeezed from 2d into 0d, so unsqueeze them a bit
+                if labels.dim() == 0:
+                    labels = labels.unsqueeze(-1)
+
                 labels = labels.to(device)
 
                 self.optimizer.zero_grad()
