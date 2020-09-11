@@ -60,10 +60,8 @@ if __name__ == '__main__':
             utils.initialize_neptune(neptune_config)
 
     # Get the class of dataset to use with this configuration
-    MixedDatasetClass = getattr(datasets, dataset_config['name'])
-
-    # We no longer need this variable, and it isn't used in the constructor
-    del dataset_config['name']
+    dataset_name = dataset_config.pop('name')
+    MixedDatasetClass = getattr(datasets, dataset_name)
 
     print('Loading all data')
     all_data = MixedDatasetClass.from_config(**dataset_config)
@@ -100,7 +98,8 @@ if __name__ == '__main__':
                 unsupervised_config = yaml.safe_load(unsupervised_file)
 
             # Initialize the unsupervised model
-            UnsupervisedClass = getattr(models, unsupervised_config['name'])
+            unsupervised_model_type = unsupervised_config.pop('name')
+            UnsupervisedClass = getattr(models, unsupervised_model_type)
             unsupervised_model = UnsupervisedClass(**unsupervised_config)
 
             # Get all data not held in the val split
@@ -125,7 +124,8 @@ if __name__ == '__main__':
             supervised_config['input_size'] = input_size
             supervised_config['output_size'] = output_size
 
-        SupervisedClass = getattr(models, supervised_config['name'])
+        supervised_model_type = supervised_config.pop('name')
+        SupervisedClass = getattr(models, supervised_model_type)
         supervised_model = SupervisedClass(**supervised_config)
 
         # Train the model on the training data
