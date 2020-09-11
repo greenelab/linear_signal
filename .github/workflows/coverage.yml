@@ -21,6 +21,7 @@ jobs:
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         $CONDA/bin/conda env update --file environment.yml --name base
     - name: Calculate test coverage
-      env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      env: 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         $CONDA/bin/coveralls
