@@ -2,10 +2,15 @@
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
+NUM_SEEDS = 5
 
 wildcard_constraints:
     # Random seeds should be numbers
     seed="\d+"
+
+ruleorder:
+    # Fix ambiguity with label wildcard
+    single_label_unsupervised > single_label
 
 rule all:
     input:
@@ -15,14 +20,27 @@ rule all:
         expand("results/all_labels.{supervised}.{dataset}.{seed}.tsv", 
                supervised=SUPERVISED,
                dataset=DATASETS,
-               seed=range(0,5)
+               seed=range(0,NUM_SEEDS)
                ),
         # all_label_comparison_unsupervised
         expand("results/all_labels.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
                unsupervised=UNSUPERVISED,
                supervised=SUPERVISED,
                dataset=DATASETS,
-               seed=range(0,5)
+               seed=range(0,NUM_SEEDS)
+               ),
+        # single_label
+        expand("results/single_label.sepsis.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # single_label_unsupervised
+        expand("results/single_label.sepsis.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
+               unsupervised=UNSUPERVISED,
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS),
                ),
 
 rule pickle_compendium:
@@ -67,3 +85,35 @@ rule all_label_comparison_unsupervised:
         "--unsupervised_config {input.unsupervised_model} " 
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed}"
+
+rule single_label:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/single_label.{label}.{supervised}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/single_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "results/single_label.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+
+rule single_label_unsupervised:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+        unsupervised_model = "model_configs/unsupervised/{unsupervised}.yml",
+    output:
+        "results/single_label.{label}.{unsupervised}.{supervised}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/single_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "results/single_label.{wildcards.label}.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--unsupervised_config {input.unsupervised_model} " 
+        "--label {wildcards.label} "
+        "--negative_class healthy "
