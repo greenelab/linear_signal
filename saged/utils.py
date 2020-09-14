@@ -16,9 +16,9 @@ from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
 from sklearn.metrics import accuracy_score
 
-from saged import datasets
-import saged.models as models
-from saged.datasets import MixedDataset, LabeledDataset, UnlabeledDataset
+import datasets
+import models
+from datasets import MixedDataset, LabeledDataset, UnlabeledDataset
 
 
 BLOOD_KEYS = ['blood',
@@ -425,6 +425,8 @@ def embed_data(unsupervised_model: models.UnsupervisedModel,
 
     # Embed the training data
     unsupervised_model.fit(available_data)
+    print(unsupervised_model.model)
+    print(train_data.shape)
     train_data = unsupervised_model.transform(train_data)
 
     # Embed the validation data
