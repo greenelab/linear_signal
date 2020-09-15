@@ -132,7 +132,11 @@ if __name__ == '__main__':
         out_file.write('accuracy\ttrain studies\ttrain sample count\n')
         for (accuracy,
              train_study_str,
-             supervised_train_samples) in zip(accuracies,
-                                              supervised_train_studies,
-                                              supervised_train_sample_counts):
-            out_file.write(f'{accuracy}\t{train_study_str}\t{supervised_train_samples}\n')
+             supervised_train_samples,
+             percent) in zip(accuracies,
+                             supervised_train_studies,
+                             supervised_train_sample_counts,
+                             subset_percents,
+                             ):
+            out_file.write(f'{accuracy}\t{train_study_str}\t{supervised_train_samples}\t')
+            out_file.write('{percent}\n')
