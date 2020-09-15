@@ -32,4 +32,10 @@ jobs:
         $CONDA/bin/pip install .
         export R_HOME=`$CONDA/bin/R RHOME`
         conda install pytest
-        $CONDA/bin/pytest
+        $CONDA/bin/pytest --cov=saged
+    - name: Upload coverage to coveralls
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        $CONDA/bin/coveralls
+
