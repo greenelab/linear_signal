@@ -5,7 +5,7 @@ import json
 import pickle
 from pathlib import Path
 import random
-from typing import Any, Dict, Set, Text, Union, List, Tuple
+from typing import Any, Dict, Set, Text, Union, List
 
 import neptune
 import numpy as np
@@ -15,10 +15,6 @@ import yaml
 from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
 from sklearn.metrics import accuracy_score
-
-import datasets
-import models
-from datasets import MixedDataset, LabeledDataset, UnlabeledDataset
 
 
 BLOOD_KEYS = ['blood',
@@ -369,88 +365,3 @@ def deterministic_shuffle_set(set_: set) -> List[Any]:
     shuffled_list = random.sample(sorted(list(set_)), len(set_))
 
     return shuffled_list
-
-
-def init_model(config_path: str):
-    """
-    Initialize a model given its config file
-
-    Arguments
-    ---------
-    config_path: The path to the yml file with information on how to initialize the model
-
-    Returns
-    -------
-    model: The initialized model
-    """
-    with open(config_path) as config_file:
-        config = yaml.safe_load(config_file)
-
-    model_type = config.pop('name')
-    model_class = getattr(models, model_type)
-    model = model_class(**config)
-
-    return model
-
-
-def embed_data(unsupervised_model: models.UnsupervisedModel,
-               all_data: MixedDataset,
-               train_data: LabeledDataset,
-               unlabeled_data: UnlabeledDataset,
-               val_data: LabeledDataset,
-               ) -> Tuple[LabeledDataset, LabeledDataset]:
-    """
-    Initialize an unsupervised model and use it to reduce the dimensionality of the data
-
-    Arguments
-    ---------
-    unsupervised_config: The path to the yml file detailing how to initialize the
-                         unsupervised model
-    all_data: The object storing the data for the entire dataset
-    train_data: The subset of the data to be used for training
-    unlabeled_data: The subset of the data that doesn't have labels
-    val_data: The subset of the data that will be used for validation. To avoid data leakage, the
-              validation data will not be used to train the unsupervised embedding, but will be
-              embedded
-
-    Returns
-    -------
-    train_data: The embedded training data
-    val_data: The embedded validation data
-    unsupervised_model: The fitted version of the model
-    """
-    # Get all data not held in the val split
-    available_data = all_data.subset_to_samples(train_data.get_samples() +
-                                                unlabeled_data.get_samples())
-
-    # Embed the training data
-    unsupervised_model.fit(available_data)
-    print(unsupervised_model.model)
-    print(train_data.shape)
-    train_data = unsupervised_model.transform(train_data)
-
-    # Embed the validation data
-    val_data = unsupervised_model.transform(val_data)
-
-    # Reset filters on all_data which were changed to create available_data
-    all_data.reset_filters()
-
-    return train_data, val_data, unsupervised_model
-
-
-def load_binary_data(dataset_config_path: str,
-                     label: str,
-                     negative_class: str
-                     ) -> Tuple[MixedDataset, LabeledDataset, UnlabeledDataset]:
-    with open(dataset_config_path) as config_file:
-        dataset_config = yaml.safe_load(config_file)
-
-    dataset_name = dataset_config.pop('name')
-    MixedDatasetClass = getattr(datasets, dataset_name)
-
-    all_data = MixedDatasetClass.from_config(**dataset_config)
-    labeled_data = all_data.get_labeled()
-    labeled_data.subset_samples_to_labels([label, negative_class])
-    unlabeled_data = all_data.get_unlabeled()
-
-    return all_data, labeled_data, unlabeled_data
