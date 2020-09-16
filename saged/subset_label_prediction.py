@@ -129,7 +129,7 @@ if __name__ == '__main__':
             train_data.reset_filters()
 
     with open(args.out_file, 'w') as out_file:
-        out_file.write('accuracy\ttrain studies\ttrain sample count\n')
+        out_file.write('accuracy\ttrain studies\ttrain sample count\tfraction of healthy used\n')
         for (accuracy,
              train_study_str,
              supervised_train_samples,
