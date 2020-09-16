@@ -139,4 +139,4 @@ if __name__ == '__main__':
                              subset_percents,
                              ):
             out_file.write(f'{accuracy}\t{train_study_str}\t{supervised_train_samples}\t')
-            out_file.write('{percent}\n')
+            out_file.write(f'{percent}\n')
