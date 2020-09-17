@@ -361,6 +361,11 @@ class PytorchSupervised(ExpressionModel):
         self.train_fraction = train_fraction
         self.train_count = train_count
 
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(seed)
+
         # We're invoking the old magic now. In python the answer to 'How do I get a class from
         # the current file dynamically' is 'Dump all the global variables for the file, it will
         # be there somewhere'
@@ -374,9 +379,6 @@ class PytorchSupervised(ExpressionModel):
 
         self.device = torch.device(device)
 
-        torch.manual_seed = seed
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
 
     def free_memory(self) -> None:
         """
