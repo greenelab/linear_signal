@@ -49,11 +49,7 @@ if __name__ == '__main__':
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
-    with open(args.supervised_config) as supervised_file:
-        supervised_config = yaml.safe_load(supervised_file)
-
     # Parse config file
-
     if args.neptune_config is not None:
         with open(args.neptune_config) as neptune_file:
             neptune_config = yaml.safe_load(neptune_file)

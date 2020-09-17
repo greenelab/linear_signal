@@ -49,11 +49,7 @@ if __name__ == '__main__':
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
-    with open(args.supervised_config) as supervised_file:
-        supervised_config = yaml.safe_load(supervised_file)
-
     # Parse config file
-
     if args.neptune_config is not None:
         with open(args.neptune_config) as neptune_file:
             neptune_config = yaml.safe_load(neptune_file)
@@ -83,9 +79,20 @@ if __name__ == '__main__':
             train_data = train_data.subset_samples_for_label(subset_percent,
                                                              args.negative_class,
                                                              args.seed)
+            # Skip entries where there is only training data for one class
+            if len(train_data.get_classes()) == 1:
+                continue
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
             val_data = labeled_splits[i]
+            print('Val data: {}'.format(len(val_data)))
+
+            # Subset val data as well to avoid train/val label distribution mismatch that would
+            # otherwise confound results
+            val_data = val_data.subset_samples_for_label(subset_percent,
+                                                         args.negative_class,
+                                                         args.seed)
+            print('Subset val data: {}'.format(len(val_data)))
 
             input_size = len(train_data.get_features())
             output_size = len(train_data.get_classes())
@@ -127,6 +134,7 @@ if __name__ == '__main__':
             subset_percents.append(subset_percent)
 
             train_data.reset_filters()
+            val_data.reset_filters()
 
     with open(args.out_file, 'w') as out_file:
         out_file.write('accuracy\ttrain studies\ttrain sample count\tfraction of healthy used\n')
