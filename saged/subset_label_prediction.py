@@ -92,6 +92,9 @@ if __name__ == '__main__':
             val_data = val_data.subset_samples_for_label(subset_percent,
                                                          args.negative_class,
                                                          args.seed)
+            if len(val_data) == 0:
+                val_data.reset_filters()
+
             print('Subset val data: {}'.format(len(val_data)))
 
             input_size = len(train_data.get_features())
