@@ -57,6 +57,19 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS),
                ),
+        # subset_tb
+        expand("results/subset_label.tb.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # subset_tb_unsupervised
+        expand("results/subset_label.tb.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
+               unsupervised=UNSUPERVISED,
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS),
+               ),
 
 rule pickle_compendium:
     input:
