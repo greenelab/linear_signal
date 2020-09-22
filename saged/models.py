@@ -379,7 +379,6 @@ class PytorchSupervised(ExpressionModel):
 
         self.device = torch.device(device)
 
-
     def free_memory(self) -> None:
         """
         The model subclass and optimizer used by PytorchSupervised don't release their
