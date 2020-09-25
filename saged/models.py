@@ -3,7 +3,7 @@
 import copy
 import pickle
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Tuple
+from typing import Union, Iterable, Tuple, Any
 
 import neptune
 import numpy as np
@@ -19,6 +19,26 @@ import saged.utils as utils
 from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset, ExpressionDataset
 
 
+def get_model_by_name(model_name: str) -> Any:
+    """
+    This function invokes old magic to get a model class from the current file dynamically.
+    In python the answer to 'How do I get a class from the current file dynamically' is
+    'Dump all the global variables for the file, it will be there somewhere'
+    https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
+
+    Arguments
+    ---------
+    model_name: The name of the class object to return
+
+    Returns
+    -------
+    model_class: The class the model specified e.g. PCA or LogisticRegression
+    """
+    model_class = globals()[model_name]
+
+    return model_class
+
+
 def embed_data(unsupervised_config: dict,
                all_data: MixedDataset,
                train_data: LabeledDataset,
@@ -27,6 +47,7 @@ def embed_data(unsupervised_config: dict,
                ) -> Tuple[LabeledDataset, LabeledDataset, "UnsupervisedModel"]:
     """
     Initialize an unsupervised model and use it to reduce the dimensionality of the data
+
     Arguments
     ---------
     unsupervised_config: The path to the yml file detailing how to initialize the
@@ -45,7 +66,8 @@ def embed_data(unsupervised_config: dict,
     """
     # Initialize the unsupervised model
     unsupervised_model_type = unsupervised_config.pop('name')
-    UnsupervisedClass = globals()[unsupervised_model_type]
+    UnsupervisedClass = get_model_by_name(unsupervised_model_type)
+
     unsupervised_model = UnsupervisedClass(**unsupervised_config)
 
     # Get all data not held in the val split
@@ -370,7 +392,7 @@ class PytorchSupervised(ExpressionModel):
         # the current file dynamically' is 'Dump all the global variables for the file, it will
         # be there somewhere'
         # https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
-        model_class = globals()[model_name]
+        model_class = get_model_by_name(model_name)
         self.model = model_class(**kwargs)
 
         self.optimizer = optimizer_class(self.model.parameters(),
