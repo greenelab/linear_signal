@@ -388,10 +388,6 @@ class PytorchSupervised(ExpressionModel):
         torch.backends.cudnn.benchmark = False
         np.random.seed(seed)
 
-        # We're invoking the old magic now. In python the answer to 'How do I get a class from
-        # the current file dynamically' is 'Dump all the global variables for the file, it will
-        # be there somewhere'
-        # https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
         model_class = get_model_by_name(model_name)
         self.model = model_class(**kwargs)
 
