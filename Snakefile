@@ -11,6 +11,8 @@ wildcard_constraints:
 ruleorder:
     # Fix ambiguity with label wildcard
     single_label_unsupervised > single_label
+    
+ruleorder: subset_label_unsupervised > subset_label
 
 rule all:
     input:
@@ -37,6 +39,32 @@ rule all:
                ),
         # single_label_unsupervised
         expand("results/single_label.sepsis.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
+               unsupervised=UNSUPERVISED,
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # subset_label
+        expand("results/subset_label.sepsis.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # subset_label_unsupervised
+        expand("results/subset_label.sepsis.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
+               unsupervised=UNSUPERVISED,
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # subset_tb
+        expand("results/subset_label.tb.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # subset_tb_unsupervised
+        expand("results/subset_label.tb.{unsupervised}.{supervised}.{dataset}.{seed}.tsv",
                unsupervised=UNSUPERVISED,
                supervised=SUPERVISED,
                dataset=DATASETS,
@@ -112,6 +140,38 @@ rule single_label_unsupervised:
     shell:
         "python saged/single_label_prediction.py {input.dataset_config} {input.supervised_model} " 
         "results/single_label.{wildcards.label}.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--unsupervised_config {input.unsupervised_model} " 
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+
+rule subset_label:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/subset_label.{label}.{supervised}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "results/subset_label.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+
+rule subset_label_unsupervised:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+        unsupervised_model = "model_configs/unsupervised/{unsupervised}.yml",
+    output:
+        "results/subset_label.{label}.{unsupervised}.{supervised}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "results/subset_label.{wildcards.label}.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--unsupervised_config {input.unsupervised_model} " 

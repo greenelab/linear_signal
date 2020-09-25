@@ -3,7 +3,7 @@
 import copy
 import pickle
 from abc import ABC, abstractmethod
-from typing import Union, Iterable, Tuple
+from typing import Union, Iterable, Tuple, Any
 
 import neptune
 import numpy as np
@@ -17,6 +17,74 @@ from tqdm import tqdm
 
 import saged.utils as utils
 from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset, ExpressionDataset
+
+
+def get_model_by_name(model_name: str) -> Any:
+    """
+    This function invokes old magic to get a model class from the current file dynamically.
+    In python the answer to 'How do I get a class from the current file dynamically' is
+    'Dump all the global variables for the file, it will be there somewhere'
+    https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
+
+    Arguments
+    ---------
+    model_name: The name of the class object to return
+
+    Returns
+    -------
+    model_class: The class the model specified e.g. PCA or LogisticRegression
+    """
+    model_class = globals()[model_name]
+
+    return model_class
+
+
+def embed_data(unsupervised_config: dict,
+               all_data: MixedDataset,
+               train_data: LabeledDataset,
+               unlabeled_data: UnlabeledDataset,
+               val_data: LabeledDataset,
+               ) -> Tuple[LabeledDataset, LabeledDataset, "UnsupervisedModel"]:
+    """
+    Initialize an unsupervised model and use it to reduce the dimensionality of the data
+
+    Arguments
+    ---------
+    unsupervised_config: The path to the yml file detailing how to initialize the
+                         unsupervised model
+    all_data: The object storing the data for the entire dataset
+    train_data: The subset of the data to be used for training
+    unlabeled_data: The subset of the data that doesn't have labels
+    val_data: The subset of the data that will be used for validation. To avoid data leakage, the
+              validation data will not be used to train the unsupervised embedding, but will be
+              embedded
+    Returns
+    -------
+    train_data: The embedded training data
+    val_data: The embedded validation data
+    unsupervised_model: The fitted version of the model
+    """
+    # Initialize the unsupervised model
+    unsupervised_model_type = unsupervised_config.pop('name')
+    UnsupervisedClass = get_model_by_name(unsupervised_model_type)
+
+    unsupervised_model = UnsupervisedClass(**unsupervised_config)
+
+    # Get all data not held in the val split
+    available_data = all_data.subset_to_samples(train_data.get_samples() +
+                                                unlabeled_data.get_samples())
+
+    # Embed the training data
+    unsupervised_model.fit(available_data)
+    train_data = unsupervised_model.transform(train_data)
+
+    # Embed the validation data
+    val_data = unsupervised_model.transform(val_data)
+
+    # Reset filters on all_data which were changed to create available_data
+    all_data.reset_filters()
+
+    return train_data, val_data, unsupervised_model
 
 
 class ExpressionModel(ABC):
@@ -315,11 +383,12 @@ class PytorchSupervised(ExpressionModel):
         self.train_fraction = train_fraction
         self.train_count = train_count
 
-        # We're invoking the old magic now. In python the answer to 'How do I get a class from
-        # the current file dynamically' is 'Dump all the global variables for the file, it will
-        # be there somewhere'
-        # https://stackoverflow.com/questions/734970/python-reference-to-a-class-from-a-string
-        model_class = globals()[model_name]
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(seed)
+
+        model_class = get_model_by_name(model_name)
         self.model = model_class(**kwargs)
 
         self.optimizer = optimizer_class(self.model.parameters(),
@@ -327,10 +396,6 @@ class PytorchSupervised(ExpressionModel):
                                          weight_decay=weight_decay)
 
         self.device = torch.device(device)
-
-        torch.manual_seed = seed
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
 
     def free_memory(self) -> None:
         """

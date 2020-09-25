@@ -6,9 +6,28 @@ from typing import Sequence, Tuple, List, Union, Set, Dict
 
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn import preprocessing
 
 from saged import utils
+
+
+def load_binary_data(dataset_config_path: str,
+                     label: str,
+                     negative_class: str
+                     ) -> Tuple["MixedDataset", "LabeledDataset", "UnlabeledDataset"]:
+    with open(dataset_config_path) as config_file:
+        dataset_config = yaml.safe_load(config_file)
+
+    dataset_name = dataset_config.pop('name')
+    MixedDatasetClass = globals()[dataset_name]
+
+    all_data = MixedDatasetClass.from_config(**dataset_config)
+    labeled_data = all_data.get_labeled()
+    labeled_data.subset_samples_to_labels([label, negative_class])
+    unlabeled_data = all_data.get_unlabeled()
+
+    return all_data, labeled_data, unlabeled_data
 
 
 class ExpressionDataset(ABC):

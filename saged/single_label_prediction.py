@@ -49,28 +49,15 @@ if __name__ == '__main__':
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
-    with open(args.supervised_config) as supervised_file:
-        supervised_config = yaml.safe_load(supervised_file)
-
     # Parse config file
-
     if args.neptune_config is not None:
         with open(args.neptune_config) as neptune_file:
             neptune_config = yaml.safe_load(neptune_file)
             utils.initialize_neptune(neptune_config)
 
-    # Get the class of dataset to use with this configuration
-    dataset_name = dataset_config.pop('name')
-    MixedDatasetClass = getattr(datasets, dataset_name)
-
-    print('Loading all data')
-    all_data = MixedDatasetClass.from_config(**dataset_config)
-    print('Subsetting labeled data')
-    labeled_data = all_data.get_labeled()
-    labeled_data.subset_samples_to_labels([args.label, args.negative_class])
-    print('Subsetting unlabeled data')
-    unlabeled_data = all_data.get_unlabeled()
-    print('Splitting data')
+    all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
+                                                                       args.label,
+                                                                       args.negative_class)
 
     # Get fivefold cross-validation splits
     labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
@@ -97,27 +84,14 @@ if __name__ == '__main__':
             with open(args.unsupervised_config) as unsupervised_file:
                 unsupervised_config = yaml.safe_load(unsupervised_file)
 
-            # Initialize the unsupervised model
-            unsupervised_model_type = unsupervised_config.pop('name')
-            UnsupervisedClass = getattr(models, unsupervised_model_type)
-            unsupervised_model = UnsupervisedClass(**unsupervised_config)
-
-            # Get all data not held in the val split
-            available_data = all_data.subset_to_samples(train_data.get_samples() +
-                                                        unlabeled_data.get_samples())
-
-            # Embed the training data
-            unsupervised_model.fit(available_data)
-            train_data = unsupervised_model.transform(train_data)
-
-            # Embed the validation data
-            val_data = unsupervised_model.transform(val_data)
+            train_data, val_data, unsupervised_model = models.embed_data(unsupervised_config,
+                                                                         all_data,
+                                                                         train_data,
+                                                                         unlabeled_data,
+                                                                         val_data)
 
             # Adjust the input size since we aren't using the original dimensionality
             input_size = len(train_data.get_features())
-
-            # Reset filters on all_data which were changed to create available_data
-            all_data.reset_filters()
 
         with open(args.supervised_config) as supervised_file:
             supervised_config = yaml.safe_load(supervised_file)
