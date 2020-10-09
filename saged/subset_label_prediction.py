@@ -44,6 +44,12 @@ if __name__ == '__main__':
                         help='The number of splits to use in cross-validation',
                         type=int,
                         default=5)
+    parser.add_argument('--semi-supervised',
+                        help='This flag tells the script that the config file passed in is a '
+                             'semi-supervised model',
+                        action='store_true',
+                        default=False)
+
     args = parser.parse_args()
 
     with open(args.dataset_config) as data_file:
@@ -84,6 +90,9 @@ if __name__ == '__main__':
                 continue
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
+            if args.semi_supervised:
+                print('Unlabeled samples: {}'.format(len(unlabeled_data.get_samples())))
+
             val_data = labeled_splits[i]
             print('Val data: {}'.format(len(val_data)))
 
@@ -123,8 +132,16 @@ if __name__ == '__main__':
             SupervisedClass = getattr(models, supervised_model_type)
             supervised_model = SupervisedClass(**supervised_config)
 
+            # If the model is semi-supervised, train it with the train data and the unlabeled data
+            if args.semi_supervised:
+                all_data = all_data.subset_to_samples(train_data.get_samples() +
+                                                      unlabeled_data.get_samples())
+                supervised_model.fit(all_data)
+                all_data.reset_filters()
             # Train the model on the training data
-            supervised_model.fit(train_data)
+            else:
+                supervised_model.fit(train_data)
+
             predictions, true_labels = supervised_model.evaluate(val_data)
 
             supervised_model.free_memory()

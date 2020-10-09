@@ -879,7 +879,6 @@ class PseudolabelModel(PytorchSupervised):
 
         self.max_alpha = max_alpha
 
-
     def fit(self, dataset: MixedDataset) -> "PseudolabelModel":
         """
         Train a model using the given labeled data
@@ -921,7 +920,7 @@ class PseudolabelModel(PytorchSupervised):
                                                                     seed=seed)
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
-        unlabeled_loader = DataLoader(unlabeled_data, batch_size, shufle=True, drop_last=True)
+        unlabeled_loader = DataLoader(unlabeled_data, batch_size, shuffle=True, drop_last=True)
 
         self.model.to(device)
 
