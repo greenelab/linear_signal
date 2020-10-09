@@ -1,6 +1,7 @@
 """ A module containing the models to be trained on gene expression data """
 
 import copy
+import itertools
 import pickle
 from abc import ABC, abstractmethod
 from typing import Union, Iterable, Tuple, Any
@@ -92,7 +93,6 @@ class ExpressionModel(ABC):
     A model API similar to the scikit-learn API that will specify the
     base acceptable functions for models in this module's benchmarking code
     """
-
     def __init__(self,
                  config: dict) -> None:
         """
@@ -316,6 +316,57 @@ class ThreeLayerClassifier(nn.Module):
         return x
 
 
+class DeepClassifier(nn.Module):
+    """ A deep neural net for use in wrappers like PytorchSupervised"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(DeepClassifier, self).__init__()
+
+        DROPOUT_PROB = .5
+
+        self.fc1 = nn.Linear(input_size, input_size // 2)
+        self.bn1 = nn.BatchNorm1d(input_size // 2)
+        self.fc2 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn2 = nn.BatchNorm1d(input_size // 2)
+        self.fc3 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn3 = nn.BatchNorm1d(input_size // 2)
+        self.fc4 = nn.Linear(input_size // 2, input_size // 4)
+        self.bn4 = nn.BatchNorm1d(input_size // 4)
+        self.fc5 = nn.Linear(input_size // 4, output_size)
+        self.dropout = nn.Dropout(p=DROPOUT_PROB)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.bn1(x)
+
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.bn2(x)
+
+        x = F.relu(self.fc3(x))
+        x = self.dropout(x)
+        x = self.bn3(x)
+
+        x = F.relu(self.fc4(x))
+        x = self.dropout(x)
+        x = self.bn4(x)
+
+        x = self.fc5(x)
+
+        return x
+
+
 class PytorchSupervised(ExpressionModel):
     """
     A wrapper class implementing the ExpressionModel API while remaining modular enough
@@ -486,7 +537,7 @@ class PytorchSupervised(ExpressionModel):
         train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
                                                                train_study_count=train_count,
                                                                seed=seed)
-        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
 
         self.model.to(device)
@@ -626,7 +677,7 @@ class PytorchSupervised(ExpressionModel):
         return self
 
 
-class UnsupervisedModel():
+class UnsupervisedModel(ABC):
     """
     A model API defining the behavior of unsupervised models. Largely follows the sklearn model api
     """
@@ -811,3 +862,181 @@ class PCA(UnsupervisedModel):
         """
         with open(out_path, 'wb') as out_file:
             pickle.dump(self, out_file)
+
+
+class PseudolabelModel(PytorchSupervised):
+    """
+    A wrapper class implementing the ExpressionModel API while remaining modular enough
+    to accept any supervised classifier implementing the nn.Module API.
+    Extends the training logic in PytorchSupervised to use pseudolabeling on unlabeled data
+    """
+    def __init__(self, max_alpha, **kwargs):
+        """
+        Initialize the pseudolabeled model by calling the PytorchSupervised init function
+        then adding on the alpha_max member variable
+        """
+        super().__init__(**kwargs)
+
+        self.max_alpha = max_alpha
+
+
+    def fit(self, dataset: MixedDataset) -> "PseudolabelModel":
+        """
+        Train a model using the given labeled data
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+
+        Returns
+        -------
+        results: The metrics produced during the training process
+
+        Raises
+        ------
+        AttributeError: If train_count and train_fraction are both None
+        """
+        # Set device
+        device = self.device
+
+        seed = self.seed
+        epochs = self.epochs
+        batch_size = self.batch_size
+        experiment_name = self.experiment_name
+        experiment_description = self.experiment_description
+        log_progress = self.log_progress
+
+        train_count = None
+        train_fraction = None
+        train_fraction = getattr(self, 'train_fraction', None)
+        if train_fraction is None:
+            train_count = self.train_count
+
+        labeled_data = dataset.get_labeled()
+        unlabeled_data = dataset.get_unlabeled()
+
+        # Split dataset and create dataloaders
+        train_dataset, tune_dataset = labeled_data.train_test_split(train_fraction=train_fraction,
+                                                                    train_study_count=train_count,
+                                                                    seed=seed)
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
+        tune_loader = DataLoader(tune_dataset, batch_size=1)
+        unlabeled_loader = DataLoader(unlabeled_data, batch_size, shufle=True, drop_last=True)
+
+        self.model.to(device)
+
+        self.loss_fn = self.loss_class()
+        # If the loss function is weighted, weight losses based on the classes' prevalance
+
+        if torch.nn.modules.loss._WeightedLoss in self.loss_class.__bases__:
+            # TODO calculate class weights
+            self.loss_fn = self.loss_class(weight=None)
+
+        if log_progress:
+            experiment = neptune.create_experiment(name=experiment_name,
+                                                   description=experiment_description,
+                                                   params=self.config
+                                                   )
+
+            experiment.set_property('model', str(type(self.model)))
+
+            # Track the baseline (always predicting the most common class)
+            label_counts = tune_dataset.map_labels_to_counts().values()
+
+            tune_baseline = max(label_counts) / sum(label_counts)
+            neptune.log_metric('tune_baseline', tune_baseline)
+
+        best_tune_loss = None
+
+        for epoch in tqdm(range(epochs)):
+
+            # Alpha (the ratio of pseudolabel loss to label loss to use
+            # increases linearly across epochs. This allows the model to ignore pseudolabeling
+            # information while the model is bad, and increases pseudolabels' impact when
+            # the model has been trained on the input data for awhile
+            if epochs > 1:
+                progress = epoch / (epochs-1)
+            else:
+                progress = 0
+            alpha = progress * self.max_alpha
+
+            train_loss = 0
+            train_correct = 0
+            self.model.train()
+
+            # Create an iterator that returns a labeled batch and an unlabeled batch
+            if len(labeled_data) <= len(unlabeled_data):
+                # If there are more unlabeled samples than labeled samples, just stop iterating
+                # once you've seen each labeled sample once
+                train_iterator = zip(train_loader, unlabeled_loader)
+            else:
+                # If the
+                train_iterator = itertools.zip_longest(train_loader,
+                                                       unlabeled_loader,
+                                                       fillvalue=None)
+
+            for train_batch, unlabeled_expression in train_iterator:
+                train_expression, train_labels = train_batch
+                train_expression = train_expression.float().to(device)
+                unlabeled_expression = unlabeled_expression.float().to(device)
+                train_labels = train_labels.squeeze()
+
+                # Single element batches get squeezed from 2d into 0d, so unsqueeze them a bit
+                if train_labels.dim() == 0:
+                    train_labels = train_labels.unsqueeze(-1)
+
+                train_labels = train_labels.to(device)
+
+                self.optimizer.zero_grad()
+                train_output = self.model(train_expression)
+
+                labeled_loss = self.loss_fn(train_output, train_labels)
+
+                # Pseudolabel points and calculate their loss
+                unlabeled_output = self.model(unlabeled_expression)
+                unlabeled_preds = torch.argmax(unlabeled_output, axis=-1)
+                unlabeled_loss = self.loss_fn(unlabeled_output, unlabeled_preds)
+
+                loss = labeled_loss + alpha * unlabeled_loss
+
+                loss.backward()
+                self.optimizer.step()
+
+                train_loss += labeled_loss.item()
+                train_correct += utils.count_correct(train_output, train_labels)
+                # TODO f1 score
+
+            with torch.no_grad():
+                self.model.eval()
+
+                tune_loss = 0
+                tune_correct = 0
+
+                for batch in tune_loader:
+                    expression, labels = batch
+                    expression = expression.float().to(device)
+                    labels = labels.to(device)
+
+                    output = self.model(expression)
+
+                    tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
+                    tune_correct += utils.count_correct(output, labels)
+                    # TODO f1 score
+
+            train_acc = train_correct / len(train_dataset)
+            tune_acc = tune_correct / len(tune_dataset)
+
+            if log_progress:
+                neptune.log_metric('train_loss', epoch, train_loss)
+                neptune.log_metric('train_acc', epoch, train_acc)
+                neptune.log_metric('tune_loss', epoch, tune_loss)
+                neptune.log_metric('tune_acc', epoch, tune_acc)
+
+            # Save model if applicable
+            save_path = getattr(self, 'save_path', None)
+            if save_path is not None:
+                if best_tune_loss is None or tune_loss < best_tune_loss:
+                    best_tune_loss = tune_loss
+                    self.save_model(save_path)
+
+        return self
