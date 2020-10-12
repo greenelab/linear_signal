@@ -37,7 +37,7 @@ if __name__ == '__main__':
                         help='The number of splits to use in cross-validation',
                         type=int,
                         default=5)
-    parser.add_argument('--semi-supervised',
+    parser.add_argument('--semi_supervised',
                         help='This flag tells the script that the config file passed in is a '
                              'semi-supervised model',
                         action='store_true',

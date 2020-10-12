@@ -153,7 +153,7 @@ rule all_label_comparison_semisupervised:
         "results/all_labels.{wildcards.semisupervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
-        "--semi-supervised "
+        "--semi_supervised "
 
 rule single_label:
     input:
@@ -201,7 +201,7 @@ rule single_label_semisupervised:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
-        "--semi-supervised "
+        "--semi_supervised "
 
 rule subset_label:
     input:
@@ -249,4 +249,4 @@ rule subset_label_semisupervised:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
-        "--semi-supervised"
+        "--semi_supervised"
