@@ -949,7 +949,7 @@ class PseudolabelModel(PytorchSupervised):
 
         for epoch in tqdm(range(epochs)):
 
-            # Alpha (the ratio of pseudolabel loss to label loss to use
+            # Alpha (the ratio of pseudolabel loss to label loss to use)
             # increases linearly across epochs. This allows the model to ignore pseudolabeling
             # information while the model is bad, and increases pseudolabels' impact when
             # the model has been trained on the input data for awhile
