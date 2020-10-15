@@ -966,13 +966,15 @@ class PseudolabelModel(PytorchSupervised):
             # Create an iterator that returns a labeled batch and an unlabeled batch
             if len(labeled_data) <= len(unlabeled_data):
                 # If there are more unlabeled samples than labeled samples, just stop iterating
-                # once you've seen each labeled sample once
+                # once you've seen each labeled sample once (zip stops at the end of the
+                # shorter iterator)
                 train_iterator = zip(train_loader, unlabeled_loader)
             else:
-                # If the
-                train_iterator = itertools.zip_longest(train_loader,
-                                                       unlabeled_loader,
-                                                       fillvalue=None)
+                # If there is more labeled data than unlabeled data, then loop the unlabeled
+                # data iterator
+                # NOTE: itertools.cycle eats a lot of memory so if you have a lot more labeled
+                # data than unlabeled data this might start swapping
+                train_iterator = zip(train_loader, itertools.cycle(unlabeled_data))
 
             for train_batch, unlabeled_expression in train_iterator:
                 train_expression, train_labels = train_batch
