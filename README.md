@@ -1,7 +1,7 @@
 # SAGED
 
 ![Status Badge](https://github.com/greenelab/saged/workflows/PythonTests/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/ben-heil/saged/badge.svg?branch=housekeeping)](https://coveralls.io/github/ben-heil/saged?branch=housekeeping)
+[![Coverage Status](https://coveralls.io/repos/github/ben-heil/saged/badge.svg?branch=master)](https://coveralls.io/github/ben-heil/saged?branch=master)
 
 
 This repository contains analyses designed to determine whether the semi-supervised learning
