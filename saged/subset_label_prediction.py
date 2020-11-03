@@ -49,6 +49,9 @@ if __name__ == '__main__':
                              'semi-supervised model',
                         action='store_true',
                         default=False)
+    parser.add_argument('--batch_correction_method',
+                        help='The method to use to correct for batch effects',
+                        default=None)
 
     args = parser.parse_args()
 
@@ -64,6 +67,12 @@ if __name__ == '__main__':
     all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
                                                                        args.label,
                                                                        args.negative_class)
+    # Correct for batch effects
+    if args.batch_correction_method is not None:
+        all_data = datasets.correct_batch_effects(all_data, args.batch_correction_method)
+        labeled_data = all_data.get_labeled()
+        labeled_data.subset_samples_to_labels([args.label, args.negative_class])
+        unlabeled_data = all_data.get_unlabeled()
 
     # Get fivefold cross-validation splits
     labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
