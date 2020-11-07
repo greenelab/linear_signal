@@ -80,6 +80,8 @@ if __name__ == '__main__':
     # Train the model on each fold
     accuracies = []
     supervised_train_studies = []
+    supervised_train_sample_names = []
+    supervised_val_sample_names = []
     supervised_train_sample_counts = []
     subset_percents = []
     for i in range(len(labeled_splits)):
@@ -159,6 +161,8 @@ if __name__ == '__main__':
 
             accuracies.append(accuracy)
             supervised_train_studies.append(','.join(train_data.get_studies()))
+            supervised_train_sample_names.append(','.join(train_data.get_samples()))
+            supervised_val_sample_names.append(','.join(val_data.get_samples()))
             supervised_train_sample_counts.append(len(train_data))
             subset_percents.append(subset_percent)
 
@@ -166,14 +170,19 @@ if __name__ == '__main__':
             val_data.reset_filters()
 
     with open(args.out_file, 'w') as out_file:
-        out_file.write('accuracy\ttrain studies\ttrain sample count\tfraction of healthy used\n')
+        out_file.write('accuracy\ttrain studies\ttrain samples\tval samples\ttrain sample count\t')
+        out_file.write('fraction of healthy used\n')
         for (accuracy,
              train_study_str,
+             train_sample_str,
+             val_sample_str,
              supervised_train_samples,
              percent) in zip(accuracies,
                              supervised_train_studies,
+                             supervised_train_sample_names,
+                             supervised_val_sample_names,
                              supervised_train_sample_counts,
                              subset_percents,
                              ):
-            out_file.write(f'{accuracy}\t{train_study_str}\t{supervised_train_samples}\t')
-            out_file.write(f'{percent}\n')
+            out_file.write(f'{accuracy}\t{train_study_str}\t{train_sample_str}\t')
+            out_file.write(f'{val_sample_str}\t{supervised_train_samples}\t{percent}\n')
