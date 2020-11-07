@@ -108,9 +108,8 @@ if __name__ == '__main__':
 
             # Subset val data as well to avoid train/val label distribution mismatch that would
             # otherwise confound results
-            val_data = val_data.subset_samples_for_label(subset_percent,
-                                                         args.negative_class,
-                                                         args.seed)
+            val_data = val_data.subset_samples(subset_percent,
+                                               args.seed)
             if len(val_data) == 0:
                 val_data.reset_filters()
 
