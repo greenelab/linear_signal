@@ -27,8 +27,8 @@ def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
     train_data: The subsetted expression dataset
     """
 
-    train_disease_counts = train_data.map_label_to_counts()
-    val_disease_counts = val_data.map_label_to_counts()
+    train_disease_counts = train_data.map_labels_to_counts()
+    val_disease_counts = val_data.map_labels_to_counts()
 
     train_positive = train_disease_counts[args.label]
     train_negative = train_disease_counts[args.negative_class]
