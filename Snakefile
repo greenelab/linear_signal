@@ -113,6 +113,18 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # subset_label sepsis batch effect corrected
+        expand("sample_names/subset_label.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # subset_all sepsis batch effect corrected
+        expand("sample_names/subset_all.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
 
 rule pickle_compendium:
     input:
