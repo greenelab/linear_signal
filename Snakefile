@@ -70,6 +70,12 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS),
                ),
+        # subset_label batch effect corrected
+        expand("results/subset_label.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
         # subset_label semi-supervised
         expand("results/subset_label.sepsis.{semisupervised}.{dataset}.{seed}.tsv",
                semisupervised=SEMISUPERVISED,
@@ -92,6 +98,12 @@ rule all:
         # subset_label tb semi-supervised
         expand("results/subset_label.tb.{semisupervised}.{dataset}.{seed}.tsv",
                semisupervised=SEMISUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # subset_label tb batch effect corrected
+        expand("results/subset_label.tb.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
@@ -250,3 +262,19 @@ rule subset_label_semisupervised:
         "--label {wildcards.label} "
         "--negative_class healthy "
         "--semi_supervised"
+
+rule subset_label_batch_effect_correction:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/subset_label.{label}.{supervised}.{dataset}.{seed}.be_corrected.tsv"
+    shell:
+        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "results/subset_label.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma"

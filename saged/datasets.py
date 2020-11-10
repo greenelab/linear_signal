@@ -12,6 +12,27 @@ from sklearn import preprocessing
 from saged import utils
 
 
+def correct_batch_effects(data: "RefineBioDataset",
+                          method: str = 'limma') -> "RefineBioDataset":
+    samples = data.get_samples()
+    # We don't use get_studies here because we want the study for every sample
+    # instead of the set of all studies
+    studies = np.array([data.sample_to_study[sample] for sample in samples])
+
+    expression = data.current_expression.values
+
+    if method == 'limma':
+        corrected_expression = utils.run_limma(expression, studies)
+    elif method == 'combat':
+        corrected_expression = utils.run_combat(expression, studies)
+    else:
+        raise NotImplementedError('{} is not a batch effect correction method'.format(method))
+
+    data.set_all_data(corrected_expression)
+
+    return data
+
+
 def load_binary_data(dataset_config_path: str,
                      label: str,
                      negative_class: str
