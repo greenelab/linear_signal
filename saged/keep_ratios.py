@@ -41,6 +41,9 @@ def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
     # If Alex ever questions my anti-math sincerity, I should point out
     # that I had to relearn how to cross-multiply fractions for this
     if train_ratio > val_ratio:
+        # Don't try to match very small fractions
+        if val_ratio < .1:
+            val_ratio = .1
         target = val_ratio * train_negative
         fraction = target / train_positive
         # If train ratio is too high, remove positive samples
@@ -48,6 +51,8 @@ def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
                                                          args.label,
                                                          args.seed)
     elif train_ratio < val_ratio:
+        if val_ratio > .9:
+            val_ratio = .9
         target = train_positive / val_ratio
         fraction = int(target / train_negative)
         train_data = train_data.subset_samples_for_label(fraction,
@@ -141,14 +146,14 @@ if __name__ == '__main__':
             train_data = LabeledDatasetClass.from_list(train_list)
             val_data = labeled_splits[i]
 
-            # Skip entries where there is only data for one class
-            if len(train_data.get_classes()) <= 1 or len(val_data.get_classes()) <= 1:
-                continue
-
             train_data = subset_to_equal_ratio(train_data, val_data)
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
+
+            # Skip entries where there is only data for one class
+            if len(train_data.get_classes()) <= 1 or len(val_data.get_classes()) <= 1:
+                continue
 
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
