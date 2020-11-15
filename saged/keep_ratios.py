@@ -30,32 +30,36 @@ def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
     train_disease_counts = train_data.map_labels_to_counts()
     val_disease_counts = val_data.map_labels_to_counts()
 
-    train_positive = train_disease_counts[args.label]
-    train_negative = train_disease_counts[args.negative_class]
-    val_positive = val_disease_counts[args.label]
-    val_negative = val_disease_counts[args.negative_class]
+    train_positive = train_disease_counts.get(args.label, 0)
+    train_negative = train_disease_counts.get(args.negative_class, 0)
+    val_positive = val_disease_counts.get(args.label, 0)
+    val_negative = val_disease_counts.get(args.negative_class, 0)
 
-    train_ratio = train_positive / train_negative
-    val_ratio = val_positive / val_negative
+    train_disease_fraction = train_positive / (train_negative + train_negative)
+    val_disease_fraction = val_positive / (val_positive + val_negative)
 
-    # If Alex ever questions my anti-math sincerity, I should point out
-    # that I had to relearn how to cross-multiply fractions for this
-    if train_ratio > val_ratio:
+    # If train ratio is too high, remove positive samples
+    if train_disease_fraction > val_disease_fraction:
         # Don't try to match very small fractions
-        if val_ratio < .1:
-            val_ratio = .1
-        target = val_ratio * train_negative
-        fraction = target / train_positive
-        # If train ratio is too high, remove positive samples
-        train_data = train_data.subset_samples_for_label(fraction,
+        if val_disease_fraction < .1:
+            val_disease_fraction = .1
+
+        # X / (negative + X) = val_frac. Solve for X
+        target = (val_disease_fraction * train_negative) / (1 - val_disease_fraction)
+        subset_fraction = target / train_positive
+
+        train_data = train_data.subset_samples_for_label(subset_fraction,
                                                          args.label,
                                                          args.seed)
-    elif train_ratio < val_ratio:
-        if val_ratio > .9:
-            val_ratio = .9
-        target = train_positive / val_ratio
-        fraction = int(target / train_negative)
-        train_data = train_data.subset_samples_for_label(fraction,
+    elif train_disease_fraction < val_disease_fraction:
+        if val_disease_fraction > .9:
+            val_disease_fraction = .9
+
+        # positive / (positive + X) = val_frac. Solve for X
+        target = (train_positive - (val_disease_fraction * train_positive)) / val_disease_fraction
+        subset_fraction = target / train_negative
+
+        train_data = train_data.subset_samples_for_label(subset_fraction,
                                                          args.negative_class,
                                                          args.seed)
     return train_data
