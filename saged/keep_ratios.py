@@ -35,30 +35,21 @@ def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
     val_positive = val_disease_counts.get(args.label, 0)
     val_negative = val_disease_counts.get(args.negative_class, 0)
 
-    train_disease_fraction = train_positive / (train_negative + train_negative)
+    train_disease_fraction = train_positive / (train_positive + train_negative)
     val_disease_fraction = val_positive / (val_positive + val_negative)
+
+    subset_fraction = utils.determine_subset_fraction(train_positive,
+                                                      train_negative,
+                                                      val_positive,
+                                                      val_negative)
 
     # If train ratio is too high, remove positive samples
     if train_disease_fraction > val_disease_fraction:
-        # Don't try to match very small fractions
-        if val_disease_fraction < .1:
-            val_disease_fraction = .1
-
-        # X / (negative + X) = val_frac. Solve for X
-        target = (val_disease_fraction * train_negative) / (1 - val_disease_fraction)
-        subset_fraction = target / train_positive
-
         train_data = train_data.subset_samples_for_label(subset_fraction,
                                                          args.label,
                                                          args.seed)
+    # If train ratio is too low, remove negative samples
     elif train_disease_fraction < val_disease_fraction:
-        if val_disease_fraction > .9:
-            val_disease_fraction = .9
-
-        # positive / (positive + X) = val_frac. Solve for X
-        target = (train_positive - (val_disease_fraction * train_positive)) / val_disease_fraction
-        subset_fraction = target / train_negative
-
         train_data = train_data.subset_samples_for_label(subset_fraction,
                                                          args.negative_class,
                                                          args.seed)

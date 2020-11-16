@@ -365,3 +365,47 @@ def deterministic_shuffle_set(set_: set) -> List[Any]:
     shuffled_list = random.sample(sorted(list(set_)), len(set_))
 
     return shuffled_list
+
+
+def determine_subset_fraction(train_positive: int,
+                              train_negative: int,
+                              val_positive: int,
+                              val_negative: int) -> int:
+    """
+    Determine the correct fraction of samples to remove from the training positive or negative
+    sample pool to match the fraction of positive samples in the validation set
+
+    Arguments
+    ---------
+    train_positive: The number of positive training samples
+    train_negative: The number of negative training samples
+    val_positive: The number of positive validation samples
+    val_negative: The number of negative validation samples
+
+    Returns
+    -------
+    subset_fraction: The fraction of positive or negative (determined by the calling code) samples
+                     to remove
+    """
+    train_disease_fraction = train_positive / (train_negative + train_negative)
+    val_disease_fraction = val_positive / (val_positive + val_negative)
+
+    # If train ratio is too high, remove positive samples
+    if train_disease_fraction > val_disease_fraction:
+        # Don't try to match very small fractions
+        if val_disease_fraction < .1:
+            val_disease_fraction = .1
+
+        # X / (negative + X) = val_frac. Solve for X
+        target = (val_disease_fraction * train_negative) / (1 - val_disease_fraction)
+        subset_fraction = target / train_positive
+
+    elif train_disease_fraction < val_disease_fraction:
+        if val_disease_fraction > .9:
+            val_disease_fraction = .9
+
+        # positive / (positive + X) = val_frac. Solve for X
+        target = (train_positive - (val_disease_fraction * train_positive)) / val_disease_fraction
+        subset_fraction = target / train_negative
+
+    return subset_fraction
