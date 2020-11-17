@@ -36,8 +36,9 @@ def test_count_correct(labels, true_correct):
                           (100, 200, 9, 1),
                           (600, 200, 9, 1),
                           (1000, 10, 9, 1),
+                          (910, 1242, 384, 579),
                          ])
-def determine_subset_fraction(train_positive, train_negative, val_positive, val_negative):
+def test_determine_subset_fraction(train_positive, train_negative, val_positive, val_negative):
     subset_fraction = utils.determine_subset_fraction(train_positive, train_negative,
                                                       val_positive, val_negative)
 
@@ -53,4 +54,6 @@ def determine_subset_fraction(train_positive, train_negative, val_positive, val_
         subset_result = subset_fraction * train_negative
         new_train_frac = train_positive / (subset_result + train_positive)
 
+    print(new_train_frac)
+    assert False
     assert pytest.approx(new_train_frac, val_fraction)
