@@ -387,23 +387,16 @@ def determine_subset_fraction(train_positive: int,
     subset_fraction: The fraction of positive or negative (determined by the calling code) samples
                      to remove
     """
-    train_disease_fraction = train_positive / (train_negative + train_negative)
+    train_disease_fraction = train_positive / (train_negative + train_positive)
     val_disease_fraction = val_positive / (val_positive + val_negative)
 
     # If train ratio is too high, remove positive samples
     if train_disease_fraction > val_disease_fraction:
-        # Don't try to match very small fractions
-        if val_disease_fraction < .1:
-            val_disease_fraction = .1
-
         # X / (negative + X) = val_frac. Solve for X
         target = (val_disease_fraction * train_negative) / (1 - val_disease_fraction)
         subset_fraction = target / train_positive
 
     elif train_disease_fraction < val_disease_fraction:
-        if val_disease_fraction > .9:
-            val_disease_fraction = .9
-
         # positive / (positive + X) = val_frac. Solve for X
         target = (train_positive - (val_disease_fraction * train_positive)) / val_disease_fraction
         subset_fraction = target / train_negative
