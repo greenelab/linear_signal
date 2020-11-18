@@ -54,6 +54,4 @@ def test_determine_subset_fraction(train_positive, train_negative, val_positive,
         subset_result = subset_fraction * train_negative
         new_train_frac = train_positive / (subset_result + train_positive)
 
-    print(new_train_frac)
-    assert False
     assert pytest.approx(new_train_frac, val_fraction)
