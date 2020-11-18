@@ -1,7 +1,6 @@
 """
-This benchmark compares the performance of different models in learning to predict all the
-classes in the dataset
-"""
+This benchmark compares the performance of different models in learning to differentiate between
+healthy and diseased gene expression with equal label distributions in the train and val sets."""
 import argparse
 
 import sklearn.metrics
