@@ -113,6 +113,12 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # subset_all tb batch effect corrected
+        expand("results/subset_all.tb.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
         # keep_ratios sepsis
         expand("results/keep_ratios.sepsis.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
