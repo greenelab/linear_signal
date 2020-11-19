@@ -298,6 +298,27 @@ class LabeledDataset(ExpressionDataset):
         raise NotImplementedError
 
     @abstractmethod
+    def keep_k_samples_for_label(self,
+                                 k: int,
+                                 label: str,
+                                 seed: int = 42,
+                                 ) -> "LabeledDataset":
+        """
+        Subset the samples corresponding to the given label until k remain.
+
+        Arguments
+        ---------
+        k: The number of samples to keep
+        label: The category of data to apply this subset to
+        seed: The seed to be used in the random sampling process
+
+        Returns
+        ------
+        self: The subsetted version of the dataset
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def get_all_data() -> Tuple[np.ndarray, np.ndarray]:
         """
         Returns all the expression data and labels from the dataset in the
@@ -336,6 +357,17 @@ class LabeledDataset(ExpressionDataset):
         Returns
         -------
         classes: The set of class labels
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def map_labels_to_counts(self) -> Dict[str, int]:
+        """
+        Get the number of samples with each label
+
+        Returns
+        -------
+        label_counts: A dictionary mapping labels to the number of samples with each label
         """
         raise NotImplementedError
 
@@ -1168,6 +1200,44 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
         num_to_keep = int(len(samples_with_label) * fraction)
 
         samples_with_label_to_keep = random.sample(samples_with_label, num_to_keep)
+
+        samples_to_keep = samples_without_label + samples_with_label_to_keep
+
+        self.current_expression = self.current_expression.loc[:, samples_to_keep]
+
+        return self
+
+    def keep_k_samples_for_label(self,
+                                 k: int,
+                                 label: str,
+                                 seed: int = 42,
+                                 ) -> "LabeledDataset":
+        """
+        Subset the samples corresponding to the given label until k remain.
+
+        Arguments
+        ---------
+        k: The number of samples to keep
+        seed: The seed to be used in the random sampling process
+
+        Returns
+        ------
+        self: The subsetted version of the dataset
+        """
+        self.data_changed = True
+        random.seed(seed)
+
+        all_samples = self.get_samples()
+        samples_with_label = []
+        samples_without_label = []
+
+        for sample in all_samples:
+            if self.sample_to_label[sample] == label:
+                samples_with_label.append(sample)
+            else:
+                samples_without_label.append(sample)
+
+        samples_with_label_to_keep = random.sample(samples_with_label, k)
 
         samples_to_keep = samples_without_label + samples_with_label_to_keep
 
