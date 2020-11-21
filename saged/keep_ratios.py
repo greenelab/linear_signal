@@ -112,6 +112,9 @@ if __name__ == '__main__':
     all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
                                                                        args.label,
                                                                        args.negative_class)
+    # Load binary data subsets the data to two classes. Update the label encoder to treat this
+    # data as binary so the F1 score doesn't break
+    labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
 
     # Correct for batch effects
@@ -206,9 +209,10 @@ if __name__ == '__main__':
 
             accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
             positive_label_encoding = train_data.get_label_encoding(args.label)
-            f1_score = sklearn.metrics.f1_score(true_labels, predictions,
-                                                pos_label=positive_label_encoding)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
+            f1_score = sklearn.metrics.f1_score(true_labels, predictions,
+                                                pos_label=positive_label_encoding,
+                                                average='binary')
 
             accuracies.append(accuracy)
             balanced_accuracies.append(balanced_acc)
@@ -237,5 +241,6 @@ if __name__ == '__main__':
                               subset_percents
                               )
         for stats in result_iterator:
-            out_str = '\t'.join(list[stats])
+            stat_strings = [str(item) for item in stats]
+            out_str = '\t'.join(stat_strings)
             out_file.write(f'{out_str}\n')

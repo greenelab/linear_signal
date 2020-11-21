@@ -347,6 +347,28 @@ class LabeledDataset(ExpressionDataset):
         raise NotImplementedError
 
     @abstractmethod
+    def get_label_encoder(self) -> preprocessing.LabelEncoder:
+        """
+        Return the mapping from label to encoded label
+
+        Returns
+        -------
+        label_encoder: The encoder used for the dataset
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_label_encoder(self, encoder: preprocessing.LabelEncoder) -> None:
+        """
+        Set the mapping from label to encoding for the dataset
+
+        Arguments
+        -------
+        label_encoder: The encoder that maps labels to their encoding
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def subset_samples_to_labels(self,
                                  labels: List[str],
                                  ) -> "LabeledDataset":
@@ -412,28 +434,6 @@ class UnlabeledDataset(ExpressionDataset):
         Returns
         -------
         X: The gene expression data in a genes x samples array
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_label_encoder(self) -> preprocessing.LabelEncoder:
-        """
-        Return the mapping from label to encoded label
-
-        Returns
-        -------
-        label_encoder: The encoder used for the dataset
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_label_encoder(self, encoder: preprocessing.LabelEncoder) -> None:
-        """
-        Set the mapping from label to encoding for the dataset
-
-        Arguments
-        -------
-        label_encoder: The encoder that maps labels to their encoding
         """
         raise NotImplementedError
 
@@ -1172,7 +1172,7 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
         -------
         encoding: The label's encoded form
         """
-        return self.label_encoder.transform([label])
+        return int(self.label_encoder.transform([label]))
 
     def get_label_encoder(self) -> preprocessing.LabelEncoder:
         """
@@ -1182,9 +1182,8 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
         -------
         label_encoder: The encoder used for the dataset
         """
-        raise self.label_encoder
+        return self.label_encoder
 
-    @abstractmethod
     def set_label_encoder(self, encoder: preprocessing.LabelEncoder) -> None:
         """
         Set the mapping from label to encoding for the dataset
