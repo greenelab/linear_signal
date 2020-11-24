@@ -228,8 +228,8 @@ if __name__ == '__main__':
 
     with open(args.out_file, 'w') as out_file:
         # Write header
-        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t')
-        out_file.write('val samples\ttrain sample count\tfraction of data used\n')
+        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
+                       'val samples\ttrain sample count\tfraction of data used\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
