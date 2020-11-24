@@ -112,6 +112,11 @@ if __name__ == '__main__':
     all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
                                                                        args.label,
                                                                        args.negative_class)
+    # Load binary data subsets the data to two classes. Update the label encoder to treat this
+    # data as binary so the F1 score doesn't break
+    labeled_data.recode()
+    label_encoder = labeled_data.get_label_encoder()
+
     # Correct for batch effects
     if args.batch_correction_method is not None:
         all_data = datasets.correct_batch_effects(all_data, args.batch_correction_method)
@@ -124,6 +129,8 @@ if __name__ == '__main__':
 
     # Train the model on each fold
     accuracies = []
+    balanced_accuracies = []
+    f1_scores = []
     supervised_train_studies = []
     supervised_train_sample_names = []
     supervised_val_sample_names = []
@@ -139,6 +146,11 @@ if __name__ == '__main__':
             LabeledDatasetClass = type(labeled_data)
             train_data = LabeledDatasetClass.from_list(train_list)
             val_data = labeled_splits[i]
+
+            # This isn't strictly necessary since we're checking whether both classes are present,
+            # but it's safer
+            train_data.set_label_encoder(label_encoder)
+            val_data.set_label_encoder(label_encoder)
 
             train_data = subset_to_equal_ratio(train_data, val_data)
             # Now that the ratio is correct, actually subset the samples
@@ -195,9 +207,16 @@ if __name__ == '__main__':
 
             supervised_model.free_memory()
 
-            accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
+            accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
+            positive_label_encoding = train_data.get_label_encoding(args.label)
+            balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
+            f1_score = sklearn.metrics.f1_score(true_labels, predictions,
+                                                pos_label=positive_label_encoding,
+                                                average='binary')
 
             accuracies.append(accuracy)
+            balanced_accuracies.append(balanced_acc)
+            f1_scores.append(f1_score)
             supervised_train_studies.append(','.join(train_data.get_studies()))
             supervised_train_sample_names.append(','.join(train_data.get_samples()))
             supervised_val_sample_names.append(','.join(val_data.get_samples()))
@@ -208,19 +227,20 @@ if __name__ == '__main__':
             val_data.reset_filters()
 
     with open(args.out_file, 'w') as out_file:
-        out_file.write('accuracy\ttrain studies\ttrain samples\tval samples\ttrain sample count\t')
-        out_file.write('fraction of data used\n')
-        for (accuracy,
-             train_study_str,
-             train_sample_str,
-             val_sample_str,
-             supervised_train_samples,
-             percent) in zip(accuracies,
-                             supervised_train_studies,
-                             supervised_train_sample_names,
-                             supervised_val_sample_names,
-                             supervised_train_sample_counts,
-                             subset_percents,
-                             ):
-            out_file.write(f'{accuracy}\t{train_study_str}\t{train_sample_str}\t')
-            out_file.write(f'{val_sample_str}\t{supervised_train_samples}\t{percent}\n')
+        # Write header
+        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
+                       'val samples\ttrain sample count\tfraction of data used\n')
+
+        result_iterator = zip(accuracies,
+                              balanced_accuracies,
+                              f1_scores,
+                              supervised_train_studies,
+                              supervised_train_sample_names,
+                              supervised_val_sample_names,
+                              supervised_train_sample_counts,
+                              subset_percents
+                              )
+        for stats in result_iterator:
+            stat_strings = [str(item) for item in stats]
+            out_str = '\t'.join(stat_strings)
+            out_file.write(f'{out_str}\n')
