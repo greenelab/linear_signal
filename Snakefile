@@ -357,7 +357,7 @@ rule small_subsets:
         "results/small_subsets.{label}.{supervised}.{dataset}.{seed}.tsv"
     shell:
         "python saged/small_subsets.py {input.dataset_config} {input.supervised_model} "
-        "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "results/small_subsets.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
