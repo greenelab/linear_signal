@@ -207,7 +207,7 @@ if __name__ == '__main__':
 
             supervised_model.free_memory()
 
-            accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
+            accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             positive_label_encoding = train_data.get_label_encoding(args.label)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
             f1_score = sklearn.metrics.f1_score(true_labels, predictions,
