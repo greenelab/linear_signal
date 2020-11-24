@@ -164,12 +164,12 @@ if __name__ == '__main__':
             if len(train_data) != 2 * samples_to_keep_count:
                 continue
 
-            val_data = subset_to_equal_ratio(val_data, train_data, args.label,
-                                             args.negative_class, args.seed)
-
             # Skip entries where there is only data for one class
             if len(train_data.get_classes()) <= 1 or len(val_data.get_classes()) <= 1:
                 continue
+
+            val_data = subset_to_equal_ratio(val_data, train_data, args.label,
+                                             args.negative_class, args.seed)
 
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
