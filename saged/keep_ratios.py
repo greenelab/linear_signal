@@ -207,7 +207,7 @@ if __name__ == '__main__':
 
             supervised_model.free_memory()
 
-            accuracy = sklearn.metrics.accuracy_score(predictions, true_labels)
+            accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             positive_label_encoding = train_data.get_label_encoding(args.label)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
             f1_score = sklearn.metrics.f1_score(true_labels, predictions,
@@ -228,8 +228,8 @@ if __name__ == '__main__':
 
     with open(args.out_file, 'w') as out_file:
         # Write header
-        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t')
-        out_file.write('val samples\ttrain sample count\tfraction of data used\n')
+        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
+                       'val samples\ttrain sample count\tfraction of data used\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
