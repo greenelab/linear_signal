@@ -48,6 +48,7 @@ def create_dataset_stat_df(metrics_df, sample_to_study,
                  'val_disease_count': [],
                  'val_healthy_count': [],
                  'accuracy': [],
+                 'balanced_accuracy': [],
                  'subset_fraction': [],
                  'seed': [],
                  'model': []
@@ -61,7 +62,8 @@ def create_dataset_stat_df(metrics_df, sample_to_study,
         data_dict['subset_fraction'].append(row['healthy_used'])
         data_dict['accuracy'].append(row['accuracy'])
         data_dict['model'].append(row['supervised'])
-
+        if 'balanced_accuracy' in row:
+            data_dict['balanced_accuracy'].append(row['balanced_accuracy'])
 
         train_samples, val_samples = split_sample_names(row)
 
@@ -486,6 +488,10 @@ for path in in_files:
     
 sepsis_metrics = sepsis_metrics.rename({'fraction of data used': 'healthy_used'}, axis='columns')
 sepsis_metrics['healthy_used'] = sepsis_metrics['healthy_used'].round(1)
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+sepsis_metrics = sepsis_metrics[~(sepsis_metrics['supervised'] == 'deep_net')]
 sepsis_metrics
 
 # %%
@@ -517,13 +523,14 @@ sepsis_stat_df.tail(5)
 
 # %%
 ggplot(sepsis_stat_df, aes(x='train_val_diff', 
-                           y='accuracy', 
+                           y='balanced_accuracy', 
                            color='val_disease_count')) + geom_point() + facet_grid('model ~ .')
 
 # %%
 plot = ggplot(sepsis_metrics, aes(x='train sample count', y='balanced_accuracy', color='supervised')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
+plot += ggtitle('Effect of All Sepsis Data')
 plot
 
 # %% [markdown]
@@ -581,11 +588,107 @@ tb_stat_df.tail(5)
 
 # %%
 ggplot(tb_stat_df, aes(x='train_val_diff', 
-                       y='accuracy', 
+                       y='balanced_accuracy', 
                        color='val_disease_count')) + geom_point() + facet_grid('model ~ .')
 
 # %%
 plot = ggplot(tb_metrics, aes(x='train sample count', y='balanced_accuracy', color='supervised')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
+plot
+
+# %% [markdown]
+# ## Results from Small Datasets
+
+# %%
+in_files = glob.glob('../../results/small_subsets.sepsis*')
+print(in_files[:5])
+
+# %%
+sepsis_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('sepsis.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    sepsis_metrics = pd.concat([sepsis_metrics, new_df])
+    
+sepsis_metrics['train_count'] = sepsis_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+sepsis_metrics = sepsis_metrics[~(sepsis_metrics['supervised'] == 'deep_net')]
+sepsis_metrics
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='factor(train_count)', y='balanced_accuracy')) 
+plot += geom_boxplot()
+plot += ggtitle('Sepsis Dataset Size Effects (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='factor(train_count)', y='balanced_accuracy', fill='supervised')) 
+plot += geom_boxplot()
+plot += ggtitle('Sepsis Datset Size by Model (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Sepsis Crossover Point')
+plot
+
+# %% [markdown]
+# ## Small Training Set TB
+
+# %%
+in_files = glob.glob('../../results/small_subsets.tb*')
+print(in_files[:5])
+
+# %%
+tb_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('tb.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    tb_metrics = pd.concat([tb_metrics, new_df])
+    
+tb_metrics['train_count'] = tb_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+tb_metrics = tb_metrics[~(tb_metrics['supervised'] == 'deep_net')]
+tb_metrics
+
+# %%
+plot = ggplot(tb_metrics, aes(x='factor(train_count)', y='balanced_accuracy')) 
+plot += geom_boxplot()
+plot += ggtitle('TB Dataset Size Effects (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(tb_metrics, aes(x='factor(train_count)', y='balanced_accuracy', fill='supervised')) 
+plot += geom_boxplot()
+plot += ggtitle('TB Dataset Size vs Models (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(tb_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('TB (lack of a) Crossover Point')
 plot
