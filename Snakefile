@@ -131,6 +131,18 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # small_subsets sepsis
+        expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # small_subsets tb
+        expand("results/small_subsets.tb.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
 
 
 rule pickle_compendium:
@@ -330,6 +342,22 @@ rule keep_ratios:
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
         "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma"
+
+rule small_subsets:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/small_subsets.{label}.{supervised}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/small_subsets.py {input.dataset_config} {input.supervised_model} "
+        "results/small_subsets.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "

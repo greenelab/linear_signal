@@ -3,6 +3,7 @@
 import copy
 import itertools
 import pickle
+import sys
 from abc import ABC, abstractmethod
 from typing import Union, Iterable, Tuple, Any
 
@@ -537,6 +538,13 @@ class PytorchSupervised(ExpressionModel):
         train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
                                                                train_study_count=train_count,
                                                                seed=seed)
+        # For very small training sets the tune dataset will be empty
+        # TODO figure out how to more elegantly handle this when implementing early stopping
+        tune_is_empty = False
+        if len(tune_dataset) == 0:
+            sys.stderr.write('Warning: Tune dataset is empty')
+            tune_is_empty = True
+
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
 
@@ -558,10 +566,11 @@ class PytorchSupervised(ExpressionModel):
             experiment.set_property('model', str(type(self.model)))
 
             # Track the baseline (always predicting the most common class)
-            label_counts = tune_dataset.map_labels_to_counts().values()
+            if not tune_is_empty:
+                label_counts = tune_dataset.map_labels_to_counts().values()
 
-            tune_baseline = max(label_counts) / sum(label_counts)
-            neptune.log_metric('tune_baseline', tune_baseline)
+                tune_baseline = max(label_counts) / sum(label_counts)
+                neptune.log_metric('tune_baseline', tune_baseline)
 
         best_tune_loss = None
 
@@ -598,29 +607,32 @@ class PytorchSupervised(ExpressionModel):
                 tune_loss = 0
                 tune_correct = 0
 
-                for batch in tune_loader:
-                    expression, labels = batch
-                    expression = expression.float().to(device)
-                    labels = labels.to(device)
+                if not tune_is_empty:
+                    for batch in tune_loader:
+                        expression, labels = batch
+                        expression = expression.float().to(device)
+                        labels = labels.to(device)
 
-                    output = self.model(expression)
+                        output = self.model(expression)
 
-                    tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
-                    tune_correct += utils.count_correct(output, labels)
-                    # TODO f1 score
+                        tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
+                        tune_correct += utils.count_correct(output, labels)
+                        # TODO f1 score
 
             train_acc = train_correct / len(train_dataset)
-            tune_acc = tune_correct / len(tune_dataset)
+            if not tune_is_empty:
+                tune_acc = tune_correct / len(tune_dataset)
 
             if log_progress:
                 neptune.log_metric('train_loss', epoch, train_loss)
                 neptune.log_metric('train_acc', epoch, train_acc)
-                neptune.log_metric('tune_loss', epoch, tune_loss)
-                neptune.log_metric('tune_acc', epoch, tune_acc)
+                if not tune_is_empty:
+                    neptune.log_metric('tune_loss', epoch, tune_loss)
+                    neptune.log_metric('tune_acc', epoch, tune_acc)
 
             # Save model if applicable
             save_path = getattr(self, 'save_path', None)
-            if save_path is not None:
+            if save_path is not None and not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
                     self.save_model(save_path)
