@@ -878,3 +878,81 @@ plot += geom_point(alpha=.2)
 plot += geom_hline(yintercept=.5, linetype='dashed')
 plot += ggtitle('tb Crossover Point')
 plot
+
+# %% [markdown]
+# ## Lupus Analyses
+
+# %%
+in_files = glob.glob('../../results/keep_ratios.lupus*.tsv')
+in_files = [file for file in in_files if 'be_corrected' in file]
+print(in_files[:5])
+
+# %%
+lupus_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('lupus.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    lupus_metrics = pd.concat([lupus_metrics, new_df])
+    
+lupus_metrics['train_count'] = lupus_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+lupus_metrics = lupus_metrics[~(lupus_metrics['supervised'] == 'deep_net')]
+lupus_metrics['supervised'] = lupus_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+lupus_metrics
+
+# %%
+plot = ggplot(lupus_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('lupus Crossover Point')
+plot
+
+# %% [markdown]
+# ## Lupus Not Batch Effect Corrected
+
+# %%
+in_files = glob.glob('../../results/keep_ratios.lupus*.tsv')
+in_files = [file for file in in_files if 'be_corrected' not in file]
+print(in_files[:5])
+
+# %%
+lupus_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('lupus.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    lupus_metrics = pd.concat([lupus_metrics, new_df])
+    
+lupus_metrics['train_count'] = lupus_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+lupus_metrics = lupus_metrics[~(lupus_metrics['supervised'] == 'deep_net')]
+lupus_metrics['supervised'] = lupus_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+lupus_metrics
+
+# %%
+plot = ggplot(lupus_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('lupus Crossover Point')
+plot
