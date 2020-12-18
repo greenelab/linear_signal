@@ -131,6 +131,12 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # keep_ratios lupus 
+        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
         # small_subsets sepsis
         expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -151,6 +157,12 @@ rule all:
                ),
         # keep_ratios tb be_corrected
         expand("results/keep_ratios.tb.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # keep_ratios lupus be_corrected
+        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.be_corrected.tsv",
                supervised=SUPERVISED,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
@@ -370,7 +382,6 @@ rule keep_ratios:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
-        "--batch_correction_method None "
 
 rule keep_ratios_be_correction:
     input:
@@ -402,7 +413,6 @@ rule small_subsets:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
-        "--batch_correction_method None "
 
 rule small_subsets_be_correction:
     input:
