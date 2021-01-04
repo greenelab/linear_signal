@@ -131,6 +131,12 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # keep_ratios lupus 
+        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
         # small_subsets sepsis
         expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -139,6 +145,36 @@ rule all:
                ),
         # small_subsets tb
         expand("results/small_subsets.tb.{supervised}.{dataset}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # keep_ratios sepsis be_corrected
+        expand("results/keep_ratios.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # keep_ratios tb be_corrected
+        expand("results/keep_ratios.tb.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # keep_ratios lupus be_corrected
+        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # small_subsets sepsis be_corrected
+        expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+               supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # small_subsets tb be_corrected
+        expand("results/small_subsets.tb.{supervised}.{dataset}.{seed}.be_corrected.tsv",
                supervised=SUPERVISED,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
@@ -346,7 +382,22 @@ rule keep_ratios:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
-        "--batch_correction_method limma"
+
+rule keep_ratios_be_correction:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/keep_ratios.{label}.{supervised}.{dataset}.{seed}.be_corrected.tsv"
+    shell:
+        "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
+        "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma "
 
 rule small_subsets:
     input:
@@ -362,4 +413,19 @@ rule small_subsets:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
-        "--batch_correction_method limma"
+
+rule small_subsets_be_correction:
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/small_subsets.{label}.{supervised}.{dataset}.{seed}.be_corrected.tsv"
+    shell:
+        "python saged/small_subsets.py {input.dataset_config} {input.supervised_model} "
+        "results/small_subsets.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma "
