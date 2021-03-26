@@ -1,6 +1,7 @@
 
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
+IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
 SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
 NUM_SEEDS = 5
@@ -140,6 +141,12 @@ rule all:
         # small_subsets tb
         expand("results/small_subsets.tb.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # basic imputation
+        expand("results/impute.{impute}.{dataset}.{seed}.tsv",
+               impute=IMPUTE,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
@@ -362,4 +369,18 @@ rule small_subsets:
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "
         "--negative_class healthy "
+        "--batch_correction_method limma"
+
+rule basic_imputation:
+    input:
+        "data/subset_compendium.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/impute.{impute}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
+        "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
         "--batch_correction_method limma"
