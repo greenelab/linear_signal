@@ -3,7 +3,6 @@ This benchmark compares the performance of different models in learning to diffe
 healthy and diseased gene expression with equal label distributions in the train and val sets."""
 import argparse
 
-import sklearn.metrics
 import yaml
 
 from saged import utils, datasets, models
@@ -37,9 +36,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    # Init model
-    # Train model, tracking train and test MSE
-    # Implement masking (set to zero probably)
     # TODO
     # Evaluate effects of study splits (am I correct to split by study to avoid
     # leakage?)
@@ -72,7 +68,7 @@ if __name__ == '__main__':
     subset_percents = []
     val_losses = []
     for i in range(len(cv_splits)):
-        for subset_number in range(1, 11, 1):
+        for subset_number in range(1, 11):
             subset_percent = subset_number * .1
 
             train_list = cv_splits[:i] + cv_splits[i+1:]
@@ -120,7 +116,6 @@ if __name__ == '__main__':
 
     with open(args.out_file, 'w') as out_file:
         # Write header
-        # TODO fix header, add new metrics
         out_file.write('val_loss\ttrain studies\ttrain samples\t'
                        'val samples\ttrain sample count\tfraction of data used\n')
 
