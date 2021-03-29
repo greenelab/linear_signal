@@ -533,7 +533,7 @@ class PytorchImpute(ExpressionModel):
 
     def mask_input_(self,
                     input: torch.Tensor,
-                    fraction_masked: float=.1) -> torch.Tensor:
+                    fraction_masked: float = .1) -> torch.Tensor:
         """
         Apply a mask to the given input, setting a random subset of the input
         to zero
@@ -606,7 +606,6 @@ class PytorchImpute(ExpressionModel):
 
         self.model.to(device)
 
-
         if log_progress:
             experiment = neptune.create_experiment(name=experiment_name,
                                                    description=experiment_description,
@@ -619,7 +618,6 @@ class PytorchImpute(ExpressionModel):
 
         for epoch in tqdm(range(epochs)):
             train_loss = 0
-            train_correct = 0
             self.model.train()
 
             for batch in train_loader:
