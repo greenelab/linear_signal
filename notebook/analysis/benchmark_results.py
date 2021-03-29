@@ -468,7 +468,7 @@ print(plot)
 # ## Better Metrics, Same Label Distribution in Train and Val sets
 
 # %%
-in_files = glob.glob('../../results/keep_ratios.sepsis*')
+in_files = glob.glob('../../results/keep_ratios.sepsis*be_corrected.tsv')
 print(in_files[:5])
 
 # %%
@@ -492,6 +492,7 @@ sepsis_metrics['healthy_used'] = sepsis_metrics['healthy_used'].round(1)
 # Looking at the training curves, deep_net isn't actually training
 # I need to fix it going forward, but for now I can clean up the visualizations by removing it
 sepsis_metrics = sepsis_metrics[~(sepsis_metrics['supervised'] == 'deep_net')]
+sepsis_metrics['supervised'] = sepsis_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
 sepsis_metrics
 
 # %%
@@ -530,6 +531,7 @@ ggplot(sepsis_stat_df, aes(x='train_val_diff',
 plot = ggplot(sepsis_metrics, aes(x='train sample count', y='balanced_accuracy', color='supervised')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
 plot += ggtitle('Effect of All Sepsis Data')
 plot
 
@@ -537,7 +539,7 @@ plot
 # ## Same Distribution Tuberculosis
 
 # %%
-in_files = glob.glob('../../results/keep_ratios.tb*')
+in_files = glob.glob('../../results/keep_ratios.tb*be_corrected.tsv')
 print(in_files[:5])
 
 # %%
@@ -601,7 +603,7 @@ plot
 # ## Results from Small Datasets
 
 # %%
-in_files = glob.glob('../../results/small_subsets.sepsis*')
+in_files = glob.glob('../../results/small_subsets.sepsis*be_corrected.tsv')
 print(in_files[:5])
 
 # %%
@@ -624,6 +626,7 @@ sepsis_metrics['train_count'] = sepsis_metrics['train sample count']
 # Looking at the training curves, deep_net isn't actually training
 # I need to fix it going forward, but for now I can clean up the visualizations by removing it
 sepsis_metrics = sepsis_metrics[~(sepsis_metrics['supervised'] == 'deep_net')]
+sepsis_metrics['supervised'] = sepsis_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
 sepsis_metrics
 
 # %%
@@ -642,6 +645,7 @@ print(plot)
 plot = ggplot(sepsis_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
 plot += ggtitle('Sepsis Crossover Point')
 plot
 
@@ -649,7 +653,7 @@ plot
 # ## Small Training Set TB
 
 # %%
-in_files = glob.glob('../../results/small_subsets.tb*')
+in_files = glob.glob('../../results/small_subsets.tb*be_corrected.tsv')
 print(in_files[:5])
 
 # %%
@@ -672,6 +676,7 @@ tb_metrics['train_count'] = tb_metrics['train sample count']
 # Looking at the training curves, deep_net isn't actually training
 # I need to fix it going forward, but for now I can clean up the visualizations by removing it
 tb_metrics = tb_metrics[~(tb_metrics['supervised'] == 'deep_net')]
+tb_metrics['supervised'] = tb_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
 tb_metrics
 
 # %%
@@ -688,7 +693,266 @@ print(plot)
 
 # %%
 plot = ggplot(tb_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth(method='loess')
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('TB (lack of a) Crossover Point')
+plot
+
+# %% [markdown]
+# ## Small training sets without be correction
+
+# %%
+in_files = glob.glob('../../results/small_subsets.sepsis*.tsv')
+in_files = [file for file in in_files if 'be_corrected' not in file]
+print(in_files[:5])
+
+# %%
+sepsis_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('sepsis.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    sepsis_metrics = pd.concat([sepsis_metrics, new_df])
+    
+sepsis_metrics['train_count'] = sepsis_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+sepsis_metrics = sepsis_metrics[~(sepsis_metrics['supervised'] == 'deep_net')]
+sepsis_metrics['supervised'] = sepsis_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+sepsis_metrics
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='factor(train_count)', y='balanced_accuracy')) 
+plot += geom_boxplot()
+plot += ggtitle('Sepsis Dataset Size Effects (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='factor(train_count)', y='balanced_accuracy', fill='supervised')) 
+plot += geom_boxplot()
+plot += ggtitle('Sepsis Datset Size by Model (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
-plot += ggtitle('TB (lack of a) Crossover Point')
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('Sepsis Crossover Point')
+plot
+
+# %% [markdown]
+# ## TB Not Batch Effect Corrected
+
+# %%
+in_files = glob.glob('../../results/small_subsets.tb*.tsv')
+in_files = [file for file in in_files if 'be_corrected' not in file]
+print(in_files[:5])
+
+# %%
+tb_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('tb.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    tb_metrics = pd.concat([tb_metrics, new_df])
+    
+tb_metrics['train_count'] = tb_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+tb_metrics = tb_metrics[~(tb_metrics['supervised'] == 'deep_net')]
+tb_metrics['supervised'] = tb_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+tb_metrics
+
+# %%
+plot = ggplot(tb_metrics, aes(x='factor(train_count)', y='balanced_accuracy')) 
+plot += geom_boxplot()
+plot += ggtitle('tb Dataset Size Effects (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(tb_metrics, aes(x='factor(train_count)', y='balanced_accuracy', fill='supervised')) 
+plot += geom_boxplot()
+plot += ggtitle('tb Datset Size by Model (equal label counts)')
+print(plot)
+
+# %%
+plot = ggplot(tb_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('tb Crossover Point')
+plot
+
+# %% [markdown]
+# ## Large training sets without be correction
+
+# %%
+in_files = glob.glob('../../results/keep_ratios.sepsis*.tsv')
+in_files = [file for file in in_files if 'be_corrected' not in file]
+print(in_files[:5])
+
+# %%
+sepsis_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('sepsis.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    sepsis_metrics = pd.concat([sepsis_metrics, new_df])
+    
+sepsis_metrics['train_count'] = sepsis_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+sepsis_metrics = sepsis_metrics[~(sepsis_metrics['supervised'] == 'deep_net')]
+sepsis_metrics['supervised'] = sepsis_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+sepsis_metrics
+
+# %%
+plot = ggplot(sepsis_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('Sepsis Crossover Point')
+plot
+
+# %% [markdown]
+# ## TB Not Batch Effect Corrected
+
+# %%
+in_files = glob.glob('../../results/keep_ratios.tb*.tsv')
+in_files = [file for file in in_files if 'be_corrected' not in file]
+print(in_files[:5])
+
+# %%
+tb_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('tb.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    tb_metrics = pd.concat([tb_metrics, new_df])
+    
+tb_metrics['train_count'] = tb_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+tb_metrics = tb_metrics[~(tb_metrics['supervised'] == 'deep_net')]
+tb_metrics['supervised'] = tb_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+tb_metrics
+
+# %%
+plot = ggplot(tb_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('tb Crossover Point')
+plot
+
+# %% [markdown]
+# ## Lupus Analyses
+
+# %%
+in_files = glob.glob('../../results/keep_ratios.lupus*.tsv')
+in_files = [file for file in in_files if 'be_corrected' in file]
+print(in_files[:5])
+
+# %%
+lupus_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('lupus.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    lupus_metrics = pd.concat([lupus_metrics, new_df])
+    
+lupus_metrics['train_count'] = lupus_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+lupus_metrics = lupus_metrics[~(lupus_metrics['supervised'] == 'deep_net')]
+lupus_metrics['supervised'] = lupus_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+lupus_metrics
+
+# %%
+plot = ggplot(lupus_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('lupus Crossover Point')
+plot
+
+# %% [markdown]
+# ## Lupus Not Batch Effect Corrected
+
+# %%
+in_files = glob.glob('../../results/keep_ratios.lupus*.tsv')
+in_files = [file for file in in_files if 'be_corrected' not in file]
+print(in_files[:5])
+
+# %%
+lupus_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('lupus.')[-1]
+    model_info = model_info.split('.')
+        
+    supervised_model = model_info[0]
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-2]
+        
+    lupus_metrics = pd.concat([lupus_metrics, new_df])
+    
+lupus_metrics['train_count'] = lupus_metrics['train sample count']
+
+# Looking at the training curves, deep_net isn't actually training
+# I need to fix it going forward, but for now I can clean up the visualizations by removing it
+lupus_metrics = lupus_metrics[~(lupus_metrics['supervised'] == 'deep_net')]
+lupus_metrics['supervised'] = lupus_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+lupus_metrics
+
+# %%
+plot = ggplot(lupus_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('lupus Crossover Point')
 plot
