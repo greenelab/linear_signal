@@ -1,6 +1,9 @@
 name: saged
 channels:
   - defaults
+  - bioconda
+  - conda-forge
+  - pytorch
 dependencies:
   - certifi=2020.6.20
   - glib=2.65.0
