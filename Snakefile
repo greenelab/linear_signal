@@ -183,6 +183,15 @@ rule all:
         # basic imputation
         expand("results/impute.{impute}.{dataset}.{seed}.tsv",
                impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # uncorrected imputation
+        expand("results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
 
 
 rule pickle_compendium:
@@ -447,3 +456,16 @@ rule basic_imputation:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--batch_correction_method limma"
+
+rule basic_imputation_uncorrected:
+    input:
+        "data/subset_compendium.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv"
+    shell:
+        "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
+        "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
