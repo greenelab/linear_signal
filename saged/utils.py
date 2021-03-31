@@ -50,6 +50,24 @@ BLOOD_KEYS = ['blood',
               ]
 
 
+def generate_mask(shape: torch.Size, fraction_zeros: float) -> torch.FloatTensor:
+    '''Generate a mask tensor marking input data for dropout
+
+    Arguments
+    ---------
+    shape: The shape of the resulting mask tensor
+    fraction_zeros: The probability of setting each element in the resulting tensor to
+                    zero (the rest will be set to ones)
+
+    Returns
+    -------
+    mask: The mask tensor of shape `shape`
+    '''
+    # Get [0,1] random numbers, and set all greater than fraction_zeros to 1
+    # (and set all others to 0)
+    return torch.rand(shape) > fraction_zeros
+
+
 def parse_map_file(map_file_path: str) -> Dict[str, str]:
     '''Create a sample: label mapping from the pickled file output by label_samples.py
 

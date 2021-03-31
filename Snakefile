@@ -1,6 +1,7 @@
 
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
+IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
 SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
 NUM_SEEDS = 5
@@ -12,14 +13,14 @@ wildcard_constraints:
 ruleorder:
     # Fix ambiguity with label wildcard
     single_label_unsupervised > single_label
-    
+
 ruleorder: subset_label_unsupervised > subset_label
 
 rule all:
     input:
         # Pickled input dataframe
         "data/subset_compendium.pkl",
-        # all_label_comparisons outputs 
+        # all_label_comparisons outputs
         expand("results/all_labels.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
                dataset=DATASETS,
@@ -33,7 +34,7 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # all_label_comparisons semi-supervised
-        expand("results/all_labels.{semisupervised}.{dataset}.{seed}.tsv", 
+        expand("results/all_labels.{semisupervised}.{dataset}.{seed}.tsv",
                semisupervised=SEMISUPERVISED,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
@@ -131,7 +132,7 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
-        # keep_ratios lupus 
+        # keep_ratios lupus
         expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
                dataset=DATASETS,
@@ -179,6 +180,18 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # basic imputation
+        expand("results/impute.{impute}.{dataset}.{seed}.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # uncorrected imputation
+        expand("results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
 
 
 rule pickle_compendium:
@@ -189,7 +202,7 @@ rule pickle_compendium:
     shell:
         "python saged/pickle_tsv.py {input} {output}"
 
- 
+
 rule all_label_comparison:
     input:
         "data/subset_compendium.pkl",
@@ -220,7 +233,7 @@ rule all_label_comparison_unsupervised:
     shell:
         "python saged/all_label_comparison.py {input.dataset_config} {input.supervised_model} "
         "results/all_labels.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
-        "--unsupervised_config {input.unsupervised_model} " 
+        "--unsupervised_config {input.unsupervised_model} "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed}"
 
@@ -248,7 +261,7 @@ rule single_label:
     output:
         "results/single_label.{label}.{supervised}.{dataset}.{seed}.tsv"
     shell:
-        "python saged/single_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "python saged/single_label_prediction.py {input.dataset_config} {input.supervised_model} "
         "results/single_label.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -268,7 +281,7 @@ rule single_label_unsupervised:
         "results/single_label.{wildcards.label}.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
-        "--unsupervised_config {input.unsupervised_model} " 
+        "--unsupervised_config {input.unsupervised_model} "
         "--label {wildcards.label} "
         "--negative_class healthy "
 
@@ -280,7 +293,7 @@ rule single_label_semisupervised:
     output:
         "results/single_label.{label}.{semisupervised}.{dataset}.{seed}.tsv"
     shell:
-        "python saged/single_label_prediction.py {input.dataset_config} {input.semi_supervised_model} " 
+        "python saged/single_label_prediction.py {input.dataset_config} {input.semi_supervised_model} "
         "results/single_label.{wildcards.label}.{wildcards.semisupervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -296,7 +309,7 @@ rule subset_label:
     output:
         "results/subset_label.{label}.{supervised}.{dataset}.{seed}.tsv"
     shell:
-        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} "
         "results/subset_label.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -312,11 +325,11 @@ rule subset_label_unsupervised:
     output:
         "results/subset_label.{label}.{unsupervised}.{supervised}.{dataset}.{seed}.tsv"
     shell:
-        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} "
         "results/subset_label.{wildcards.label}.{wildcards.unsupervised}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
-        "--unsupervised_config {input.unsupervised_model} " 
+        "--unsupervised_config {input.unsupervised_model} "
         "--label {wildcards.label} "
         "--negative_class healthy "
 
@@ -344,7 +357,7 @@ rule subset_label_batch_effect_correction:
     output:
         "results/subset_label.{label}.{supervised}.{dataset}.{seed}.be_corrected.tsv"
     shell:
-        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} " 
+        "python saged/subset_label_prediction.py {input.dataset_config} {input.supervised_model} "
         "results/subset_label.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -429,3 +442,30 @@ rule small_subsets_be_correction:
         "--label {wildcards.label} "
         "--negative_class healthy "
         "--batch_correction_method limma "
+
+rule basic_imputation:
+    input:
+        "data/subset_compendium.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/impute.{impute}.{dataset}.{seed}.tsv"
+    shell:
+        "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
+        "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--batch_correction_method limma"
+
+rule basic_imputation_uncorrected:
+    input:
+        "data/subset_compendium.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv"
+    shell:
+        "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
+        "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.uncorrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "

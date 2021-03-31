@@ -317,6 +317,34 @@ class ThreeLayerClassifier(nn.Module):
         return x
 
 
+class ThreeLayerImputation(nn.Module):
+    """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(ThreeLayerImputation, self).__init__()
+
+        self.fc1 = nn.Linear(input_size, input_size//2)
+        self.fc2 = nn.Linear(input_size//2, input_size//2)
+        self.fc3 = nn.Linear(input_size//2, output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+
+        return x
+
+
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
@@ -366,6 +394,331 @@ class DeepClassifier(nn.Module):
         x = self.fc5(x)
 
         return x
+
+
+class PytorchImpute(ExpressionModel):
+    """
+    A wrapper class implementing the ExpressionModel API while remaining modular enough
+    to accept any supervised classifier implementing the nn.Module API
+    """
+    def __init__(self,
+                 optimizer_name: str,
+                 loss_name: str,
+                 model_name: str,
+                 lr: float,
+                 weight_decay: float,
+                 device: str,
+                 seed: int,
+                 epochs: int,
+                 batch_size: int,
+                 log_progress: bool,
+                 experiment_name: str = None,
+                 experiment_description: str = None,
+                 save_path: str = None,
+                 train_fraction: float = None,
+                 train_count: float = None,
+                 **kwargs,
+                 ) -> None:
+        """
+        Standard model init function for a supervised model
+
+        Arguments
+        ---------
+        optimizer_name: The name of the optimizer class to be used when training the model
+        loss_name: The loss function class to use
+        model_name: The type of classifier to use
+        lr: The learning rate for the optimizer
+        weight_decay: The weight decay for the optimizer
+        device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
+        seed: The random seed to use in stochastic operations
+        epochs: The number of epochs to train the model
+        batch_size: The number of items in each training batch
+        log_progress: True if you want to use neptune to log progress, otherwise False
+        experiment_name: A short name for the experiment you're running for use in neptune logs
+        experiment_description: A description for the experiment you're running
+        save_path: The path to save the model to
+        train_fraction: The percent of samples to use in training
+        train_count: The number of studies to use in training
+        **kwargs: Arguments for use in the underlying classifier
+
+        Notes
+        -----
+        Either `train_count` or `train_fraction` should be None but not both
+        """
+        # A piece of obscure python, this gets a dict of all python local variables.
+        # Since it is called at the start of a function it gets all the arguments for the
+        # function as if they were passed in a dict. This is useful, because we can feed
+        # self.config to neptune to keep track of all our run's parameters
+        self.config = locals()
+
+        optimizer_class = getattr(torch.optim, optimizer_name)
+        self.loss_class = getattr(nn, loss_name)
+
+        self.seed = seed
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.experiment_name = experiment_name
+        self.experiment_description = experiment_description
+        self.log_progress = log_progress
+        self.train_fraction = train_fraction
+        self.train_count = train_count
+        self.loss_fn = self.loss_class(reduction='sum')
+
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(seed)
+
+        model_class = get_model_by_name(model_name)
+        self.model = model_class(**kwargs)
+
+        self.optimizer = optimizer_class(self.model.parameters(),
+                                         lr=lr,
+                                         weight_decay=weight_decay)
+
+        self.device = torch.device(device)
+
+    def free_memory(self) -> None:
+        """
+        The model subclass and optimizer used by PytorchSupervised don't release their
+        GPU memory by default when the main class is deleted. This function fixes that
+
+        See https://github.com/greenelab/saged/issues/9 for more details
+        """
+        del self.model
+        del self.optimizer
+
+    @classmethod
+    def load_model(classobject,
+                   checkpoint_path: str,
+                   **kwargs
+                   ) -> "PytorchSupervised":
+        """
+        Read a pickled model from a file and return it
+
+        Arguments
+        ---------
+        checkpoint_path: The location where the model is stored
+
+        Returns
+        -------
+        model: The loaded model
+        """
+        model = classobject(**kwargs)
+
+        state_dicts = torch.load(checkpoint_path)
+        model.load_parameters(state_dicts['model_state_dict'])
+        model.optimizer.load_state_dict(state_dicts['optimizer_state_dict'])
+
+        return model
+
+    def save_model(self, out_path: str) -> None:
+        """
+        Write the model to a file
+
+        Arguments
+        ---------
+        out_path: The path to the file to write the classifier to
+
+        Raises
+        ------
+        FileNotFoundError if out_path isn't openable
+        """
+        torch.save({
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    },
+                   out_path
+                   )
+
+    def mask_input_(self,
+                    input: torch.Tensor,
+                    fraction_masked: float = .1) -> torch.Tensor:
+        """
+        Apply a mask to the given input, setting a random subset of the input
+        to zero
+
+        Arguments
+        ---------
+        input: The tensor to be masked
+        fraction_masked: The percent of the inputs to be set to zero
+
+        Returns
+        -------
+        masked_input: The input with the mask applied to it
+        """
+        # Create a mask with 10 percent ones to select locations to be
+        # set to zero
+        mask = utils.generate_mask(input.shape, fraction_zeros=(1 - fraction_masked))
+        mask = mask.to(self.device)
+
+        # Zero out masked items
+        masked_expression = input.masked_fill(mask, 0)
+
+        return masked_expression
+
+    def fit(self, dataset: LabeledDataset) -> "PytorchSupervised":
+        """
+        Train a model using the given labeled data
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+
+        Returns
+        -------
+        results: The metrics produced during the training process
+
+        Raises
+        ------
+        AttributeError: If train_count and train_fraction are both None
+        """
+        # Set device
+        device = self.device
+
+        seed = self.seed
+        epochs = self.epochs
+        batch_size = self.batch_size
+        experiment_name = self.experiment_name
+        experiment_description = self.experiment_description
+        log_progress = self.log_progress
+
+        train_count = None
+        train_fraction = None
+        train_fraction = getattr(self, 'train_fraction', None)
+        if train_fraction is None:
+            train_count = self.train_count
+
+        # TODO early stopping
+        # Split dataset and create dataloaders
+        train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
+                                                               train_study_count=train_count,
+                                                               seed=seed)
+        # For very small training sets the tune dataset will be empty
+        # TODO figure out how to more elegantly handle this when implementing early stopping
+        tune_is_empty = False
+        if len(tune_dataset) == 0:
+            sys.stderr.write('Warning: Tune dataset is empty')
+            tune_is_empty = True
+
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
+        tune_loader = DataLoader(tune_dataset, batch_size=1)
+
+        self.model.to(device)
+
+        if log_progress:
+            experiment = neptune.create_experiment(name=experiment_name,
+                                                   description=experiment_description,
+                                                   params=self.config
+                                                   )
+
+            experiment.set_property('model', str(type(self.model)))
+
+        best_tune_loss = None
+
+        for epoch in tqdm(range(epochs)):
+            train_loss = 0
+            self.model.train()
+
+            for batch in train_loader:
+                expression = batch
+                expression = expression.float().to(device)
+
+                # Zero out masked items
+                masked_expression = self.mask_input_(expression)
+
+                self.optimizer.zero_grad()
+                output = self.model(masked_expression)
+
+                loss = self.loss_fn(output, expression)
+                loss.backward()
+                self.optimizer.step()
+
+                train_loss += loss.item()
+
+            with torch.no_grad():
+                self.model.eval()
+
+                tune_loss = 0
+
+                if not tune_is_empty:
+                    for batch in tune_loader:
+                        expression = batch
+                        expression = expression.float().to(device)
+
+                        masked_expression = self.mask_input_(expression)
+
+                        output = self.model(masked_expression)
+
+                        tune_loss += self.loss_fn(output, expression).item()
+
+            if log_progress:
+                neptune.log_metric('train_loss', epoch, train_loss / len(train_dataset))
+                if not tune_is_empty:
+                    neptune.log_metric('tune_loss', epoch, tune_loss / len(tune_dataset))
+
+            # Save model if applicable
+            save_path = getattr(self, 'save_path', None)
+            if save_path is not None and not tune_is_empty:
+                if best_tune_loss is None or tune_loss < best_tune_loss:
+                    best_tune_loss = tune_loss
+                    self.save_model(save_path)
+
+        return self
+
+    def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
+        """
+        Predict the labels for an unlabeled dataset
+
+        Arguments
+        ---------
+        dataset: The unlabeled data whose labels should be predicted
+
+        Returns
+        -------
+        predictions: A numpy array of predictions
+        """
+        data = dataset.get_all_data()
+        X = torch.Tensor(data).float().to(self.device)
+
+        self.model.eval()
+        output = self.model(X)
+        predictions = utils.sigmoid_to_predictions(output)
+        return predictions
+
+    def evaluate(self, dataset: MixedDataset) -> float:
+        """
+        Return the loss for the validation dataset
+
+        Arguments
+        ---------
+        dataset: The labeled dataset for use in evaluating the model
+
+        Returns
+        -------
+        loss: The loss (usually mean squared error) of the dataset
+        """
+        data_loader = DataLoader(dataset, batch_size=1)
+        with torch.no_grad():
+            self.model.eval()
+
+            total_loss = 0
+            for batch in data_loader:
+                expression = batch
+                expression = expression.float().to(self.device)
+                masked_expression = self.mask_input_(expression)
+                output = self.model(masked_expression)
+
+                total_loss += self.loss_fn(output, expression).item()
+
+        return total_loss
+
+    def get_parameters(self) -> Iterable[torch.Tensor]:
+        return copy.deepcopy(self.model.state_dict())
+
+    def load_parameters(self, parameters: dict) -> "PytorchSupervised":
+        self.model.load_state_dict(parameters)
+        return self
 
 
 class PytorchSupervised(ExpressionModel):

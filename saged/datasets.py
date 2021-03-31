@@ -33,6 +33,18 @@ def correct_batch_effects(data: "RefineBioDataset",
     return data
 
 
+def load_all_data(dataset_config_path: str) -> "MixedDataset":
+    with open(dataset_config_path) as config_file:
+        dataset_config = yaml.safe_load(config_file)
+
+    dataset_name = dataset_config.pop('name')
+    MixedDatasetClass = globals()[dataset_name]
+
+    all_data = MixedDatasetClass.from_config(**dataset_config)
+
+    return all_data
+
+
 def load_binary_data(dataset_config_path: str,
                      label: str,
                      negative_class: str
