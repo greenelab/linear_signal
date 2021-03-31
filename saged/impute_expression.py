@@ -1,6 +1,5 @@
 """
-This benchmark compares the performance of different models in learning to differentiate between
-healthy and diseased gene expression with equal label distributions in the train and val sets."""
+This benchmark probes the effects of models and data on ability to impute gene expression."""
 import argparse
 
 import yaml

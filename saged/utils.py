@@ -56,8 +56,8 @@ def generate_mask(shape: torch.Size, fraction_zeros: float) -> torch.FloatTensor
     Arguments
     ---------
     shape: The shape of the resulting mask tensor
-    fraction_zeros: The fraction of elements in the resulting tensor that should
-                    be zero (the rest will be set to ones)
+    fraction_zeros: The probability of setting each element in the resulting tensor to
+                    zero (the rest will be set to ones)
 
     Returns
     -------

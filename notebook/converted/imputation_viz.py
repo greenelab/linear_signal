@@ -56,11 +56,8 @@ metrics = pd.DataFrame()
 for path in in_files:
     new_df = pd.read_csv(path, sep='\t')
     
-    #print(new_df.head())
-    #break
     model_info = path.strip('.tsv').split('results/impute.')[-1]
     model_info = model_info.split('.')
-    print(model_info)
         
     if len(model_info) == 4:
         unsupervised_model = model_info[0]
