@@ -466,6 +466,6 @@ rule basic_imputation_uncorrected:
         "results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv"
     shell:
         "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
-        "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.tsv "
+        "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.uncorrected.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
