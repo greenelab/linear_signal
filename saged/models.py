@@ -463,6 +463,7 @@ class PytorchImpute(ExpressionModel):
         self.train_fraction = train_fraction
         self.train_count = train_count
         self.loss_fn = self.loss_class(reduction='sum')
+        self.save_path = save_path
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -480,7 +481,7 @@ class PytorchImpute(ExpressionModel):
 
     def free_memory(self) -> None:
         """
-        The model subclass and optimizer used by PytorchSupervised don't release their
+        The model subclass and optimizer used by PytorchImpute don't release their
         GPU memory by default when the main class is deleted. This function fixes that
 
         See https://github.com/greenelab/saged/issues/9 for more details
@@ -489,10 +490,10 @@ class PytorchImpute(ExpressionModel):
         del self.optimizer
 
     @classmethod
-    def load_model(classobject,
+    def load_model(cls,
                    checkpoint_path: str,
                    **kwargs
-                   ) -> "PytorchSupervised":
+                   ) -> "PytorchImpute":
         """
         Read a pickled model from a file and return it
 
@@ -532,7 +533,7 @@ class PytorchImpute(ExpressionModel):
                    )
 
     def mask_input_(self,
-                    input: torch.Tensor,
+                    input_tensor: torch.Tensor,
                     fraction_masked: float = .1) -> torch.Tensor:
         """
         Apply a mask to the given input, setting a random subset of the input
@@ -540,24 +541,24 @@ class PytorchImpute(ExpressionModel):
 
         Arguments
         ---------
-        input: The tensor to be masked
+        input_tensor: The tensor to be masked
         fraction_masked: The percent of the inputs to be set to zero
 
         Returns
         -------
-        masked_input: The input with the mask applied to it
+        masked_expression: The input with the mask applied to it
         """
         # Create a mask with 10 percent ones to select locations to be
         # set to zero
-        mask = utils.generate_mask(input.shape, fraction_zeros=(1 - fraction_masked))
+        mask = utils.generate_mask(input_tensor.shape, fraction_zeros=(1 - fraction_masked))
         mask = mask.to(self.device)
 
         # Zero out masked items
-        masked_expression = input.masked_fill(mask, 0)
+        masked_expression = input_tensor.masked_fill(mask, 0)
 
         return masked_expression
 
-    def fit(self, dataset: LabeledDataset) -> "PytorchSupervised":
+    def fit(self, dataset: LabeledDataset) -> "PytorchImpute":
         """
         Train a model using the given labeled data
 
