@@ -344,6 +344,10 @@ class ThreeLayerImputation(nn.Module):
 
         return x
 
+    def get_final_layer(self):
+        """ Return the last layer in the network for use by the PytorchImpute class """
+        return self.fc3
+
 
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
@@ -479,6 +483,41 @@ class PytorchImpute(ExpressionModel):
 
         self.device = torch.device(device)
 
+    def to_classifier(self, num_classes: int) -> "TransferClassifier":
+        """
+        Create a TransferClassifier object from the trained model by chopping off the final layer
+        and replacing it with a classifier layer
+
+
+        Arguments
+        ---------
+        num_classes: The number of classes the classifier should predict
+
+        Returns
+        -------
+        classifier: The resulting classifier model
+
+        """
+        if hasattr(self.model, 'get_final_layer'):
+            final_layer = self.model.get_final_layer()
+        else:
+            sys.stderr.write('Warning: the model used in imputation does not have a get_final_layer function. ')
+            sys.stderr.write('Using model.parameters()[-1] instead...\n')
+
+            final_layer = self.model.parameters()[-1]
+
+        final_layer_shape = final_layer.shape
+        intermediate_dimension = final_layer_shape[0]
+
+        final_layer = nn.Linear(intermediate_dimension, num_classes)
+
+        # Initialize the TransferClassifier
+        new_model = TransferClassifier( pretrained_model = self.model,
+                                        *self.config
+                                      )
+
+        return new_model
+
     def free_memory(self) -> None:
         """
         The model subclass and optimizer used by PytorchImpute don't release their
@@ -505,7 +544,7 @@ class PytorchImpute(ExpressionModel):
         -------
         model: The loaded model
         """
-        model = classobject(**kwargs)
+        model = cls(**kwargs)
 
         state_dicts = torch.load(checkpoint_path)
         model.load_parameters(state_dicts['model_state_dict'])
@@ -1407,3 +1446,80 @@ class PseudolabelModel(PytorchSupervised):
                     self.save_model(save_path)
 
         return self
+
+
+class TransferClassifier(PytorchSupervised):
+    def __init__(self,
+                 pretrained_model: PytorchImpute,
+                 optimizer_name: str,
+                 loss_name: str,
+                 model_name: str,
+                 lr: float,
+                 weight_decay: float,
+                 device: str,
+                 seed: int,
+                 epochs: int,
+                 batch_size: int,
+                 log_progress: bool,
+                 experiment_name: str = None,
+                 experiment_description: str = None,
+                 save_path: str = None,
+                 train_fraction: float = None,
+                 train_count: float = None,
+                 **kwargs,):
+        """
+        Standard model init function for a supervised model
+
+        Arguments
+        ---------
+        pretrained_model: A model trained via imputing gene expression data
+        optimizer_name: The name of the optimizer class to be used when training the model
+        loss_name: The loss function class to use
+        lr: The learning rate for the optimizer
+        weight_decay: The weight decay for the optimizer
+        device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
+        seed: The random seed to use in stochastic operations
+        epochs: The number of epochs to train the model
+        batch_size: The number of items in each training batch
+        log_progress: True if you want to use neptune to log progress, otherwise False
+        experiment_name: A short name for the experiment you're running for use in neptune logs
+        experiment_description: A description for the experiment you're running
+        save_path: The path to save the model to
+        train_fraction: The percent of samples to use in training
+        train_count: The number of studies to use in training
+        **kwargs: Arguments for use in the underlying classifier
+
+        Notes
+        -----
+        Either `train_count` or `train_fraction` should be None but not both
+        """
+        # A piece of obscure python, this gets a dict of all python local variables.
+        # Since it is called at the start of a function it gets all the arguments for the
+        # function as if they were passed in a dict. This is useful, because we can feed
+        # self.config to neptune to keep track of all our run's parameters
+        self.config = locals()
+
+        optimizer_class = getattr(torch.optim, optimizer_name)
+        self.loss_class = getattr(nn, loss_name)
+        self.seed = seed
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.experiment_name = experiment_name
+        self.experiment_description = experiment_description
+        self.log_progress = log_progress
+        self.train_fraction = train_fraction
+        self.train_count = train_count
+
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(seed)
+
+        self.model = pretrained_model
+
+        self.optimizer = optimizer_class(self.model.parameters(),
+                                         lr=lr,
+                                         weight_decay=weight_decay)
+
+        self.device = torch.device(device)
+        raise NotImplementedError
