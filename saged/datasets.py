@@ -205,6 +205,21 @@ class ExpressionDataset(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def remove_samples(self, samples: List[str]) -> "ExpressionDataset":
+        """
+        Remove the provided samples from the dataset
+
+        Arguments
+        ---------
+        samples: The ids of samples to remove
+
+        Returns
+        -------
+        self: The class after removing the samples
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def subset_studies(self,
                        fraction: float = None,
                        num_studies: int = None,
@@ -571,6 +586,22 @@ class RefineBioDataset(ExpressionDataset):
         self.current_expression = self.current_expression.loc[:, samples]
 
         self.data_changed = True
+
+        return self
+
+    def remove_samples(self, samples: List[str]) -> "RefineBioDataset":
+        """
+        Remove the provided samples from the dataset
+
+        Arguments
+        ---------
+        samples: The ids of samples to remove
+
+        Returns
+        -------
+        self: The class after removing the samples
+        """
+        self.current_expression = self.current_expression.drop(samples, axis=1)
 
         return self
 
