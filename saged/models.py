@@ -348,6 +348,11 @@ class ThreeLayerImputation(nn.Module):
         """ Return the last layer in the network for use by the PytorchImpute class """
         return self.fc3
 
+    def set_final_layer(self, new_layer: nn.Module):
+        """ Overwrite the final layer of the model with the layer passed in """
+        self.fc3 = new_layer
+
+
 
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
@@ -483,7 +488,9 @@ class PytorchImpute(ExpressionModel):
 
         self.device = torch.device(device)
 
-    def to_classifier(self, num_classes: int) -> "TransferClassifier":
+    def to_classifier(self,
+                      num_classes: int,
+                      classification_loss_name: str) -> "TransferClassifier":
         """
         Create a TransferClassifier object from the trained model by chopping off the final layer
         and replacing it with a classifier layer
@@ -492,6 +499,7 @@ class PytorchImpute(ExpressionModel):
         Arguments
         ---------
         num_classes: The number of classes the classifier should predict
+        classification_loss_name: The name of the loss function to be used by the classifier
 
         Returns
         -------
@@ -506,15 +514,25 @@ class PytorchImpute(ExpressionModel):
 
             final_layer = self.model.parameters()[-1]
 
-        final_layer_shape = final_layer.shape
-        intermediate_dimension = final_layer_shape[0]
+        intermediate_dimension = final_layer.in_features
 
-        final_layer = nn.Linear(intermediate_dimension, num_classes)
+        new_layer = nn.Linear(intermediate_dimension, num_classes)
+        if hasattr(self.model, 'set_final_layer'):
+            self.model.set_final_layer(new_layer)
+        else:
+            self.model.parameters()[-1] = nn.Linear(intermediate_dimension, num_classes)
+
+        model_config = self.config
+        model_config['pretrained_model'] = self.model
+
+        # This line creates a dependency between this function and the TransferClassifier init function
+        # that I don't really like. I can't think of a cleaner way to do it though
+        model_config['loss_name'] = classification_loss_name
+        if 'self' in model_config:
+            del(model_config['self'])
 
         # Initialize the TransferClassifier
-        new_model = TransferClassifier( pretrained_model = self.model,
-                                        *self.config
-                                      )
+        new_model = TransferClassifier(**model_config)
 
         return new_model
 
@@ -992,6 +1010,7 @@ class PytorchSupervised(ExpressionModel):
 
                 train_loss += loss.item()
                 train_correct += utils.count_correct(output, labels)
+                break
                 # TODO f1 score
 
             with torch.no_grad():
@@ -1410,7 +1429,6 @@ class PseudolabelModel(PytorchSupervised):
 
                 train_loss += labeled_loss.item()
                 train_correct += utils.count_correct(train_output, train_labels)
-                # TODO f1 score
 
             with torch.no_grad():
                 self.model.eval()
@@ -1427,7 +1445,6 @@ class PseudolabelModel(PytorchSupervised):
 
                     tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
                     tune_correct += utils.count_correct(output, labels)
-                    # TODO f1 score
 
             train_acc = train_correct / len(train_dataset)
             tune_acc = tune_correct / len(tune_dataset)
@@ -1522,4 +1539,3 @@ class TransferClassifier(PytorchSupervised):
                                          weight_decay=weight_decay)
 
         self.device = torch.device(device)
-        raise NotImplementedError
