@@ -36,14 +36,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # TODO
-    # Save best model
-    # Write logic to convert imputation model to classification model
-    # ^(should live in PytorchSupervised probably)
-    # Write logic to hold out samples in imputation
-    # Create new script to run trained model for classification?
-
-
-
     # Set early stopping criteria
     # Evaluate effects of study splits (am I correct to split by study to avoid
     # leakage?)
