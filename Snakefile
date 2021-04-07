@@ -192,6 +192,12 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # corrected transfer
+        expand("results/transfer.sepsis.{impute}.{dataset}.{seed}.be_corrected.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
 
 
 rule pickle_compendium:
@@ -469,3 +475,19 @@ rule basic_imputation_uncorrected:
         "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.uncorrected.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+
+rule transfer_corrected:
+    input:
+        "data/subset_compendium.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/transfer.{label}.{impute}.{dataset}.{seed}.be_corrected.tsv"
+    shell:
+        "python saged/imputation_pretraining.py {input.dataset_config} {input.imputation_model} "
+        "results/transfer.{wildcards.label}.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma"
