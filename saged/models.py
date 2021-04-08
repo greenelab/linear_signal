@@ -5,6 +5,7 @@ import itertools
 import pickle
 import sys
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Union, Iterable, Tuple, Any
 
 import neptune
@@ -634,6 +635,9 @@ class PytorchImpute(ExpressionModel):
         # Set device
         device = self.device
 
+        best_model_state = None
+        best_optimizer_state = None
+
         seed = self.seed
         epochs = self.epochs
         batch_size = self.batch_size
@@ -720,7 +724,24 @@ class PytorchImpute(ExpressionModel):
             if save_path is not None and not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(save_path)
+                    # Keep track of model state for the best model
+                    best_model_state = {k:v.to('cpu') for k, v in self.model.state_dict().items()}
+                    best_model_state = OrderedDict(best_model_state)
+                    best_optimizer_state = {}
+
+                    # Ideally we would use deepcopy here, but we need to get the tensors off the GPU
+                    for key, value in self.optimizer.state_dict().items():
+                        if isinstance(value, torch.Tensor):
+                            best_optimizer_state[key] = value.to('cpu')
+                        else:
+                            best_optimizer_state[key] = value
+                    best_optimizer_state = OrderedDict(best_optimizer_state)
+
+        # Load model from state dict
+        if save_path is not None and not tune_is_empty:
+            self.load_parameters(best_model_state)
+            self.optimizer.load_state_dict(best_optimizer_state)
+            self.save_model(save_path)
 
         return self
 
@@ -1042,12 +1063,27 @@ class PytorchSupervised(ExpressionModel):
                     neptune.log_metric('tune_loss', epoch, tune_loss)
                     neptune.log_metric('tune_acc', epoch, tune_acc)
 
-            # Save model if applicable
-            save_path = getattr(self, 'save_path', None)
             if save_path is not None and not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(save_path)
+                    # Keep track of model state for the best model
+                    best_model_state = {k:v.to('cpu') for k, v in self.model.state_dict().items()}
+                    best_model_state = OrderedDict(best_model_state)
+                    best_optimizer_state = {}
+
+                    # Ideally we would use deepcopy here, but we need to get the tensors off the GPU
+                    for key, value in self.optimizer.state_dict().items():
+                        if isinstance(value, torch.Tensor):
+                            best_optimizer_state[key] = value.to('cpu')
+                        else:
+                            best_optimizer_state[key] = value
+                    best_optimizer_state = OrderedDict(best_optimizer_state)
+
+        # Load model from state dict
+        if save_path is not None and not tune_is_empty:
+            self.load_parameters(best_model_state)
+            self.optimizer.load_state_dict(best_optimizer_state)
+            self.save_model(save_path)
 
         return self
 

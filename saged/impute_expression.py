@@ -92,6 +92,7 @@ if __name__ == '__main__':
                 # Output size is the same as the input because we're doing
                 # imputation
                 model_config['output_size'] = input_size
+                model_config['save_path'] += '/impute_only_{}_{}'.format(subset_percent, args.seed)
 
             supervised_model_type = model_config.pop('name')
             SupervisedClass = getattr(models, supervised_model_type)
