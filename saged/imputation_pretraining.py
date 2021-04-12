@@ -2,6 +2,7 @@
 This benchmark trains an imputation model for downstream use in classification
 """
 import argparse
+import copy
 
 import sklearn.metrics
 import yaml
@@ -237,7 +238,10 @@ if __name__ == '__main__':
                 print('Val data: {}'.format(len(val_data)))
                 print('output size: {}'.format(output_size))
 
-                supervised_model = imputation_model.to_classifier(output_size, 'CrossEntropyLoss')
+                # Copy the model before converting it to be a classifier to prevent
+                # retraining the same model repeatedly
+                imputation_model_copy = copy.deepcopy(imputation_model)
+                supervised_model = imputation_model_copy.to_classifier(output_size, 'CrossEntropyLoss')
 
                 supervised_model.fit(train_data)
 
