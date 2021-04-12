@@ -131,6 +131,25 @@ if __name__ == '__main__':
 
     imputation_models = []
 
+    # Add an untrained model to the list
+    subset_percent = 0
+    input_size = all_data[0].shape[0]
+    with open(args.model_config) as supervised_file:
+        model_config = yaml.safe_load(supervised_file)
+        model_config['input_size'] = input_size
+        # Output size is the same as the input because we're doing
+        # imputation
+        model_config['output_size'] = input_size
+        model_config['save_path'] += '/impute_{}_{}'.format(subset_percent, args.seed)
+
+    imputation_model_type = model_config.pop('name')
+    SupervisedClass = getattr(models, imputation_model_type)
+    imputation_model = SupervisedClass(**model_config)
+    imputation_model.model = imputation_model.model.to('cpu')
+
+    imputation_models.append((imputation_model, 0))
+    subset_percents.append(0)
+
     # Imputation training loop
     for subset_number in [1, 10]:
         subset_percent = subset_number * .1
@@ -156,16 +175,6 @@ if __name__ == '__main__':
 
         input_size = all_data[0].shape[0]
 
-        with open(args.model_config) as supervised_file:
-            model_config = yaml.safe_load(supervised_file)
-            model_config['input_size'] = input_size
-            # Output size is the same as the input because we're doing
-            # imputation
-            model_config['output_size'] = input_size
-            model_config['save_path'] += '/impute_{}_{}'.format(subset_percent, args.seed)
-
-        imputation_model_type = model_config.pop('name')
-        SupervisedClass = getattr(models, imputation_model_type)
         imputation_model = SupervisedClass(**model_config)
 
         imputation_model.fit(train_data)
