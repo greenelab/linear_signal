@@ -743,6 +743,11 @@ class PytorchImpute(ExpressionModel):
             self.optimizer.load_state_dict(best_optimizer_state)
             self.save_model(save_path)
 
+        if log_progress:
+            # Finish the neptune experiment and free up the network resources associated with
+            # talking to neptune's server
+            neptune.stop()
+
         return self
 
     def predict(self, dataset: UnlabeledDataset) -> np.ndarray:
@@ -1063,6 +1068,7 @@ class PytorchSupervised(ExpressionModel):
                     neptune.log_metric('tune_loss', epoch, tune_loss)
                     neptune.log_metric('tune_acc', epoch, tune_acc)
 
+            save_path = getattr(self, 'save_path', None)
             if save_path is not None and not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
@@ -1084,6 +1090,9 @@ class PytorchSupervised(ExpressionModel):
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
             self.save_model(save_path)
+
+        if log_progress:
+            neptune.stop()
 
         return self
 
