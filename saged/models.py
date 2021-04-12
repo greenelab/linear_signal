@@ -1036,8 +1036,6 @@ class PytorchSupervised(ExpressionModel):
 
                 train_loss += loss.item()
                 train_correct += utils.count_correct(output, labels)
-                break
-                # TODO f1 score
 
             with torch.no_grad():
                 self.model.eval()
