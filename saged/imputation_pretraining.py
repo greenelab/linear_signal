@@ -3,6 +3,7 @@ This benchmark trains an imputation model for downstream use in classification
 """
 import argparse
 import copy
+import gc
 
 import sklearn.metrics
 import yaml
@@ -191,6 +192,10 @@ if __name__ == '__main__':
 
         train_data.reset_filters()
 
+    # all_data is a lot of memory to hang on to, so don't
+    del(all_data)
+    del(unlabeled_data)
+
     # Get fivefold cross-validation splits
     labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
 
@@ -204,9 +209,12 @@ if __name__ == '__main__':
     supervised_train_sample_counts = []
     subset_percents = []
     impute_sample_counts = []
+
     for i in range(len(labeled_splits)):
         for subset_number in range(1, 11, 1):
             for imputation_model, impute_sample_count in imputation_models:
+                # https://github.com/facebookresearch/higher/pull/15
+                gc.collect()
                 subset_percent = subset_number * .1
 
                 train_list = labeled_splits[:i] + labeled_splits[i+1:]
@@ -248,6 +256,7 @@ if __name__ == '__main__':
                 predictions, true_labels = supervised_model.evaluate(val_data)
 
                 supervised_model.free_memory()
+                imputation_model_copy.free_memory()
 
                 accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
                 positive_label_encoding = train_data.get_label_encoding(args.label)
@@ -268,6 +277,8 @@ if __name__ == '__main__':
 
                 train_data.reset_filters()
                 val_data.reset_filters()
+
+
 
     with open(args.out_file, 'w') as out_file:
         # Write header
