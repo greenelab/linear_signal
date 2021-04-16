@@ -340,7 +340,7 @@ def count_correct(outputs: torch.Tensor, labels: torch.Tensor) -> int:
     """
     predictions = sigmoid_to_predictions(outputs)
     cpu_labels = labels.clone().cpu()
-    num_correct = accuracy_score(cpu_labels, predictions.cpu())
+    num_correct = accuracy_score(cpu_labels, predictions.cpu(), normalize=False)
 
     return num_correct
 
