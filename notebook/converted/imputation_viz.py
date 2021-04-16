@@ -75,7 +75,7 @@ for path in in_files:
     
 metrics = metrics.reset_index()
 metrics['trial'] = metrics.index // 10
-metrics
+metrics.head()
 
 
 # In[7]:
@@ -122,4 +122,89 @@ plot += geom_point()
 plot += geom_smooth(method='loess')
 plot += ggtitle('The relationship between sample count and val set loss')
 print(plot)
+
+
+# ## Evaluate Transfering Models
+
+# In[12]:
+
+
+in_files = glob.glob('../../results/transfer.*')
+print(in_files[:5])
+
+
+# In[17]:
+
+
+metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    
+    model_info = path.strip('.tsv').split('results/impute.')[-1]
+    model_info = model_info.split('.')        
+
+    supervised_model = model_info[4]
+    seed = model_info[6]
+    disease = model_info[3]
+             
+    new_df['supervised'] = supervised_model
+    new_df['seed'] = seed
+    new_df['disease'] = disease
+        
+    metrics = pd.concat([metrics, new_df])
+    
+metrics = metrics.reset_index()
+metrics['trial'] = metrics.index // 20
+metrics
+
+
+# In[18]:
+
+
+sepsis_df = metrics[metrics['disease'] == 'sepsis']
+tb_df = metrics[metrics['disease'] == 'tb']
+
+
+# In[19]:
+
+
+ggplot(sepsis_df, aes(x='train sample count', y='balanced_accuracy', color='factor(trial)')) + geom_line()
+
+
+# In[20]:
+
+
+plot = ggplot(sepsis_df, aes(x='train sample count', y='balanced_accuracy', color='factor(impute_samples)')) 
+plot += geom_point()
+plot += geom_smooth(method='loess')
+plot += ggtitle('The relationship between sample count and val set loss')
+print(plot)
+
+
+# In[ ]:
+
+
+
+
+
+# In[21]:
+
+
+ggplot(tb_df, aes(x='train sample count', y='balanced_accuracy', color='factor(trial)')) + geom_line()
+
+
+# In[22]:
+
+
+plot = ggplot(tb_df, aes(x='train sample count', y='balanced_accuracy', color='factor(impute_samples)')) 
+plot += geom_point()
+plot += geom_smooth(method='loess')
+plot += ggtitle('The relationship between sample count and val set loss')
+print(plot)
+
+
+# In[ ]:
+
+
+
 
