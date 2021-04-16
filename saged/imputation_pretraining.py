@@ -10,6 +10,7 @@ import yaml
 
 from saged import utils, datasets, models
 
+
 def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
                           val_data: datasets.LabeledDataset
                           ) -> datasets.LabeledDataset:
@@ -54,6 +55,7 @@ def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
                                                          args.negative_class,
                                                          args.seed)
     return train_data
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -215,6 +217,7 @@ if __name__ == '__main__':
             for imputation_model, impute_sample_count in imputation_models:
                 # https://github.com/facebookresearch/higher/pull/15
                 gc.collect()
+
                 subset_percent = subset_number * .1
 
                 train_list = labeled_splits[:i] + labeled_splits[i+1:]
@@ -224,8 +227,8 @@ if __name__ == '__main__':
                 train_data = LabeledDatasetClass.from_list(train_list)
                 val_data = labeled_splits[i]
 
-                # This isn't strictly necessary since we're checking whether both classes are present,
-                # but it's safer
+                # This isn't strictly necessary since we're checking whether both classes
+                # are present, but it's safer
                 train_data.set_label_encoder(label_encoder)
                 val_data.set_label_encoder(label_encoder)
 
@@ -249,7 +252,8 @@ if __name__ == '__main__':
                 # Copy the model before converting it to be a classifier to prevent
                 # retraining the same model repeatedly
                 imputation_model_copy = copy.deepcopy(imputation_model)
-                supervised_model = imputation_model_copy.to_classifier(output_size, 'CrossEntropyLoss')
+                supervised_model = imputation_model_copy.to_classifier(output_size,
+                                                                       'CrossEntropyLoss')
 
                 supervised_model.fit(train_data)
 
@@ -279,7 +283,6 @@ if __name__ == '__main__':
                 val_data.reset_filters()
 
 
-
     with open(args.out_file, 'w') as out_file:
         # Write header
         out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
@@ -299,4 +302,3 @@ if __name__ == '__main__':
             stat_strings = [str(item) for item in stats]
             out_str = '\t'.join(stat_strings)
             out_file.write(f'{out_str}\n')
-

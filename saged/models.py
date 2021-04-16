@@ -354,7 +354,6 @@ class ThreeLayerImputation(nn.Module):
         self.fc3 = new_layer
 
 
-
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
@@ -510,7 +509,8 @@ class PytorchImpute(ExpressionModel):
         if hasattr(self.model, 'get_final_layer'):
             final_layer = self.model.get_final_layer()
         else:
-            sys.stderr.write('Warning: the model used in imputation does not have a get_final_layer function. ')
+            sys.stderr.write('Warning: the model used in imputation does not have a ')
+            sys.stderr.write('get_final_layer function. ')
             sys.stderr.write('Using model.parameters()[-1] instead...\n')
 
             final_layer = self.model.parameters()[-1]
@@ -526,8 +526,8 @@ class PytorchImpute(ExpressionModel):
         model_config = self.config
         model_config['pretrained_model'] = self.model
 
-        # This line creates a dependency between this function and the TransferClassifier init function
-        # that I don't really like. I can't think of a cleaner way to do it though
+        # This line creates a dependency between this function and the TransferClassifier init
+        # function that I don't really like. I can't think of a cleaner way to do it though
         model_config['loss_name'] = classification_loss_name
         if 'self' in model_config:
             del(model_config['self'])
@@ -725,7 +725,7 @@ class PytorchImpute(ExpressionModel):
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
                     # Keep track of model state for the best model
-                    best_model_state = {k:v.to('cpu') for k, v in self.model.state_dict().items()}
+                    best_model_state = {k: v.to('cpu') for k, v in self.model.state_dict().items()}
                     best_model_state = OrderedDict(best_model_state)
                     best_optimizer_state = {}
 
@@ -1071,7 +1071,7 @@ class PytorchSupervised(ExpressionModel):
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
                     # Keep track of model state for the best model
-                    best_model_state = {k:v.to('cpu') for k, v in self.model.state_dict().items()}
+                    best_model_state = {k: v.to('cpu') for k, v in self.model.state_dict().items()}
                     best_model_state = OrderedDict(best_model_state)
                     best_optimizer_state = {}
 
