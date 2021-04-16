@@ -282,7 +282,6 @@ if __name__ == '__main__':
                 train_data.reset_filters()
                 val_data.reset_filters()
 
-
     with open(args.out_file, 'w') as out_file:
         # Write header
         out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
