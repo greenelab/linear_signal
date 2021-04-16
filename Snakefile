@@ -4,7 +4,7 @@ SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
 IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
 SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
-NUM_SEEDS = 5
+NUM_SEEDS = 3
 
 wildcard_constraints:
     # Random seeds should be numbers
@@ -194,6 +194,11 @@ rule all:
                ),
         # corrected transfer
         expand("results/transfer.sepsis.{impute}.{dataset}.{seed}.be_corrected.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        expand("results/transfer.tb.{impute}.{dataset}.{seed}.be_corrected.tsv",
                impute=IMPUTE,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
