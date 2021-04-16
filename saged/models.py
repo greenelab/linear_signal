@@ -982,14 +982,13 @@ class PytorchSupervised(ExpressionModel):
             sys.stderr.write('Warning: Tune dataset is empty')
             tune_is_empty = True
 
-        train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
 
         self.model.to(device)
 
         self.loss_fn = self.loss_class()
         # If the loss function is weighted, weight losses based on the classes' prevalance
-
         if torch.nn.modules.loss._WeightedLoss in self.loss_class.__bases__:
             # TODO calculate class weights
             self.loss_fn = self.loss_class(weight=None)
@@ -1031,6 +1030,7 @@ class PytorchSupervised(ExpressionModel):
                 output = self.model(expression)
 
                 loss = self.loss_fn(output, labels)
+
                 loss.backward()
                 self.optimizer.step()
 
