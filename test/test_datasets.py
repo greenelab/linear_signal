@@ -147,6 +147,25 @@ def test_subset_to_samples_raises_keyerror(all_datasets):
             dataset.subset_to_samples(samples)
 
 
+@pytest.mark.parametrize("samples",
+                         [(['GSM1368585', 'SRR4427914', 'GSM753652']),
+                          (['ERR1275178']),
+                          (['GSM1692420']),
+                          ])
+def test_remove_samples(all_datasets, samples):
+    for dataset in all_datasets:
+        original_samples = set(dataset.get_samples())
+
+        dataset.remove_samples(samples)
+
+        subset_samples = set(dataset.get_samples())
+
+        assert len(subset_samples) < len(original_samples)
+
+        assert subset_samples.isdisjoint(samples)
+        dataset.reset_filters()
+
+
 def test_get_studies():
     dataset = create_refinebio_labeled_dataset()
     # We'll run the test case twice. The second run makes sure the cache code works correctly

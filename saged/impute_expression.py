@@ -1,5 +1,6 @@
 """
-This benchmark probes the effects of models and data on ability to impute gene expression."""
+This benchmark probes the effects of models and data on ability to impute gene expression.
+"""
 import argparse
 
 import yaml
@@ -35,9 +36,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # TODO
+    # Set early stopping criteria
     # Evaluate effects of study splits (am I correct to split by study to avoid
     # leakage?)
-    # Evaluate effects of amount of training data
     # Implement adding noise?
 
     with open(args.dataset_config) as data_file:
@@ -91,6 +92,7 @@ if __name__ == '__main__':
                 # Output size is the same as the input because we're doing
                 # imputation
                 model_config['output_size'] = input_size
+                model_config['save_path'] += '/impute_only_{}_{}'.format(subset_percent, args.seed)
 
             supervised_model_type = model_config.pop('name')
             SupervisedClass = getattr(models, supervised_model_type)

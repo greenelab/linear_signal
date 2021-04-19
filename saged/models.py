@@ -5,6 +5,7 @@ import itertools
 import pickle
 import sys
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Union, Iterable, Tuple, Any
 
 import neptune
@@ -344,6 +345,14 @@ class ThreeLayerImputation(nn.Module):
 
         return x
 
+    def get_final_layer(self):
+        """ Return the last layer in the network for use by the PytorchImpute class """
+        return self.fc3
+
+    def set_final_layer(self, new_layer: nn.Module):
+        """ Overwrite the final layer of the model with the layer passed in """
+        self.fc3 = new_layer
+
 
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
@@ -463,6 +472,7 @@ class PytorchImpute(ExpressionModel):
         self.train_fraction = train_fraction
         self.train_count = train_count
         self.loss_fn = self.loss_class(reduction='sum')
+        self.save_path = save_path
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -478,9 +488,58 @@ class PytorchImpute(ExpressionModel):
 
         self.device = torch.device(device)
 
+    def to_classifier(self,
+                      num_classes: int,
+                      classification_loss_name: str) -> "TransferClassifier":
+        """
+        Create a TransferClassifier object from the trained model by chopping off the final layer
+        and replacing it with a classifier layer
+
+
+        Arguments
+        ---------
+        num_classes: The number of classes the classifier should predict
+        classification_loss_name: The name of the loss function to be used by the classifier
+
+        Returns
+        -------
+        classifier: The resulting classifier model
+
+        """
+        if hasattr(self.model, 'get_final_layer'):
+            final_layer = self.model.get_final_layer()
+        else:
+            sys.stderr.write('Warning: the model used in imputation does not have a ')
+            sys.stderr.write('get_final_layer function. ')
+            sys.stderr.write('Using model.parameters()[-1] instead...\n')
+
+            final_layer = self.model.parameters()[-1]
+
+        intermediate_dimension = final_layer.in_features
+
+        new_layer = nn.Linear(intermediate_dimension, num_classes)
+        if hasattr(self.model, 'set_final_layer'):
+            self.model.set_final_layer(new_layer)
+        else:
+            self.model.parameters()[-1] = nn.Linear(intermediate_dimension, num_classes)
+
+        model_config = self.config
+        model_config['pretrained_model'] = self.model
+
+        # This line creates a dependency between this function and the TransferClassifier init
+        # function that I don't really like. I can't think of a cleaner way to do it though
+        model_config['loss_name'] = classification_loss_name
+        if 'self' in model_config:
+            del(model_config['self'])
+
+        # Initialize the TransferClassifier
+        new_model = TransferClassifier(**model_config)
+
+        return new_model
+
     def free_memory(self) -> None:
         """
-        The model subclass and optimizer used by PytorchSupervised don't release their
+        The model subclass and optimizer used by PytorchImpute don't release their
         GPU memory by default when the main class is deleted. This function fixes that
 
         See https://github.com/greenelab/saged/issues/9 for more details
@@ -489,10 +548,10 @@ class PytorchImpute(ExpressionModel):
         del self.optimizer
 
     @classmethod
-    def load_model(classobject,
+    def load_model(cls,
                    checkpoint_path: str,
                    **kwargs
-                   ) -> "PytorchSupervised":
+                   ) -> "PytorchImpute":
         """
         Read a pickled model from a file and return it
 
@@ -504,7 +563,7 @@ class PytorchImpute(ExpressionModel):
         -------
         model: The loaded model
         """
-        model = classobject(**kwargs)
+        model = cls(**kwargs)
 
         state_dicts = torch.load(checkpoint_path)
         model.load_parameters(state_dicts['model_state_dict'])
@@ -532,7 +591,7 @@ class PytorchImpute(ExpressionModel):
                    )
 
     def mask_input_(self,
-                    input: torch.Tensor,
+                    input_tensor: torch.Tensor,
                     fraction_masked: float = .1) -> torch.Tensor:
         """
         Apply a mask to the given input, setting a random subset of the input
@@ -540,24 +599,24 @@ class PytorchImpute(ExpressionModel):
 
         Arguments
         ---------
-        input: The tensor to be masked
+        input_tensor: The tensor to be masked
         fraction_masked: The percent of the inputs to be set to zero
 
         Returns
         -------
-        masked_input: The input with the mask applied to it
+        masked_expression: The input with the mask applied to it
         """
         # Create a mask with 10 percent ones to select locations to be
         # set to zero
-        mask = utils.generate_mask(input.shape, fraction_zeros=(1 - fraction_masked))
+        mask = utils.generate_mask(input_tensor.shape, fraction_zeros=(1 - fraction_masked))
         mask = mask.to(self.device)
 
         # Zero out masked items
-        masked_expression = input.masked_fill(mask, 0)
+        masked_expression = input_tensor.masked_fill(mask, 0)
 
         return masked_expression
 
-    def fit(self, dataset: LabeledDataset) -> "PytorchSupervised":
+    def fit(self, dataset: LabeledDataset) -> "PytorchImpute":
         """
         Train a model using the given labeled data
 
@@ -575,6 +634,9 @@ class PytorchImpute(ExpressionModel):
         """
         # Set device
         device = self.device
+
+        best_model_state = None
+        best_optimizer_state = None
 
         seed = self.seed
         epochs = self.epochs
@@ -662,7 +724,29 @@ class PytorchImpute(ExpressionModel):
             if save_path is not None and not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(save_path)
+                    # Keep track of model state for the best model
+                    best_model_state = {k: v.to('cpu') for k, v in self.model.state_dict().items()}
+                    best_model_state = OrderedDict(best_model_state)
+                    best_optimizer_state = {}
+
+                    # Ideally we would use deepcopy here, but we need to get the tensors off the GPU
+                    for key, value in self.optimizer.state_dict().items():
+                        if isinstance(value, torch.Tensor):
+                            best_optimizer_state[key] = value.to('cpu')
+                        else:
+                            best_optimizer_state[key] = value
+                    best_optimizer_state = OrderedDict(best_optimizer_state)
+
+        # Load model from state dict
+        if save_path is not None and not tune_is_empty:
+            self.load_parameters(best_model_state)
+            self.optimizer.load_state_dict(best_optimizer_state)
+            self.save_model(save_path)
+
+        if log_progress:
+            # Finish the neptune experiment and free up the network resources associated with
+            # talking to neptune's server
+            neptune.stop()
 
         return self
 
@@ -898,14 +982,13 @@ class PytorchSupervised(ExpressionModel):
             sys.stderr.write('Warning: Tune dataset is empty')
             tune_is_empty = True
 
-        train_loader = DataLoader(train_dataset, batch_size, shuffle=True, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
 
         self.model.to(device)
 
         self.loss_fn = self.loss_class()
         # If the loss function is weighted, weight losses based on the classes' prevalance
-
         if torch.nn.modules.loss._WeightedLoss in self.loss_class.__bases__:
             # TODO calculate class weights
             self.loss_fn = self.loss_class(weight=None)
@@ -947,12 +1030,12 @@ class PytorchSupervised(ExpressionModel):
                 output = self.model(expression)
 
                 loss = self.loss_fn(output, labels)
+
                 loss.backward()
                 self.optimizer.step()
 
                 train_loss += loss.item()
                 train_correct += utils.count_correct(output, labels)
-                # TODO f1 score
 
             with torch.no_grad():
                 self.model.eval()
@@ -983,12 +1066,31 @@ class PytorchSupervised(ExpressionModel):
                     neptune.log_metric('tune_loss', epoch, tune_loss)
                     neptune.log_metric('tune_acc', epoch, tune_acc)
 
-            # Save model if applicable
             save_path = getattr(self, 'save_path', None)
             if save_path is not None and not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
-                    self.save_model(save_path)
+                    # Keep track of model state for the best model
+                    best_model_state = {k: v.to('cpu') for k, v in self.model.state_dict().items()}
+                    best_model_state = OrderedDict(best_model_state)
+                    best_optimizer_state = {}
+
+                    # Ideally we would use deepcopy here, but we need to get the tensors off the GPU
+                    for key, value in self.optimizer.state_dict().items():
+                        if isinstance(value, torch.Tensor):
+                            best_optimizer_state[key] = value.to('cpu')
+                        else:
+                            best_optimizer_state[key] = value
+                    best_optimizer_state = OrderedDict(best_optimizer_state)
+
+        # Load model from state dict
+        if save_path is not None and not tune_is_empty:
+            self.load_parameters(best_model_state)
+            self.optimizer.load_state_dict(best_optimizer_state)
+            self.save_model(save_path)
+
+        if log_progress:
+            neptune.stop()
 
         return self
 
@@ -1370,7 +1472,6 @@ class PseudolabelModel(PytorchSupervised):
 
                 train_loss += labeled_loss.item()
                 train_correct += utils.count_correct(train_output, train_labels)
-                # TODO f1 score
 
             with torch.no_grad():
                 self.model.eval()
@@ -1387,7 +1488,6 @@ class PseudolabelModel(PytorchSupervised):
 
                     tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
                     tune_correct += utils.count_correct(output, labels)
-                    # TODO f1 score
 
             train_acc = train_correct / len(train_dataset)
             tune_acc = tune_correct / len(tune_dataset)
@@ -1406,3 +1506,78 @@ class PseudolabelModel(PytorchSupervised):
                     self.save_model(save_path)
 
         return self
+
+
+class TransferClassifier(PytorchSupervised):
+    def __init__(self,
+                 pretrained_model: PytorchImpute,
+                 optimizer_name: str,
+                 loss_name: str,
+                 lr: float,
+                 weight_decay: float,
+                 device: str,
+                 seed: int,
+                 epochs: int,
+                 batch_size: int,
+                 log_progress: bool,
+                 experiment_name: str = None,
+                 experiment_description: str = None,
+                 save_path: str = None,
+                 train_fraction: float = None,
+                 train_count: float = None,
+                 **kwargs,):
+        """
+        Standard model init function for a supervised model
+
+        Arguments
+        ---------
+        pretrained_model: A model trained via imputing gene expression data
+        optimizer_name: The name of the optimizer class to be used when training the model
+        loss_name: The loss function class to use
+        lr: The learning rate for the optimizer
+        weight_decay: The weight decay for the optimizer
+        device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
+        seed: The random seed to use in stochastic operations
+        epochs: The number of epochs to train the model
+        batch_size: The number of items in each training batch
+        log_progress: True if you want to use neptune to log progress, otherwise False
+        experiment_name: A short name for the experiment you're running for use in neptune logs
+        experiment_description: A description for the experiment you're running
+        save_path: The path to save the model to
+        train_fraction: The percent of samples to use in training
+        train_count: The number of studies to use in training
+        **kwargs: Arguments for use in the underlying classifier
+
+        Notes
+        -----
+        Either `train_count` or `train_fraction` should be None but not both
+        """
+        # A piece of obscure python, this gets a dict of all python local variables.
+        # Since it is called at the start of a function it gets all the arguments for the
+        # function as if they were passed in a dict. This is useful, because we can feed
+        # self.config to neptune to keep track of all our run's parameters
+        self.config = locals()
+
+        optimizer_class = getattr(torch.optim, optimizer_name)
+        self.loss_class = getattr(nn, loss_name)
+        self.seed = seed
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.experiment_name = experiment_name
+        self.experiment_description = experiment_description
+        self.log_progress = log_progress
+        self.train_fraction = train_fraction
+        self.train_count = train_count
+
+        torch.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        np.random.seed(seed)
+
+        self.model = pretrained_model
+
+        self.optimizer = optimizer_class(self.model.parameters(),
+                                         lr=lr,
+                                         weight_decay=weight_decay)
+
+        self.device = torch.device(device)

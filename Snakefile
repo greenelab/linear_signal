@@ -4,7 +4,7 @@ SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
 IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
 SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
-NUM_SEEDS = 5
+NUM_SEEDS = 3
 
 wildcard_constraints:
     # Random seeds should be numbers
@@ -188,6 +188,17 @@ rule all:
                ),
         # uncorrected imputation
         expand("results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        # corrected transfer
+        expand("results/transfer.sepsis.{impute}.{dataset}.{seed}.be_corrected.tsv",
+               impute=IMPUTE,
+               dataset=DATASETS,
+               seed=range(0,NUM_SEEDS)
+               ),
+        expand("results/transfer.tb.{impute}.{dataset}.{seed}.be_corrected.tsv",
                impute=IMPUTE,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
@@ -469,3 +480,19 @@ rule basic_imputation_uncorrected:
         "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.uncorrected.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+
+rule transfer_corrected:
+    input:
+        "data/subset_compendium.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/{dataset}.yml",
+    output:
+        "results/transfer.{label}.{impute}.{dataset}.{seed}.be_corrected.tsv"
+    shell:
+        "python saged/imputation_pretraining.py {input.dataset_config} {input.imputation_model} "
+        "results/transfer.{wildcards.label}.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma"
