@@ -1513,7 +1513,6 @@ class TransferClassifier(PytorchSupervised):
                  pretrained_model: PytorchImpute,
                  optimizer_name: str,
                  loss_name: str,
-                 model_name: str,
                  lr: float,
                  weight_decay: float,
                  device: str,

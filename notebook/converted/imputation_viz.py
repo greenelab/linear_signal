@@ -78,6 +78,9 @@ metrics['trial'] = metrics.index // 10
 metrics.head()
 
 
+# ## A note on the "trial" variable:
+# The loss between different training/val dataset splits is difficult to compare. As a result, I've grouped models together by whether they were produced by the same dataset split/seed. All ten points within the same trial correspond to models trained on increasingly large subsets of the same original training dataset, validated on identical validation sets.
+
 # In[7]:
 
 
@@ -85,7 +88,7 @@ ggplot(metrics, aes(x='train sample count', y='val_loss', color='factor(trial)')
 
 
 # ## Center trials
-# To make the trend easier to see, center each set of ten training iterations 
+# To make the trend easier to see, center trial to have a mean of zero
 
 # In[8]:
 
@@ -181,12 +184,6 @@ plot += ggtitle('The relationship between sample count and val set loss')
 print(plot)
 
 
-# In[ ]:
-
-
-
-
-
 # In[21]:
 
 
@@ -201,10 +198,4 @@ plot += geom_point()
 plot += geom_smooth(method='loess')
 plot += ggtitle('The relationship between sample count and val set loss')
 print(plot)
-
-
-# In[ ]:
-
-
-
 

@@ -1,5 +1,6 @@
 """
-This benchmark trains an imputation model for downstream use in classification
+This benchmark trains an imputation model and evaluates its performance in a binary disease
+classification setting
 """
 import argparse
 import copy
@@ -91,12 +92,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # TODO
-    # Write logic to convert imputation model to classification model
-    # ^(should live in PytorchSupervised probably)
-    # Write logic to hold out samples in imputation
-    # Create new script to run trained model for classification?
-
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
@@ -118,12 +113,6 @@ if __name__ == '__main__':
 
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
-
-    # Train imputation model
-    # Save imputation results
-    # Create classification model from imputation model
-    # Train classification model
-    #
 
     # Train the model on each fold
     train_studies = []
@@ -163,11 +152,6 @@ if __name__ == '__main__':
         # train function
 
         # train_list = cv_splits[:i] + cv_splits[i+1:]
-
-        # # Extract the train and test datasets
-        # DatasetClass = type(all_data)
-        # train_data = DatasetClass.from_list(train_list)
-        # val_data = cv_splits[i]
 
         train_data = all_data
         train_data = train_data.subset_samples(subset_percent, args.seed)
