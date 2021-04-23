@@ -165,6 +165,17 @@ class ExpressionDataset(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_samples_to_studies(self) -> Dict[str, str]:
+        """
+        Return the mapping from sample ids to study ids
+
+        Returns
+        -------
+        sample_to_study: A dict mapping samples to their respective studies
+        """
+        raise NotImplementedError()
+
+    @abstractmethod
     def reset_filters(self) -> None:
         """
         Restore dataset to its original state, reversing any subsetting operations
@@ -537,6 +548,21 @@ class RefineBioDataset(ExpressionDataset):
         """
         self.current_expression = self.all_expression
         self.data_changed = True
+
+    @property
+    @abstractmethod
+    def sample_to_study(self):
+        raise NotImplementedError()
+
+    def get_samples_to_studies(self) -> Dict[str, str]:
+        """
+        Return the mapping from sample ids to study ids
+
+        Returns
+        -------
+        sample_to_study: A dict mapping samples to their respective studies
+        """
+        return self.sample_to_study
 
     def subset_samples(self, fraction: float, seed: int = 42) -> "RefineBioDataset":
         """
