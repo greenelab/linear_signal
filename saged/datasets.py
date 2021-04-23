@@ -549,11 +549,6 @@ class RefineBioDataset(ExpressionDataset):
         self.current_expression = self.all_expression
         self.data_changed = True
 
-    @property
-    @abstractmethod
-    def sample_to_study(self):
-        raise NotImplementedError()
-
     def get_samples_to_studies(self) -> Dict[str, str]:
         """
         Return the mapping from sample ids to study ids
