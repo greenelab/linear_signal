@@ -198,12 +198,14 @@ rule all:
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
+        # tb transfer
         expand("results/transfer.tb.{impute}.{dataset}.{seed}.be_corrected.tsv",
                impute=IMPUTE,
                dataset=DATASETS,
                seed=range(0,NUM_SEEDS)
                ),
-
+        # sepsis simulation
+        "data/simulated/sepsis_healthy_sim.tsv",
 
 rule pickle_compendium:
     input:
@@ -496,3 +498,18 @@ rule transfer_corrected:
         "--label {wildcards.label} "
         "--negative_class healthy "
         "--batch_correction_method limma"
+
+rule simulate_data:
+    input:
+        dataset_config = "dataset_configs/refinebio_labeled_dataset.yml",
+    output:
+        "data/simulated/{label}_healthy_sim.tsv"
+    shell:
+        "python saged/simulate_expression.py {input.dataset_config} "
+        "data/aggregated_metadata.json "
+        "data/simulated/ "
+        "--sample_count 10000 "
+        "--seed 42 "
+        "--label {wildcards.label} "
+        "--negative_class healthy "
+        "--batch_correction_method limma "
