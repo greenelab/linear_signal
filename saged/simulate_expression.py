@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # Hold out ten percent of the data for use later
     disease_data = disease_data.subset_studies(fraction=.9)
 
-    scaler = preprocessing.StandardScaler()
+    scaler = preprocessing.MinMaxScaler()
     train_data, _ = disease_data.get_all_data()
     scaler.fit(train_data)
 
@@ -90,12 +90,8 @@ if __name__ == '__main__':
     disease_only_data = copy.deepcopy(disease_data).subset_samples_to_labels([args.label])
     healthy_only_data = copy.deepcopy(disease_data).subset_samples_to_labels([args.negative_class])
 
-     # TODO write this into the metadata file
-
     # Determine the held out samples
     held_out_samples = [sample for sample in all_disease_samples if sample not in train_samples]
-
-    # TODO set random seed
 
     learning_rate = simulation_config['lr']
     batch_size = simulation_config['batch_size']
@@ -120,10 +116,6 @@ if __name__ == '__main__':
     healthy_array, _ = healthy_only_data.get_all_data()
     disease_array = scaler.transform(disease_array)
     healthy_array = scaler.transform(healthy_array)
-
-
-    print(disease_array.shape)
-    print(healthy_array.shape)
 
     disease_ids = disease_only_data.get_samples()
     healthy_ids = healthy_only_data.get_samples()
@@ -168,7 +160,7 @@ if __name__ == '__main__':
 
     unused_data = all_data.subset_to_samples(all_unused_samples)
     unused_array = unused_data.get_all_data()
-    print(unused_array.shape)
+
     unused_ids = unused_data.get_samples()
     unused_df = pd.DataFrame(unused_array, index=unused_ids)
 
