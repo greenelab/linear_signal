@@ -79,12 +79,12 @@ if __name__ == '__main__':
     if args.batch_correction_method is not None:
         disease_data = datasets.correct_batch_effects(disease_data, args.batch_correction_method)
 
-    # Hold out ten percent of the data for use later
-    disease_data = disease_data.subset_studies(fraction=.9)
+    # Hold out twenty percent of the data for use later
+    disease_data = disease_data.subset_studies(fraction=.8)
 
-    scaler = preprocessing.MinMaxScaler()
+    labeled_scaler = preprocessing.MinMaxScaler()
     train_data, _ = disease_data.get_all_data()
-    scaler.fit(train_data)
+    labeled_scaler.fit(train_data)
 
     train_samples = set(disease_data.get_samples())
     disease_only_data = copy.deepcopy(disease_data).subset_samples_to_labels([args.label])
@@ -114,8 +114,8 @@ if __name__ == '__main__':
     # Train a VAE on disease
     disease_array, _ = disease_only_data.get_all_data()
     healthy_array, _ = healthy_only_data.get_all_data()
-    disease_array = scaler.transform(disease_array)
-    healthy_array = scaler.transform(healthy_array)
+    disease_array = labeled_scaler.transform(disease_array)
+    healthy_array = labeled_scaler.transform(healthy_array)
 
     disease_ids = disease_only_data.get_samples()
     healthy_ids = healthy_only_data.get_samples()
@@ -161,6 +161,9 @@ if __name__ == '__main__':
     unused_data = all_data.subset_to_samples(all_unused_samples)
     unused_array = unused_data.get_all_data()
 
+    unlabeled_scaler = preprocessing.MinMaxScaler()
+    unused_array = unlabeled_scaler.fit_transform(unused_array)
+
     unused_ids = unused_data.get_samples()
     unused_df = pd.DataFrame(unused_array, index=unused_ids)
 
@@ -185,10 +188,18 @@ if __name__ == '__main__':
     metadata_file = os.path.join(args.out_dir,
                                  '{}_{}_simulation_metadata.json'.format(args.label,
                                                                          args.negative_class))
-    scaler_file = os.path.join(args.out_dir,
-                               '{}_{}_scaler.pkl'.format(args.label, args.negative_class))
-    with open(scaler_file, 'wb') as out_file:
-        pickle.dump(scaler, out_file)
+    labeled_scaler_file = os.path.join(args.out_dir,
+                                       '{}_{}_labeled_scaler.pkl'.format(args.label,
+                                                                         args.negative_class))
+    unlabeled_scaler_file = os.path.join(args.out_dir,
+                                         '{}_{}_unlabeled_scaler.pkl'.format(args.label,
+                                                                             args.negative_class))
+
+
+    with open(labeled_scaler_file, 'wb') as out_file:
+        pickle.dump(labeled_scaler, out_file)
+    with open(unlabeled_scaler_file, 'wb') as out_file:
+        pickle.dump(unlabeled_scaler, out_file)
 
     metadata = {}
     metadata['train_samples'] = list(train_samples)

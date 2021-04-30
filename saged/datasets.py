@@ -702,7 +702,7 @@ class RefineBioDataset(ExpressionDataset):
         random.seed(seed)
 
         studies = self.get_studies()
-        samples = self.all_expression.columns
+        samples = self.get_samples()
 
         if fraction is None and num_studies is None:
             raise ValueError("Either fraction or num_studies must have a value")
@@ -717,18 +717,21 @@ class RefineBioDataset(ExpressionDataset):
 
         # Subset by fraction
         else:
-            total_samples = len(self.all_expression.columns)
+            total_samples = len(self.get_samples())
             samples_to_keep = []
             shuffled_studies = utils.deterministic_shuffle_set(studies)
             studies_to_keep = set()
 
             for study in shuffled_studies:
-                if len(samples_to_keep) > fraction * total_samples:
-                    break
                 studies_to_keep.add(study)
                 samples_to_keep = utils.get_samples_in_studies(samples,
                                                                studies_to_keep,
                                                                self.sample_to_study)
+
+                print(len(samples_to_keep), total_samples)
+                if len(samples_to_keep) > fraction * total_samples:
+                    break
+
 
             self.current_expression = self.all_expression.loc[:, samples_to_keep]
 
