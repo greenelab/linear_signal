@@ -49,6 +49,8 @@ if __name__ == '__main__':
     np.random.seed(args.seed)
     tf.set_random_seed(args.seed)
 
+    metadata = {}
+
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
@@ -61,7 +63,7 @@ if __name__ == '__main__':
 
     disease_samples = copy.deepcopy(labeled_data).subset_samples_to_labels([args.label])
 
-    # Find which study have data for the disease of interest
+    # Find which studies have data for the disease of interest
     sample_to_study = all_data.get_samples_to_studies()
     disease_studies = disease_samples.get_studies()
     all_samples = all_data.get_samples()
@@ -123,31 +125,37 @@ if __name__ == '__main__':
     disease_df = pd.DataFrame(disease_array, index=disease_ids)
     healthy_df = pd.DataFrame(healthy_array, index=healthy_ids)
 
-    disease_encoder, disease_decoder, _ = vae.run_tybalt_training(disease_df,
-                                                                  learning_rate,
-                                                                  batch_size,
-                                                                  epochs,
-                                                                  kappa,
-                                                                  intermediate_dim,
-                                                                  latent_dim,
-                                                                  epsilon_std,
-                                                                  val_frac,)
+    disease_encoder, disease_decoder, hist = vae.run_tybalt_training(disease_df,
+                                                                     learning_rate,
+                                                                     batch_size,
+                                                                     epochs,
+                                                                     kappa,
+                                                                     intermediate_dim,
+                                                                     latent_dim,
+                                                                     epsilon_std,
+                                                                     val_frac,)
 
     disease_simulated = run_sample_simulation(disease_encoder,
                                               disease_decoder,
                                               disease_df,
                                               args.sample_count)
 
+    metadata['disease_loss'] = hist.history['loss']
+    metadata['disease_val_loss'] = hist.history['val_loss']
+
     # Train a VAE on healthy
-    healthy_encoder, healthy_decoder, _ = vae.run_tybalt_training(healthy_df,
-                                                                  learning_rate,
-                                                                  batch_size,
-                                                                  epochs,
-                                                                  kappa,
-                                                                  intermediate_dim,
-                                                                  latent_dim,
-                                                                  epsilon_std,
-                                                                  val_frac,)
+    healthy_encoder, healthy_decoder, hist = vae.run_tybalt_training(healthy_df,
+                                                                     learning_rate,
+                                                                     batch_size,
+                                                                     epochs,
+                                                                     kappa,
+                                                                     intermediate_dim,
+                                                                     latent_dim,
+                                                                     epsilon_std,
+                                                                     val_frac,)
+
+    metadata['healthy_loss'] = hist.history['loss']
+    metadata['healthy_val_loss'] = hist.history['val_loss']
 
     healthy_simulated = run_sample_simulation(healthy_encoder,
                                               healthy_decoder,
@@ -156,32 +164,35 @@ if __name__ == '__main__':
 
     # Load all data not in healthy/disease
     used_samples = set(disease_ids + healthy_ids)
-    all_unused_samples = [sample for sample in all_samples if sample not in used_samples]
+    all_unlabeled_samples = [sample for sample in all_samples if sample not in used_samples]
 
-    unused_data = all_data.subset_to_samples(all_unused_samples)
-    unused_array = unused_data.get_all_data()
+    unlabeled_data = all_data.subset_to_samples(all_unlabeled_samples)
+    unlabeled_array = unlabeled_data.get_all_data()
 
     unlabeled_scaler = preprocessing.MinMaxScaler()
-    unused_array = unlabeled_scaler.fit_transform(unused_array)
+    unlabeled_array = unlabeled_scaler.fit_transform(unlabeled_array)
 
-    unused_ids = unused_data.get_samples()
-    unused_df = pd.DataFrame(unused_array, index=unused_ids)
+    unlabeled_ids = unlabeled_data.get_samples()
+    unlabeled_df = pd.DataFrame(unlabeled_array, index=unlabeled_ids)
 
     # train VAE on all data
-    unused_encoder, unused_decoder, _ = vae.run_tybalt_training(unused_df,
-                                                                learning_rate,
-                                                                batch_size,
-                                                                epochs,
-                                                                kappa,
-                                                                intermediate_dim,
-                                                                latent_dim,
-                                                                epsilon_std,
-                                                                val_frac,)
+    unlabeled_encoder, unlabeled_decoder, hist = vae.run_tybalt_training(unlabeled_df,
+                                                                         learning_rate,
+                                                                         batch_size,
+                                                                         epochs,
+                                                                         kappa,
+                                                                         intermediate_dim,
+                                                                         latent_dim,
+                                                                         epsilon_std,
+                                                                         val_frac,)
+
+    metadata['unlabeled_loss'] = hist.history['loss']
+    metadata['unlabeled_val_loss'] = hist.history['val_loss']
 
     # Generate unlabeled data from distribution as a whole
-    unused_simulated = run_sample_simulation(unused_encoder,
-                                             unused_decoder,
-                                             unused_df,
+    unlabeled_simulated = run_sample_simulation(unlabeled_encoder,
+                                             unlabeled_decoder,
+                                             unlabeled_df,
                                              args.sample_count)
 
 
@@ -195,13 +206,22 @@ if __name__ == '__main__':
                                          '{}_{}_unlabeled_scaler.pkl'.format(args.label,
                                                                              args.negative_class))
 
+    healthy_out = os.path.join(args.out_dir,
+                               '{}_{}_train.pkl'.format(args.label, args.negative_class))
+    disease_out = os.path.join(args.out_dir,
+                               '{}_train.pkl'.format(args.label))
 
     with open(labeled_scaler_file, 'wb') as out_file:
         pickle.dump(labeled_scaler, out_file)
     with open(unlabeled_scaler_file, 'wb') as out_file:
         pickle.dump(unlabeled_scaler, out_file)
 
-    metadata = {}
+    with open(healthy_out, 'wb') as out_file:
+        pickle.dump(healthy_array, out_file)
+    with open(disease_out, 'wb') as out_file:
+        pickle.dump(disease_array, out_file)
+
+
     metadata['train_samples'] = list(train_samples)
     metadata['test_samples'] = held_out_samples
     metadata['seed'] = args.seed
@@ -211,11 +231,10 @@ if __name__ == '__main__':
     with open(metadata_file, 'w') as out_file:
         json.dump(metadata, out_file)
 
-
     healthy_out = os.path.join(args.out_dir, '{}_{}_sim.tsv'.format(args.label, args.negative_class))
     np.savetxt(healthy_out, healthy_simulated, delimiter='\t')
     disease_out = os.path.join(args.out_dir, '{}_sim.tsv'.format(args.label))
     np.savetxt(disease_out, disease_simulated, delimiter='\t')
-    unused_out = os.path.join(args.out_dir, '{}_{}_unused_sim.tsv'.format(args.label,
+    unlabeled_out = os.path.join(args.out_dir, '{}_{}_unlabeled_sim.tsv'.format(args.label,
                                                                              args.negative_class))
-    np.savetxt(unused_out, unused_simulated, delimiter='\t')
+    np.savetxt(unlabeled_out, unlabeled_simulated, delimiter='\t')
