@@ -728,7 +728,6 @@ class RefineBioDataset(ExpressionDataset):
                                                                studies_to_keep,
                                                                self.sample_to_study)
 
-                print(len(samples_to_keep), total_samples)
                 if len(samples_to_keep) > fraction * total_samples:
                     break
 
