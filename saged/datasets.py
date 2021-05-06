@@ -731,7 +731,6 @@ class RefineBioDataset(ExpressionDataset):
                 if len(samples_to_keep) > fraction * total_samples:
                     break
 
-
             self.current_expression = self.all_expression.loc[:, samples_to_keep]
 
         self.data_changed = True

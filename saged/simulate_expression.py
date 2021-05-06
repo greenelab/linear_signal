@@ -66,7 +66,6 @@ if __name__ == '__main__':
                                                                        args.label,
                                                                        args.negative_class)
 
-
     if args.all_healthy:
         disease_data = labeled_data.subset_samples_to_labels([args.label,
                                                               args.negative_class])
@@ -89,7 +88,7 @@ if __name__ == '__main__':
     # Correct for batch effects
     if args.batch_correction_method is not None:
         disease_data = datasets.correct_batch_effects(disease_data,
-                                                        args.batch_correction_method)
+                                                      args.batch_correction_method)
 
     all_disease_samples = disease_data.get_samples()
 
@@ -124,7 +123,7 @@ if __name__ == '__main__':
     )
 
     # Create tf session
-    sess = tf.Session(graph=tf.get_default_graph(),) #config=session_conf)
+    sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
     K.set_session(sess)
 
     # Train a VAE on disease
@@ -210,10 +209,9 @@ if __name__ == '__main__':
 
     # Generate unlabeled data from distribution as a whole
     unlabeled_simulated = run_sample_simulation(unlabeled_encoder,
-                                             unlabeled_decoder,
-                                             unlabeled_df,
-                                             args.sample_count)
-
+                                                unlabeled_decoder,
+                                                unlabeled_df,
+                                                args.sample_count)
 
     metadata_file = os.path.join(args.out_dir,
                                  '{}_{}_simulation_metadata.json'.format(args.label,
@@ -240,7 +238,6 @@ if __name__ == '__main__':
     with open(disease_out, 'wb') as out_file:
         pickle.dump(disease_array, out_file)
 
-
     metadata['train_samples'] = list(train_samples)
     metadata['test_samples'] = held_out_samples
     metadata['seed'] = args.seed
@@ -250,10 +247,11 @@ if __name__ == '__main__':
     with open(metadata_file, 'w') as out_file:
         json.dump(metadata, out_file)
 
-    healthy_out = os.path.join(args.out_dir, '{}_{}_sim.tsv'.format(args.label, args.negative_class))
+    healthy_out = os.path.join(args.out_dir, '{}_{}_sim.tsv'.format(args.label,
+                                                                    args.negative_class))
     np.savetxt(healthy_out, healthy_simulated, delimiter='\t')
     disease_out = os.path.join(args.out_dir, '{}_sim.tsv'.format(args.label))
     np.savetxt(disease_out, disease_simulated, delimiter='\t')
-    unlabeled_out = os.path.join(args.out_dir, '{}_{}_unlabeled_sim.tsv'.format(args.label,
-                                                                             args.negative_class))
+    out_file_name = '{}_{}_unlabeled_sim.tsv'.format(args.label, args.negative_class)
+    unlabeled_out = os.path.join(args.out_dir, out_file_name)
     np.savetxt(unlabeled_out, unlabeled_simulated, delimiter='\t')
