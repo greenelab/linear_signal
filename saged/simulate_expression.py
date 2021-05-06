@@ -42,6 +42,11 @@ if __name__ == '__main__':
                         help='The method to use to correct for batch effects in the source data',
                         default=None)
     parser.add_argument('--seed', help='The number used to seed the RNG', default=42, type=int)
+    parser.add_argument('--all_healthy',
+                        help='Include all healthy samples, not just the ones in the same '
+                        'study as the disease samples',
+                        default=False,
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -61,25 +66,32 @@ if __name__ == '__main__':
                                                                        args.label,
                                                                        args.negative_class)
 
-    disease_samples = copy.deepcopy(labeled_data).subset_samples_to_labels([args.label])
 
-    # Find which studies have data for the disease of interest
-    sample_to_study = all_data.get_samples_to_studies()
-    disease_studies = disease_samples.get_studies()
-    all_samples = all_data.get_samples()
-    all_labeled_samples = labeled_data.get_samples()
+    if args.all_healthy:
+        disease_data = labeled_data.subset_samples_to_labels([args.label,
+                                                              args.negative_class])
+    else:
+        disease_samples = copy.deepcopy(labeled_data).subset_samples_to_labels([args.label])
 
-    # Get all samples in those studies
-    disease_experiment_samples = utils.get_samples_in_studies(all_labeled_samples,
-                                                              disease_studies, sample_to_study)
+        # Find which studies have data for the disease of interest
+        sample_to_study = all_data.get_samples_to_studies()
+        disease_studies = disease_samples.get_studies()
+        all_labeled_samples = labeled_data.get_samples()
 
-    # Create a LabeledDataset object with those samples
-    disease_data = labeled_data.subset_to_samples(disease_experiment_samples)
-    all_disease_samples = disease_data.get_samples()
+        # Get all samples in those studies
+        disease_experiment_samples = utils.get_samples_in_studies(all_labeled_samples,
+                                                                  disease_studies,
+                                                                  sample_to_study)
+
+        # Create a LabeledDataset object with those samples
+        disease_data = labeled_data.subset_to_samples(disease_experiment_samples)
 
     # Correct for batch effects
     if args.batch_correction_method is not None:
-        disease_data = datasets.correct_batch_effects(disease_data, args.batch_correction_method)
+        disease_data = datasets.correct_batch_effects(disease_data,
+                                                        args.batch_correction_method)
+
+    all_disease_samples = disease_data.get_samples()
 
     # Hold out twenty percent of the data for use later
     disease_data = disease_data.subset_studies(fraction=.8)
@@ -90,7 +102,9 @@ if __name__ == '__main__':
 
     train_samples = set(disease_data.get_samples())
     disease_only_data = copy.deepcopy(disease_data).subset_samples_to_labels([args.label])
-    healthy_only_data = copy.deepcopy(disease_data).subset_samples_to_labels([args.negative_class])
+
+    data_copy = copy.deepcopy(disease_data)
+    healthy_only_data = data_copy.subset_samples_to_labels([args.negative_class])
 
     # Determine the held out samples
     held_out_samples = [sample for sample in all_disease_samples if sample not in train_samples]
@@ -121,6 +135,9 @@ if __name__ == '__main__':
 
     disease_ids = disease_only_data.get_samples()
     healthy_ids = healthy_only_data.get_samples()
+
+    metadata['disease_ids'] = disease_ids
+    metadata['healthy_ids'] = healthy_ids
 
     disease_df = pd.DataFrame(disease_array, index=disease_ids)
     healthy_df = pd.DataFrame(healthy_array, index=healthy_ids)
@@ -164,7 +181,9 @@ if __name__ == '__main__':
 
     # Load all data not in healthy/disease
     used_samples = set(disease_ids + healthy_ids)
+    all_samples = all_data.get_samples()
     all_unlabeled_samples = [sample for sample in all_samples if sample not in used_samples]
+    metadata['unlabeled_ids'] = all_unlabeled_samples
 
     unlabeled_data = all_data.subset_to_samples(all_unlabeled_samples)
     unlabeled_array = unlabeled_data.get_all_data()
