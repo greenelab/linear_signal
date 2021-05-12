@@ -9,55 +9,6 @@ import yaml
 from saged import utils, datasets, models
 
 
-def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
-                          val_data: datasets.LabeledDataset,
-                          label: str,
-                          negative_class: str,
-                          seed: int
-                          ) -> datasets.LabeledDataset:
-    """
-    Subset the training dataset to match the ratio of positive to negative expression samples in
-    the validation dataset
-
-    Arguments
-    ---------
-    train_data: The train expression dataset
-    val_data: The validation expression dataset
-
-    Returns
-    -------
-    train_data: The subsetted expression dataset
-    """
-
-    train_disease_counts = train_data.map_labels_to_counts()
-    val_disease_counts = val_data.map_labels_to_counts()
-
-    train_positive = train_disease_counts.get(label, 0)
-    train_negative = train_disease_counts.get(negative_class, 0)
-    val_positive = val_disease_counts.get(label, 0)
-    val_negative = val_disease_counts.get(negative_class, 0)
-
-    train_disease_fraction = train_positive / (train_positive + train_negative)
-    val_disease_fraction = val_positive / (val_positive + val_negative)
-
-    subset_fraction = utils.determine_subset_fraction(train_positive,
-                                                      train_negative,
-                                                      val_positive,
-                                                      val_negative)
-
-    # If train ratio is too high, remove positive samples
-    if train_disease_fraction > val_disease_fraction:
-        train_data = train_data.subset_samples_for_label(subset_fraction,
-                                                         label,
-                                                         seed)
-    # If train ratio is too low, remove negative samples
-    elif train_disease_fraction < val_disease_fraction:
-        train_data = train_data.subset_samples_for_label(subset_fraction,
-                                                         negative_class,
-                                                         seed)
-    return train_data
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_config',
@@ -168,8 +119,8 @@ if __name__ == '__main__':
             if len(train_data.get_classes()) <= 1 or len(val_data.get_classes()) <= 1:
                 continue
 
-            val_data = subset_to_equal_ratio(val_data, train_data, args.label,
-                                             args.negative_class, args.seed)
+            val_data = utils.subset_to_equal_ratio(val_data, train_data, args.label,
+                                                   args.negative_class, args.seed)
 
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
