@@ -16,6 +16,8 @@ from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
 from sklearn.metrics import accuracy_score
 
+from saged import datasets
+
 
 BLOOD_KEYS = ['blood',
               'blood (buffy coat)',
@@ -413,10 +415,62 @@ def determine_subset_fraction(train_positive: int,
         # X / (negative + X) = val_frac. Solve for X
         target = (val_disease_fraction * train_negative) / (1 - val_disease_fraction)
         subset_fraction = target / train_positive
-
+    # If the train ratio is too low, remove negative samples
     elif train_disease_fraction < val_disease_fraction:
         # positive / (positive + X) = val_frac. Solve for X
         target = (train_positive - (val_disease_fraction * train_positive)) / val_disease_fraction
         subset_fraction = target / train_negative
+    # If the train and val ratios are balanced, then don't remove any samples
+    else:
+        return 0
 
     return subset_fraction
+
+
+def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
+                          val_data: datasets.LabeledDataset,
+                          label: str,
+                          negative_class: str,
+                          seed: int
+                          ) -> datasets.LabeledDataset:
+    """
+    Subset the training dataset to match the ratio of positive to negative expression samples in
+    the validation dataset
+
+    Arguments
+    ---------
+    train_data: The train expression dataset
+    val_data: The validation expression dataset
+
+    Returns
+    -------
+    train_data: The subsetted expression dataset
+    """
+
+    train_disease_counts = train_data.map_labels_to_counts()
+    val_disease_counts = val_data.map_labels_to_counts()
+
+    train_positive = train_disease_counts.get(label, 0)
+    train_negative = train_disease_counts.get(negative_class, 0)
+    val_positive = val_disease_counts.get(label, 0)
+    val_negative = val_disease_counts.get(negative_class, 0)
+
+    train_disease_fraction = train_positive / (train_positive + train_negative)
+    val_disease_fraction = val_positive / (val_positive + val_negative)
+
+    subset_fraction = determine_subset_fraction(train_positive,
+                                                train_negative,
+                                                val_positive,
+                                                val_negative)
+
+    # If train ratio is too high, remove positive samples
+    if train_disease_fraction > val_disease_fraction:
+        train_data = train_data.subset_samples_for_label(subset_fraction,
+                                                         label,
+                                                         seed)
+    # If train ratio is too low, remove negative samples
+    elif train_disease_fraction < val_disease_fraction:
+        train_data = train_data.subset_samples_for_label(subset_fraction,
+                                                         negative_class,
+                                                         seed)
+    return train_data
