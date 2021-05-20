@@ -5,3 +5,4 @@ logs/
 *.egg-info*
 *secrets.yml*
 .snakemake
+results/
