@@ -1,5 +1,5 @@
-
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
+
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
 IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
@@ -206,6 +206,12 @@ rule all:
                ),
         # sepsis simulation
         "data/simulated/sepsis_healthy_sim.tsv",
+        # keep_ratios simulated sepsis
+        expand("results/simulation.sepsis.{supervised}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset="simulation_configs/simulated_dataset.yml",
+               seed=range(0,NUM_SEEDS)
+               ),
 
 rule pickle_compendium:
     input:
@@ -514,3 +520,19 @@ rule simulate_data:
         "--negative_class healthy "
         "--batch_correction_method limma "
         "--all_healthy"
+
+rule simulated_sepsis:
+    threads: 8
+    input:
+        "data/subset_compendium.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "simulation_configs/simulated_dataset.yml",
+    output:
+        "results/simulation.{label}.{supervised}.{seed}.tsv"
+    shell:
+        "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
+        "results/simulation.{wildcards.label}.{wildcards.supervised}.{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label {wildcards.label} "
+        "--negative_class sepsis_healthy "
