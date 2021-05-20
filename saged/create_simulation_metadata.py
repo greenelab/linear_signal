@@ -35,7 +35,7 @@ if __name__ == '__main__':
         current_df = pd.read_csv(os.path.join(args.data_dir, file_name),
                                  delimiter='\t', header=None)
 
-        label = file_name.rstrip('_sim.tsv')
+        label = file_name.split('_sim.tsv')[0]
 
         sample_count = len(current_df.index)
 
@@ -59,6 +59,9 @@ if __name__ == '__main__':
             all_data_df = current_df
         else:
             all_data_df = pd.concat([all_data_df, current_df], axis=0)
+
+    # RefineBioDataset objects expect data to be stored in (gene x sample) format
+    all_data_df = all_data_df.transpose()
 
     # Save compendium
     all_data_df.to_pickle(args.compendium_out_file)
