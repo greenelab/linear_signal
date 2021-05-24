@@ -24,7 +24,6 @@ if __name__ == '__main__':
 
     metadata = {'experiments': {}, 'samples': {}}
 
-
     all_data_df = None
 
     labeled_samples = set()
@@ -73,4 +72,3 @@ if __name__ == '__main__':
     # Save metdata
     with open(args.metadata_out_file, 'w') as out_file:
         json.dump(metadata, out_file)
-
