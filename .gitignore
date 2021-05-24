@@ -6,3 +6,4 @@ logs/
 *secrets.yml*
 .snakemake
 results/
+.vscode/
