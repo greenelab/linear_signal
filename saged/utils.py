@@ -427,12 +427,12 @@ def determine_subset_fraction(train_positive: int,
     return subset_fraction
 
 
-def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
-                          val_data: datasets.LabeledDataset,
+def subset_to_equal_ratio(train_data: "datasets.LabeledDataset",
+                          val_data: "datasets.LabeledDataset",
                           label: str,
                           negative_class: str,
                           seed: int
-                          ) -> datasets.LabeledDataset:
+                          ) -> "datasets.LabeledDataset":
     """
     Subset the training dataset to match the ratio of positive to negative expression samples in
     the validation dataset
