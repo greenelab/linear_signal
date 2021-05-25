@@ -1,11 +1,12 @@
 """ A file full of useful functions """
 
+import collections
 import functools
 import json
 import pickle
 from pathlib import Path
 import random
-from typing import Any, Dict, Set, Text, Union, List
+from typing import Any, Dict, Set, Text, Union, List, Tuple
 
 import neptune
 import numpy as np
@@ -50,6 +51,152 @@ BLOOD_KEYS = ['blood',
               'whole blood, maternal peripheral',
               'whole venous blood'
               ]
+
+
+def split_sample_names(df_row: pd.DataFrame) -> Tuple[List[str], List[str]]:
+    """
+    Get a list of sample names from a dataframe row containing comma separated names
+
+    Arguments
+    ---------
+    df_row: The current dataframe row to process. Should have a "train samples"
+            and a "val samples" column
+
+    Returns
+    -------
+    train_samples: The sample ids from the "train samples" row
+    val__samples: The sample ids from the "val samples" row
+    """
+    train_samples = df_row['train samples'].split(',')
+    val_samples = df_row['val samples'].split(',')
+
+    return train_samples, val_samples
+
+
+def create_dataset_stat_df(metrics_df: pd.DataFrame,
+                           sample_to_study: Dict[str, str],
+                           sample_metadata: dict,
+                           sample_to_label: Dict[str, str],
+                           disease: str,) -> pd.DataFrame:
+    """ Create a dataframe storing stats about model training runs using information
+    from a dataframe created from their result file
+
+    Arguments
+    ---------
+    metrics_df: A dataframe containing the dataframe form of a results file
+    sample_to_study: A mapping from sample ids to study ids
+    sample_metadata: A dictionary containing metadata about samples
+    sample_to_label: a mapping from sample ids to disease labels
+    disease: The disease of interest for the current results file
+
+    Returns
+    -------
+    A dataframe with the statistics for the current dataset
+    """
+
+    data_dict = {'train_disease_count': [],
+                 'train_healthy_count': [],
+                 'val_disease_count': [],
+                 'val_healthy_count': [],
+                 'accuracy': [],
+                 'balanced_accuracy': [],
+                 'subset_fraction': [],
+                 'seed': [],
+                 'model': []
+                 }
+    for _, row in metrics_df.iterrows():
+        # Keep analysis simple for now
+        data_dict['seed'].append(row['seed'])
+        data_dict['subset_fraction'].append(row['healthy_used'])
+        data_dict['accuracy'].append(row['accuracy'])
+        data_dict['model'].append(row['supervised'])
+        if 'balanced_accuracy' in row:
+            data_dict['balanced_accuracy'].append(row['balanced_accuracy'])
+
+        train_samples, val_samples = split_sample_names(row)
+
+        (train_studies, train_platforms,
+         train_diseases, train_disease_counts) = get_dataset_stats(train_samples,
+                                                                   sample_to_study,
+                                                                   sample_metadata,
+                                                                   sample_to_label)
+        data_dict['train_disease_count'].append(train_diseases[disease])
+        data_dict['train_healthy_count'].append(train_diseases['healthy'])
+
+        (val_studies, val_platforms,
+         val_diseases, val_disease_counts) = get_dataset_stats(val_samples,
+                                                               sample_to_study,
+                                                               sample_metadata,
+                                                               sample_to_label)
+        data_dict['val_disease_count'].append(val_diseases[disease])
+        data_dict['val_healthy_count'].append(val_diseases['healthy'])
+
+    stat_df = pd.DataFrame.from_dict(data_dict)
+
+    stat_df['train_disease_percent'] = (stat_df['train_disease_count'] /
+                                        (stat_df['train_disease_count'] +
+                                         stat_df['train_healthy_count']))
+
+    stat_df['val_disease_percent'] = (stat_df['val_disease_count'] /
+                                      (stat_df['val_disease_count'] +
+                                       stat_df['val_healthy_count']))
+
+    stat_df['train_val_diff'] = abs(stat_df['train_disease_percent'] -
+                                    stat_df['val_disease_percent'])
+    stat_df['train_count'] = (stat_df['train_disease_count'] +
+                              stat_df['train_healthy_count'])
+
+    return stat_df
+
+
+def get_dataset_stats(sample_list: List[str],
+                      sample_to_study: Dict[str, str],
+                      sample_metadata: dict,
+                      sample_to_label: Dict[str, str]) -> Tuple[collections.Counter,
+                                                                collections.Counter,
+                                                                collections.Counter,
+                                                                dict]:
+    """
+    Calculate statistics about a list of samples
+
+    Arguments
+    ---------
+    sample_list: A list of sample ids to calculate statistics for
+    sample_to_study: A mapping from sample ids to study ids
+    sample_metadata: A dictionary containing metadata about samples
+    sample_to_label: a mapping from sample ids to disease labels
+
+    Returns
+    -------
+    studies: The number of samples in each study id
+    platforms: The number of samples using each expression quantification platform
+    diseases: The number of samples labeled with each disease
+    study_disease_counts: The number of samples corresponding to each disease in each study
+    """
+    studies = []
+    platforms = []
+    diseases = []
+    study_disease_counts = {}
+
+    for sample in sample_list:
+        study = sample_to_study[sample]
+        studies.append(study)
+        platform = sample_metadata[sample]['refinebio_platform'].lower()
+        platforms.append(platform)
+
+        disease = sample_to_label[sample]
+        diseases.append(disease)
+
+        if study in study_disease_counts:
+            study_disease_counts[study][disease] = study_disease_counts[study].get(disease, 0) + 1
+        else:
+            study_disease_counts[study] = {disease: 1}
+
+    studies = collections.Counter(studies)
+    platforms = collections.Counter(platforms)
+    diseases = collections.Counter(diseases)
+
+    return studies, platforms, diseases, study_disease_counts
 
 
 def generate_mask(shape: torch.Size, fraction_zeros: float) -> torch.FloatTensor:
