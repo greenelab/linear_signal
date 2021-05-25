@@ -1,4 +1,4 @@
-""" This script creates the metatdata required for simulated data to be used in
+""" This script creates the metadata required for simulated data to be used in
 RefineBioDataset objects """
 
 import argparse
