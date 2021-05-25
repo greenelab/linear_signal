@@ -69,6 +69,6 @@ if __name__ == '__main__':
     with open(args.label_out_file, 'wb') as out_file:
         pickle.dump((label_to_samples, labeled_samples), out_file)
 
-    # Save metdata
+    # Save metadata
     with open(args.metadata_out_file, 'w') as out_file:
         json.dump(metadata, out_file)
