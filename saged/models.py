@@ -1017,6 +1017,11 @@ class PytorchSupervised(ExpressionModel):
 
             for batch in train_loader:
                 expression, labels = batch
+
+                # Ignore singleton batches
+                if len(expression) <= 1:
+                    continue
+
                 expression = expression.float().to(device)
                 labels = labels.squeeze()
 

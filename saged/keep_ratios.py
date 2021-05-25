@@ -1,58 +1,15 @@
 """
 This benchmark compares the performance of different models in learning to differentiate between
-healthy and diseased gene expression with equal label distributions in the train and val sets."""
+healthy and diseased gene expression with equal label distributions in the train and val sets.
+This file is different from small_subsets in that it looks at the models' behavior when very few
+samples are used in training.
+"""
 import argparse
 
 import sklearn.metrics
 import yaml
 
 from saged import utils, datasets, models
-
-
-def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
-                          val_data: datasets.LabeledDataset
-                          ) -> datasets.LabeledDataset:
-    """
-    Subset the training dataset to match the ratio of positive to negative expression samples in
-    the validation dataset
-
-    Arguments
-    ---------
-    train_data: The train expression dataset
-    val_data: The validation expression dataset
-
-    Returns
-    -------
-    train_data: The subsetted expression dataset
-    """
-
-    train_disease_counts = train_data.map_labels_to_counts()
-    val_disease_counts = val_data.map_labels_to_counts()
-
-    train_positive = train_disease_counts.get(args.label, 0)
-    train_negative = train_disease_counts.get(args.negative_class, 0)
-    val_positive = val_disease_counts.get(args.label, 0)
-    val_negative = val_disease_counts.get(args.negative_class, 0)
-
-    train_disease_fraction = train_positive / (train_positive + train_negative)
-    val_disease_fraction = val_positive / (val_positive + val_negative)
-
-    subset_fraction = utils.determine_subset_fraction(train_positive,
-                                                      train_negative,
-                                                      val_positive,
-                                                      val_negative)
-
-    # If train ratio is too high, remove positive samples
-    if train_disease_fraction > val_disease_fraction:
-        train_data = train_data.subset_samples_for_label(subset_fraction,
-                                                         args.label,
-                                                         args.seed)
-    # If train ratio is too low, remove negative samples
-    elif train_disease_fraction < val_disease_fraction:
-        train_data = train_data.subset_samples_for_label(subset_fraction,
-                                                         args.negative_class,
-                                                         args.seed)
-    return train_data
 
 
 if __name__ == '__main__':
@@ -112,6 +69,7 @@ if __name__ == '__main__':
     all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
                                                                        args.label,
                                                                        args.negative_class)
+
     # Load binary data subsets the data to two classes. Update the label encoder to treat this
     # data as binary so the F1 score doesn't break
     labeled_data.recode()
@@ -152,7 +110,8 @@ if __name__ == '__main__':
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
-            train_data = subset_to_equal_ratio(train_data, val_data)
+            train_data = utils.subset_to_equal_ratio(train_data, val_data, args.label,
+                                                     args.negative_class, args.seed)
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
