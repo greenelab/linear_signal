@@ -207,7 +207,7 @@ rule all:
         # sepsis simulation
         "data/simulated/sepsis_healthy_sim.tsv",
         # keep_ratios simulated sepsis
-        expand("results/simulation.sepsis.{supervised}.{seed}.tsv",
+        expand("results/simulation_clipped.sepsis.{supervised}.{seed}.tsv",
                supervised=SUPERVISED,
                dataset="simulation_configs/simulated_dataset.yml",
                seed=range(0,NUM_SEEDS)
@@ -528,10 +528,10 @@ rule simulated_sepsis:
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "simulation_configs/simulated_dataset.yml",
     output:
-        "results/simulation.{label}.{supervised}.{seed}.tsv"
+        "results/simulation_clipped.{label}.{supervised}.{seed}.tsv"
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
-        "results/simulation.{wildcards.label}.{wildcards.supervised}.{wildcards.seed}.tsv "
+        "results/simulation_clipped.{wildcards.label}.{wildcards.supervised}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--label {wildcards.label} "

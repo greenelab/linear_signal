@@ -318,6 +318,30 @@ class ThreeLayerClassifier(nn.Module):
         return x
 
 
+class PytorchLR(nn.Module):
+    """ A pytorch implementation of logistic regression"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(PytorchLR, self).__init__()
+
+        self.fc1 = nn.Linear(input_size, output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
+
+        return x
+
+
 class ThreeLayerImputation(nn.Module):
     """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
@@ -826,6 +850,7 @@ class PytorchSupervised(ExpressionModel):
                  save_path: str = None,
                  train_fraction: float = None,
                  train_count: float = None,
+                 clip_grads: bool = False,
                  **kwargs,
                  ) -> None:
         """
@@ -848,6 +873,7 @@ class PytorchSupervised(ExpressionModel):
         save_path: The path to save the model to
         train_fraction: The percent of samples to use in training
         train_count: The number of studies to use in training
+        clip_grads: A flag reflecting whether to perform clip gradients during training
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -871,6 +897,7 @@ class PytorchSupervised(ExpressionModel):
         self.log_progress = log_progress
         self.train_fraction = train_fraction
         self.train_count = train_count
+        self.clip_grads = clip_grads
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -1037,6 +1064,10 @@ class PytorchSupervised(ExpressionModel):
                 loss = self.loss_fn(output, labels)
 
                 loss.backward()
+
+                if self.clip_grads:
+                    nn.utils.clip_grad_norm_(self.model.parameters(), .01)
+
                 self.optimizer.step()
 
                 train_loss += loss.item()
