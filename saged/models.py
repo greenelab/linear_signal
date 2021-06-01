@@ -309,10 +309,13 @@ class ThreeLayerClassifier(nn.Module):
         self.fc1 = nn.Linear(input_size, input_size // 2)
         self.fc2 = nn.Linear(input_size // 2, input_size // 4)
         self.fc3 = nn.Linear(input_size // 4, output_size)
+        self.dropout = nn.Dropout()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc1(x))
+        x = self.dropout(x)
         x = F.relu(self.fc2(x))
+        x = self.dropout(x)
         x = self.fc3(x)
 
         return x
