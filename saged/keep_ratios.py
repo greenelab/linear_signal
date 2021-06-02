@@ -60,12 +60,6 @@ if __name__ == '__main__':
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
-    # Parse config file
-    if args.neptune_config is not None:
-        with open(args.neptune_config) as neptune_file:
-            neptune_config = yaml.safe_load(neptune_file)
-            utils.initialize_neptune(neptune_config)
-
     all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
                                                                        args.label,
                                                                        args.negative_class)
@@ -96,6 +90,15 @@ if __name__ == '__main__':
     subset_percents = []
     for i in range(len(labeled_splits)):
         for subset_number in range(1, 11, 1):
+            # The new neptune version doesn't have a create_experiment function so you have to
+            # reinitialize per-model
+            neptune_run = None
+            # Parse config file
+            if args.neptune_config is not None:
+                with open(args.neptune_config) as neptune_file:
+                    neptune_config = yaml.safe_load(neptune_file)
+                    neptune_run = utils.initialize_neptune(neptune_config)
+
             subset_percent = subset_number * .1
 
             train_list = labeled_splits[:i] + labeled_splits[i+1:]
@@ -156,11 +159,11 @@ if __name__ == '__main__':
             if args.semi_supervised:
                 all_data = all_data.subset_to_samples(train_data.get_samples() +
                                                       unlabeled_data.get_samples())
-                supervised_model.fit(all_data)
+                supervised_model.fit(all_data, neptune_run)
                 all_data.reset_filters()
             # Train the model on the training data
             else:
-                supervised_model.fit(train_data)
+                supervised_model.fit(train_data, neptune_run)
 
             predictions, true_labels = supervised_model.evaluate(val_data)
 

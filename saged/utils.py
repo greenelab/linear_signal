@@ -8,7 +8,7 @@ from pathlib import Path
 import random
 from typing import Any, Dict, Set, Text, Union, List, Tuple
 
-import neptune
+import neptune.new as neptune
 import numpy as np
 import pandas as pd
 import torch
@@ -494,7 +494,7 @@ def count_correct(outputs: torch.Tensor, labels: torch.Tensor) -> int:
     return num_correct
 
 
-def initialize_neptune(config: dict) -> None:
+def initialize_neptune(config: dict) -> neptune.Run:
     """
     Connect to neptune server with our api key
 
@@ -511,8 +511,11 @@ def initialize_neptune(config: dict) -> None:
         secrets = yaml.safe_load(secrets_file)
         api_token = secrets['neptune_api_token']
 
-    neptune.init(api_token=api_token,
-                 project_qualified_name=qualified_name)
+    run = neptune.init(api_token=api_token,
+                       project=qualified_name,
+                       mode='offline')
+
+    return run
 
 
 def deterministic_shuffle_set(set_: set) -> List[Any]:
