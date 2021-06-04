@@ -206,6 +206,11 @@ rule all:
                ),
         # sepsis simulation
         "data/simulated/sepsis_healthy_sim.tsv",
+        # tb simulation
+        "data/simulated/tb_healthy_sim.tsv",
+        # simulation_metadata
+        "data/simulated/sepsis_compendium.pkl",
+        "data/simulated/tb_compendium.pkl",
         # keep_ratios simulated sepsis
         expand("results/simulation_clipped.sepsis.{supervised}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -220,7 +225,6 @@ rule pickle_compendium:
         "data/subset_compendium.pkl"
     shell:
         "python saged/pickle_tsv.py {input} {output}"
-
 
 rule all_label_comparison:
     input:
@@ -521,18 +525,29 @@ rule simulate_data:
         "--batch_correction_method limma "
         "--all_healthy"
 
+rule generate_simulation_metadata:
+    input:
+        sim_data = "data/simulated/sepsis_healthy_sim.tsv"
+    output:
+        "data/simulated/{disease_label}_compendium.pkl",
+    shell:
+        "python create_simulation_metadata.py {input.sim_data} "
+        "data/simulated/{wildcards.disease_label}_compendium.pkl"
+        "{wildcards.disease_label}_sim_metadata.json"
+        "{wildcards.disease_label}_labels.pkl"
+
 rule simulated_sepsis:
     threads: 8
     input:
-        "data/subset_compendium.pkl",
+        "data/simulated/{disease_label}_compendium.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "simulation_configs/simulated_dataset.yml",
     output:
-        "results/simulation_clipped.{label}.{supervised}.{seed}.tsv"
+        "results/simulation_clipped.{disease_label}.{supervised}.{seed}.tsv"
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
-        "results/simulation_clipped.{wildcards.label}.{wildcards.supervised}.{wildcards.seed}.tsv "
+        "results/simulation_clipped.{wildcards.disease_label}.{wildcards.supervised}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
-        "--label {wildcards.label} "
+        "--label {wildcards.disease_label} "
         "--negative_class sepsis_healthy "
