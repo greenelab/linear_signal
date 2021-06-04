@@ -2,7 +2,7 @@ name: "PytorchSupervised"
 optimizer_name: "Adam"
 loss_name: "CrossEntropyLoss"
 model_name: "ThreeLayerClassifier"
-lr: .001
+lr: .00001
 weight_decay: 0
 device: "cuda"
 seed: 42
