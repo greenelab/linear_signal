@@ -331,7 +331,7 @@ dependencies:
   - slacker=0.14.0
   - smart_open=5.0.0
   - smmap=3.0.5
-  - snakemake=6.4.0
+  - snakemake=6.2.1
   - snakemake-minimal=6.4.0
   - sqlite=3.35.5
   - statsmodels=0.12.2
