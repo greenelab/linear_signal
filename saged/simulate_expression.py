@@ -214,17 +214,14 @@ if __name__ == '__main__':
                                                 args.sample_count)
 
     metadata_file = os.path.join(args.out_dir,
-                                 '{}_{}_simulation_metadata.json'.format(args.label,
-                                                                         args.negative_class))
+                                 '{}_simulation_metadata.json'.format(args.label))
     labeled_scaler_file = os.path.join(args.out_dir,
-                                       '{}_{}_labeled_scaler.pkl'.format(args.label,
-                                                                         args.negative_class))
+                                       '{}_labeled_scaler.pkl'.format(args.label))
     unlabeled_scaler_file = os.path.join(args.out_dir,
-                                         '{}_{}_unlabeled_scaler.pkl'.format(args.label,
-                                                                             args.negative_class))
+                                         '{}_unlabeled_scaler.pkl'.format(args.label))
 
     healthy_out = os.path.join(args.out_dir,
-                               '{}_{}_train.pkl'.format(args.label, args.negative_class))
+                               '{}_train.pkl'.format(args.negative_class))
     disease_out = os.path.join(args.out_dir,
                                '{}_train.pkl'.format(args.label))
 
@@ -247,8 +244,7 @@ if __name__ == '__main__':
     with open(metadata_file, 'w') as out_file:
         json.dump(metadata, out_file)
 
-    healthy_out = os.path.join(args.out_dir, '{}_{}_sim.tsv'.format(args.label,
-                                                                    args.negative_class))
+    healthy_out = os.path.join(args.out_dir, '{}_{}_sim.tsv'.format(args.negative_class))
     np.savetxt(healthy_out, healthy_simulated, delimiter='\t')
     disease_out = os.path.join(args.out_dir, '{}_sim.tsv'.format(args.label))
     np.savetxt(disease_out, disease_simulated, delimiter='\t')

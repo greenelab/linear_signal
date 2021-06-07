@@ -205,12 +205,14 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # sepsis simulation
-        "data/simulated/sepsis_healthy_sim.tsv",
+        "data/simulated/sepsis/healthy_sim.tsv",
+        "data/simulated/sepsis/sepsis_sim.tsv",
         # tb simulation
-        "data/simulated/tb_healthy_sim.tsv",
+        "data/simulated/tb/healthy_sim.tsv",
+        "data/simulated/tb/tb_sim.tsv",
         # simulation_metadata
-        "data/simulated/sepsis_compendium.pkl",
-        "data/simulated/tb_compendium.pkl",
+        "data/simulated/sepsis/sepsis_compendium.pkl",
+        "data/simulated/tb/tb_compendium.pkl",
         # keep_ratios simulated sepsis
         expand("results/simulation_clipped.sepsis.{supervised}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -513,11 +515,13 @@ rule simulate_data:
     input:
         dataset_config = "dataset_configs/refinebio_labeled_dataset.yml",
     output:
-        "data/simulated/{label}_healthy_sim.tsv"
+        "data/simulated/{label}/healthy_sim.tsv",
+        "data/simulated/{label}/{label}_sim.tsv"
     shell:
+        "mkdir -p data/simulated/{wildcards.label}/ && "
         "python saged/simulate_expression.py {input.dataset_config} "
         "data/aggregated_metadata.json "
-        "data/simulated/ "
+        "data/simulated/{wildcards.label}/ "
         "--sample_count 1000 "
         "--seed 42 "
         "--label {wildcards.label} "
@@ -527,21 +531,22 @@ rule simulate_data:
 
 rule generate_simulation_metadata:
     input:
-        sim_data = "data/simulated/sepsis_healthy_sim.tsv"
+        "data/simulated/{label}/healthy_sim.tsv",
+        "data/simulated/{label}/{label}_sim.tsv"
     output:
-        "data/simulated/{disease_label}_compendium.pkl",
+        "data/simulated/{label}/compendium.pkl",
     shell:
-        "python create_simulation_metadata.py {input.sim_data} "
-        "data/simulated/{wildcards.disease_label}_compendium.pkl"
-        "{wildcards.disease_label}_sim_metadata.json"
-        "{wildcards.disease_label}_labels.pkl"
+        "python saged/create_simulation_metadata.py data/simulated/{wildcards.label} "
+        "data/simulated/{wildcards.label}/compendium.pkl "
+        "data/simulated/{wildcards.label}/{wildcards.label}_sim_metadata.json "
+        "data/simulated/{wildcards.label}/{wildcards.label}_labels.pkl "
 
-rule simulated_sepsis:
+rule simulated_keep_ratios:
     threads: 8
     input:
-        "data/simulated/{disease_label}_compendium.pkl",
+        "data/simulated/{disease_label}/{disease_label}_compendium.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "simulation_configs/simulated_dataset.yml",
+        dataset_config = "simulation_configs/{disease_label}_dataset.yml",
     output:
         "results/simulation_clipped.{disease_label}.{supervised}.{seed}.tsv"
     shell:

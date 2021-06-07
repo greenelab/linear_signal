@@ -20,6 +20,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    print(args.data_dir)
     sim_files = glob.glob(args.data_dir + '/*_sim.tsv')
 
     metadata = {'experiments': {}, 'samples': {}}
@@ -29,6 +30,7 @@ if __name__ == '__main__':
     labeled_samples = set()
     label_to_samples = {}
 
+    print(sim_files)
     for sim_file in sim_files:
         file_name = os.path.basename(sim_file)
         current_df = pd.read_csv(os.path.join(args.data_dir, file_name),

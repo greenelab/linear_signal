@@ -1,0 +1,4 @@
+name: "RefineBioMixedDataset"
+compendium_path: "data/simulated/tb/compendium.pkl"
+metadata_path: "data/simulated/tb/sample_metadata.json"
+label_path: "data/simulated/tb/labels.pkl"
