@@ -414,20 +414,20 @@ class DeepClassifier(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)
         x = self.bn1(x)
+        x = self.dropout(x)
 
         x = F.relu(self.fc2(x))
-        x = self.dropout(x)
         x = self.bn2(x)
+        x = self.dropout(x)
 
         x = F.relu(self.fc3(x))
-        x = self.dropout(x)
         x = self.bn3(x)
+        x = self.dropout(x)
 
         x = F.relu(self.fc4(x))
-        x = self.dropout(x)
         x = self.bn4(x)
+        x = self.dropout(x)
 
         x = self.fc5(x)
 
@@ -1064,6 +1064,7 @@ class PytorchSupervised(ExpressionModel):
                 train_correct += utils.count_correct(output, labels)
 
             with torch.no_grad():
+
                 self.model.eval()
 
                 tune_loss = 0
