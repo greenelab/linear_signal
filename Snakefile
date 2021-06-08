@@ -211,8 +211,8 @@ rule all:
         "data/simulated/tb/healthy_sim.tsv",
         "data/simulated/tb/tb_sim.tsv",
         # simulation_metadata
-        "data/simulated/sepsis/sepsis_compendium.pkl",
-        "data/simulated/tb/tb_compendium.pkl",
+        "data/simulated/sepsis/compendium.pkl",
+        "data/simulated/tb/compendium.pkl",
         # keep_ratios simulated sepsis
         expand("results/simulation_clipped.sepsis.{supervised}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -544,7 +544,7 @@ rule generate_simulation_metadata:
 rule simulated_keep_ratios:
     threads: 8
     input:
-        "data/simulated/{disease_label}/{disease_label}_compendium.pkl",
+        "data/simulated/{disease_label}/compendium.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "simulation_configs/{disease_label}_dataset.yml",
     output:
@@ -555,4 +555,4 @@ rule simulated_keep_ratios:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--label {wildcards.disease_label} "
-        "--negative_class sepsis_healthy "
+        "--negative_class healthy "

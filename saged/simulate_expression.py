@@ -244,7 +244,7 @@ if __name__ == '__main__':
     with open(metadata_file, 'w') as out_file:
         json.dump(metadata, out_file)
 
-    healthy_out = os.path.join(args.out_dir, '{}_{}_sim.tsv'.format(args.negative_class))
+    healthy_out = os.path.join(args.out_dir, '{}_sim.tsv'.format(args.negative_class))
     np.savetxt(healthy_out, healthy_simulated, delimiter='\t')
     disease_out = os.path.join(args.out_dir, '{}_sim.tsv'.format(args.label))
     np.savetxt(disease_out, disease_simulated, delimiter='\t')
