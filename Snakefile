@@ -219,6 +219,11 @@ rule all:
                dataset="simulation_configs/simulated_dataset.yml",
                seed=range(0,NUM_SEEDS)
                ),
+        expand("results/simulation_clipped.tb.{supervised}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset="simulation_configs/simulated_dataset.yml",
+               seed=range(0,NUM_SEEDS)
+               ),
 
 rule pickle_compendium:
     input:
