@@ -133,11 +133,11 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # keep_ratios lupus
-        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
-               supervised=SUPERVISED,
-               dataset=DATASETS,
-               seed=range(0,NUM_SEEDS)
-               ),
+        #expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
+        #       supervised=SUPERVISED,
+        #       dataset=DATASETS,
+        #       seed=range(0,NUM_SEEDS)
+        #       ),
         # small_subsets sepsis
         expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -163,11 +163,11 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # keep_ratios lupus be_corrected
-        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.be_corrected.tsv",
-               supervised=SUPERVISED,
-               dataset=DATASETS,
-               seed=range(0,NUM_SEEDS)
-               ),
+        #expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+        #       supervised=SUPERVISED,
+        #       dataset=DATASETS,
+        #       seed=range(0,NUM_SEEDS)
+        #       ),
         # small_subsets sepsis be_corrected
         expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
                supervised=SUPERVISED,
