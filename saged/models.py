@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Union, Iterable, Tuple, Any
 
-import neptune
+import neptune.new as neptune
 import numpy as np
 import sklearn.linear_model
 import sklearn.decomposition
@@ -128,13 +128,14 @@ class ExpressionModel(ABC):
         pass
 
     @abstractmethod
-    def fit(self, dataset: LabeledDataset) -> "ExpressionModel":
+    def fit(self, dataset: LabeledDataset, run: neptune.Run) -> "ExpressionModel":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
+        run: An object for logging training data if applicable
 
         Returns
         -------
@@ -207,13 +208,14 @@ class LogisticRegression(ExpressionModel):
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
 
-    def fit(self, dataset: LabeledDataset) -> "LogisticRegression":
+    def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
+        run: An object for logging training data if applicable
 
         Returns
         -------
@@ -309,11 +311,38 @@ class ThreeLayerClassifier(nn.Module):
         self.fc1 = nn.Linear(input_size, input_size // 2)
         self.fc2 = nn.Linear(input_size // 2, input_size // 4)
         self.fc3 = nn.Linear(input_size // 4, output_size)
+        self.dropout = nn.Dropout()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc1(x))
+        x = self.dropout(x)
         x = F.relu(self.fc2(x))
+        x = self.dropout(x)
         x = self.fc3(x)
+
+        return x
+
+
+class PytorchLR(nn.Module):
+    """ A pytorch implementation of logistic regression"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(PytorchLR, self).__init__()
+
+        self.fc1 = nn.Linear(input_size, output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
 
         return x
 
@@ -385,20 +414,20 @@ class DeepClassifier(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)
         x = self.bn1(x)
+        x = self.dropout(x)
 
         x = F.relu(self.fc2(x))
-        x = self.dropout(x)
         x = self.bn2(x)
+        x = self.dropout(x)
 
         x = F.relu(self.fc3(x))
-        x = self.dropout(x)
         x = self.bn3(x)
+        x = self.dropout(x)
 
         x = F.relu(self.fc4(x))
-        x = self.dropout(x)
         x = self.bn4(x)
+        x = self.dropout(x)
 
         x = self.fc5(x)
 
@@ -467,7 +496,6 @@ class PytorchImpute(ExpressionModel):
         self.epochs = epochs
         self.batch_size = batch_size
         self.experiment_name = experiment_name
-        self.experiment_description = experiment_description
         self.log_progress = log_progress
         self.train_fraction = train_fraction
         self.train_count = train_count
@@ -616,13 +644,14 @@ class PytorchImpute(ExpressionModel):
 
         return masked_expression
 
-    def fit(self, dataset: LabeledDataset) -> "PytorchImpute":
+    def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "PytorchImpute":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
+        run: An object for logging training data if applicable
 
         Returns
         -------
@@ -642,7 +671,6 @@ class PytorchImpute(ExpressionModel):
         epochs = self.epochs
         batch_size = self.batch_size
         experiment_name = self.experiment_name
-        experiment_description = self.experiment_description
         log_progress = self.log_progress
 
         train_count = None
@@ -669,12 +697,9 @@ class PytorchImpute(ExpressionModel):
         self.model.to(device)
 
         if log_progress:
-            experiment = neptune.create_experiment(name=experiment_name,
-                                                   description=experiment_description,
-                                                   params=self.config
-                                                   )
-
-            experiment.set_property('model', str(type(self.model)))
+            run['name'] = experiment_name
+            run['params'] = self.config
+            run['model'] = str(type(self.model))
 
         best_tune_loss = None
 
@@ -715,9 +740,8 @@ class PytorchImpute(ExpressionModel):
                         tune_loss += self.loss_fn(output, expression).item()
 
             if log_progress:
-                neptune.log_metric('train_loss', epoch, train_loss / len(train_dataset))
-                if not tune_is_empty:
-                    neptune.log_metric('tune_loss', epoch, tune_loss / len(tune_dataset))
+                run['train/loss'].log(train_loss / len(train_dataset))
+                run['tune/loss'].log(tune_loss / len(tune_dataset))
 
             # Save model if applicable
             save_path = getattr(self, 'save_path', None)
@@ -742,11 +766,6 @@ class PytorchImpute(ExpressionModel):
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
             self.save_model(save_path)
-
-        if log_progress:
-            # Finish the neptune experiment and free up the network resources associated with
-            # talking to neptune's server
-            neptune.stop()
 
         return self
 
@@ -826,6 +845,7 @@ class PytorchSupervised(ExpressionModel):
                  save_path: str = None,
                  train_fraction: float = None,
                  train_count: float = None,
+                 clip_grads: bool = False,
                  **kwargs,
                  ) -> None:
         """
@@ -848,6 +868,7 @@ class PytorchSupervised(ExpressionModel):
         save_path: The path to save the model to
         train_fraction: The percent of samples to use in training
         train_count: The number of studies to use in training
+        clip_grads: A flag reflecting whether to perform clip gradients during training
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -867,10 +888,10 @@ class PytorchSupervised(ExpressionModel):
         self.epochs = epochs
         self.batch_size = batch_size
         self.experiment_name = experiment_name
-        self.experiment_description = experiment_description
         self.log_progress = log_progress
         self.train_fraction = train_fraction
         self.train_count = train_count
+        self.clip_grads = clip_grads
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -939,13 +960,14 @@ class PytorchSupervised(ExpressionModel):
                    out_path
                    )
 
-    def fit(self, dataset: LabeledDataset) -> "PytorchSupervised":
+    def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "PytorchSupervised":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
+        run: An object for logging training data if applicable
 
         Returns
         -------
@@ -961,8 +983,6 @@ class PytorchSupervised(ExpressionModel):
         seed = self.seed
         epochs = self.epochs
         batch_size = self.batch_size
-        experiment_name = self.experiment_name
-        experiment_description = self.experiment_description
         log_progress = self.log_progress
 
         train_count = None
@@ -994,19 +1014,16 @@ class PytorchSupervised(ExpressionModel):
             self.loss_fn = self.loss_class(weight=None)
 
         if log_progress:
-            experiment = neptune.create_experiment(name=experiment_name,
-                                                   description=experiment_description,
-                                                   params=self.config
-                                                   )
-
-            experiment.set_property('model', str(type(self.model)))
+            run['experiment_name'] = self.experiment_name
+            run['params'] = self.config
+            run['model'] = str(type(self.model))
 
             # Track the baseline (always predicting the most common class)
             if not tune_is_empty:
                 label_counts = tune_dataset.map_labels_to_counts().values()
 
                 tune_baseline = max(label_counts) / sum(label_counts)
-                neptune.log_metric('tune_baseline', tune_baseline)
+                run['tune_baseline', tune_baseline]
 
         best_tune_loss = None
 
@@ -1037,12 +1054,17 @@ class PytorchSupervised(ExpressionModel):
                 loss = self.loss_fn(output, labels)
 
                 loss.backward()
+
+                if self.clip_grads:
+                    nn.utils.clip_grad_norm_(self.model.parameters(), .01)
+
                 self.optimizer.step()
 
                 train_loss += loss.item()
                 train_correct += utils.count_correct(output, labels)
 
             with torch.no_grad():
+
                 self.model.eval()
 
                 tune_loss = 0
@@ -1065,11 +1087,11 @@ class PytorchSupervised(ExpressionModel):
                 tune_acc = tune_correct / len(tune_dataset)
 
             if log_progress:
-                neptune.log_metric('train_loss', epoch, train_loss)
-                neptune.log_metric('train_acc', epoch, train_acc)
+                run['train/loss'].log(train_loss)
+                run['train/acc'].log(train_acc)
                 if not tune_is_empty:
-                    neptune.log_metric('tune_loss', epoch, tune_loss)
-                    neptune.log_metric('tune_acc', epoch, tune_acc)
+                    run['tune/loss'].log(tune_loss)
+                    run['tune/acc'].log(tune_acc)
 
             save_path = getattr(self, 'save_path', None)
             if save_path is not None and not tune_is_empty:
@@ -1093,9 +1115,6 @@ class PytorchSupervised(ExpressionModel):
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
             self.save_model(save_path)
-
-        if log_progress:
-            neptune.stop()
 
         return self
 
@@ -1351,13 +1370,14 @@ class PseudolabelModel(PytorchSupervised):
 
         self.max_alpha = max_alpha
 
-    def fit(self, dataset: MixedDataset) -> "PseudolabelModel":
+    def fit(self, dataset: MixedDataset, run: neptune.Run = None) -> "PseudolabelModel":
         """
         Train a model using the given labeled data
 
         Arguments
         ---------
         dataset: The labeled data for use in training
+        run: An object for logging training data if applicable
 
         Returns
         -------
@@ -1373,8 +1393,6 @@ class PseudolabelModel(PytorchSupervised):
         seed = self.seed
         epochs = self.epochs
         batch_size = self.batch_size
-        experiment_name = self.experiment_name
-        experiment_description = self.experiment_description
         log_progress = self.log_progress
 
         train_count = None
@@ -1404,18 +1422,15 @@ class PseudolabelModel(PytorchSupervised):
             self.loss_fn = self.loss_class(weight=None)
 
         if log_progress:
-            experiment = neptune.create_experiment(name=experiment_name,
-                                                   description=experiment_description,
-                                                   params=self.config
-                                                   )
-
-            experiment.set_property('model', str(type(self.model)))
+            run['experiment_name'] = self.experiment_name
+            run['params'] = self.config
+            run['model'] = str(type(self.model))
 
             # Track the baseline (always predicting the most common class)
             label_counts = tune_dataset.map_labels_to_counts().values()
 
             tune_baseline = max(label_counts) / sum(label_counts)
-            neptune.log_metric('tune_baseline', tune_baseline)
+            run['tune_baseline'] = tune_baseline
 
         best_tune_loss = None
 
@@ -1498,10 +1513,10 @@ class PseudolabelModel(PytorchSupervised):
             tune_acc = tune_correct / len(tune_dataset)
 
             if log_progress:
-                neptune.log_metric('train_loss', epoch, train_loss)
-                neptune.log_metric('train_acc', epoch, train_acc)
-                neptune.log_metric('tune_loss', epoch, tune_loss)
-                neptune.log_metric('tune_acc', epoch, tune_acc)
+                run['train/loss'].log(train_loss)
+                run['train/acc'].log(train_acc)
+                run['tune/loss'].log(tune_loss)
+                run['tune/acc'].log(tune_acc)
 
             # Save model if applicable
             save_path = getattr(self, 'save_path', None)
@@ -1569,7 +1584,6 @@ class TransferClassifier(PytorchSupervised):
         self.epochs = epochs
         self.batch_size = batch_size
         self.experiment_name = experiment_name
-        self.experiment_description = experiment_description
         self.log_progress = log_progress
         self.train_fraction = train_fraction
         self.train_count = train_count

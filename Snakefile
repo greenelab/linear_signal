@@ -133,11 +133,11 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # keep_ratios lupus
-        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
-               supervised=SUPERVISED,
-               dataset=DATASETS,
-               seed=range(0,NUM_SEEDS)
-               ),
+        #expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.tsv",
+        #       supervised=SUPERVISED,
+        #       dataset=DATASETS,
+        #       seed=range(0,NUM_SEEDS)
+        #       ),
         # small_subsets sepsis
         expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.tsv",
                supervised=SUPERVISED,
@@ -163,11 +163,11 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # keep_ratios lupus be_corrected
-        expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.be_corrected.tsv",
-               supervised=SUPERVISED,
-               dataset=DATASETS,
-               seed=range(0,NUM_SEEDS)
-               ),
+        #expand("results/keep_ratios.lupus.{supervised}.{dataset}.{seed}.be_corrected.tsv",
+        #       supervised=SUPERVISED,
+        #       dataset=DATASETS,
+        #       seed=range(0,NUM_SEEDS)
+        #       ),
         # small_subsets sepsis be_corrected
         expand("results/small_subsets.sepsis.{supervised}.{dataset}.{seed}.be_corrected.tsv",
                supervised=SUPERVISED,
@@ -205,9 +205,21 @@ rule all:
                seed=range(0,NUM_SEEDS)
                ),
         # sepsis simulation
-        "data/simulated/sepsis_healthy_sim.tsv",
+        "data/simulated/sepsis/healthy_sim.tsv",
+        "data/simulated/sepsis/sepsis_sim.tsv",
+        # tb simulation
+        "data/simulated/tb/healthy_sim.tsv",
+        "data/simulated/tb/tb_sim.tsv",
+        # simulation_metadata
+        "data/simulated/sepsis/compendium.pkl",
+        "data/simulated/tb/compendium.pkl",
         # keep_ratios simulated sepsis
-        expand("results/simulation.sepsis.{supervised}.{seed}.tsv",
+        expand("results/simulation_clipped.sepsis.{supervised}.{seed}.tsv",
+               supervised=SUPERVISED,
+               dataset="simulation_configs/simulated_dataset.yml",
+               seed=range(0,NUM_SEEDS)
+               ),
+        expand("results/simulation_clipped.tb.{supervised}.{seed}.tsv",
                supervised=SUPERVISED,
                dataset="simulation_configs/simulated_dataset.yml",
                seed=range(0,NUM_SEEDS)
@@ -220,7 +232,6 @@ rule pickle_compendium:
         "data/subset_compendium.pkl"
     shell:
         "python saged/pickle_tsv.py {input} {output}"
-
 
 rule all_label_comparison:
     input:
@@ -407,6 +418,7 @@ rule keep_ratios:
         dataset_config = "dataset_configs/{dataset}.yml",
     output:
         "results/keep_ratios.{label}.{supervised}.{dataset}.{seed}.tsv"
+    threads: 8
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
         "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
@@ -422,6 +434,7 @@ rule keep_ratios_be_correction:
         dataset_config = "dataset_configs/{dataset}.yml",
     output:
         "results/keep_ratios.{label}.{supervised}.{dataset}.{seed}.be_corrected.tsv"
+    threads: 8
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
         "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
@@ -509,11 +522,13 @@ rule simulate_data:
     input:
         dataset_config = "dataset_configs/refinebio_labeled_dataset.yml",
     output:
-        "data/simulated/{label}_healthy_sim.tsv"
+        "data/simulated/{label}/healthy_sim.tsv",
+        "data/simulated/{label}/{label}_sim.tsv"
     shell:
+        "mkdir -p data/simulated/{wildcards.label}/ && "
         "python saged/simulate_expression.py {input.dataset_config} "
         "data/aggregated_metadata.json "
-        "data/simulated/ "
+        "data/simulated/{wildcards.label}/ "
         "--sample_count 1000 "
         "--seed 42 "
         "--label {wildcards.label} "
@@ -521,18 +536,30 @@ rule simulate_data:
         "--batch_correction_method limma "
         "--all_healthy"
 
-rule simulated_sepsis:
+rule generate_simulation_metadata:
+    input:
+        "data/simulated/{label}/healthy_sim.tsv",
+        "data/simulated/{label}/{label}_sim.tsv"
+    output:
+        "data/simulated/{label}/compendium.pkl",
+    shell:
+        "python saged/create_simulation_metadata.py data/simulated/{wildcards.label} "
+        "data/simulated/{wildcards.label}/compendium.pkl "
+        "data/simulated/{wildcards.label}/{wildcards.label}_sim_metadata.json "
+        "data/simulated/{wildcards.label}/{wildcards.label}_labels.pkl "
+
+rule simulated_keep_ratios:
     threads: 8
     input:
-        "data/subset_compendium.pkl",
+        "data/simulated/{disease_label}/compendium.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "simulation_configs/simulated_dataset.yml",
+        dataset_config = "simulation_configs/{disease_label}_dataset.yml",
     output:
-        "results/simulation.{label}.{supervised}.{seed}.tsv"
+        "results/simulation_clipped.{disease_label}.{supervised}.{seed}.tsv"
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
-        "results/simulation.{wildcards.label}.{wildcards.supervised}.{wildcards.seed}.tsv "
+        "results/simulation_clipped.{wildcards.disease_label}.{wildcards.supervised}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
-        "--label {wildcards.label} "
-        "--negative_class sepsis_healthy "
+        "--label {wildcards.disease_label} "
+        "--negative_class healthy "

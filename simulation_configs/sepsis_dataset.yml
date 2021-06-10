@@ -1,0 +1,4 @@
+name: "RefineBioMixedDataset"
+compendium_path: "data/simulated/sepsis/compendium.pkl"
+metadata_path: "data/simulated/sepsis/sepsis_sim_metadata.json"
+label_path: "data/simulated/sepsis/sepsis_labels.pkl"

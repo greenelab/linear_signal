@@ -2,16 +2,17 @@ name: "PytorchSupervised"
 optimizer_name: "Adam"
 loss_name: "CrossEntropyLoss"
 model_name: "ThreeLayerClassifier"
-lr: .001
+lr: .00001
 weight_decay: 0
 device: "cuda"
 seed: 42
-epochs: 10
+epochs: 50
 batch_size: 16
 experiment_name: "PytorchSupervised"
 experiment_description: "Train a supervised pytorch model"
 log_progress: True
 train_fraction: .8
 save_path: "logs/models/pytorch_supervised.pt"
+clip_grads: True
 
 # config.input_size and config.output_size should be set dynamically
