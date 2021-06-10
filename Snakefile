@@ -418,6 +418,7 @@ rule keep_ratios:
         dataset_config = "dataset_configs/{dataset}.yml",
     output:
         "results/keep_ratios.{label}.{supervised}.{dataset}.{seed}.tsv"
+    threads: 8
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
         "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.tsv "
@@ -433,6 +434,7 @@ rule keep_ratios_be_correction:
         dataset_config = "dataset_configs/{dataset}.yml",
     output:
         "results/keep_ratios.{label}.{supervised}.{dataset}.{seed}.be_corrected.tsv"
+    threads: 8
     shell:
         "python saged/keep_ratios.py {input.dataset_config} {input.supervised_model} "
         "results/keep_ratios.{wildcards.label}.{wildcards.supervised}.{wildcards.dataset}.{wildcards.seed}.be_corrected.tsv "
