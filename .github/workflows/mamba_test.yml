@@ -1,0 +1,32 @@
+name: Lint Code and Run Unit Tests
+on: [pull_request, push]
+jobs:
+  mamba:
+    name: Test and Lint ${{ matrix.python-version }}
+    runs-on: "ubuntu-latest"
+    strategy:
+		max-paralell: 5
+        matrix:
+            python-version: [3.5, 3.6, 3.7, 3.8]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: test
+          environment-file: environment.yml
+          python-version: ${{ matrix.python-version }}
+		  mamba-version: "*"
+          auto-activate-base: false
+      - name: Lint
+        shell: bash -l {0}
+        run: |
+            conda activate saged
+            mamba install flake8
+            python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+            python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Run pytest
+        shell: bash -l {0}
+        run: |
+			conda activate saged
+            mamba install pytest
+            pytest
