@@ -19,7 +19,7 @@ jobs:
           path: ~/conda_pkgs_dir
           key:
             ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-            hashFiles('etc/environment.yml') }} 
+            hashFiles('environment.yml') }} 
       - name: Setup Conda
         uses: conda-incubator/setup-miniconda@v2
         with:
