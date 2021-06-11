@@ -5,7 +5,7 @@ jobs:
     name: Test and Lint ${{ matrix.python-version }}
     runs-on: "ubuntu-latest"
     strategy:
-        max-paralell: 5
+        max-parallel: 5
         matrix:
             python-version: [3.5, 3.6, 3.7, 3.8]
     steps:
