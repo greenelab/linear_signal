@@ -10,12 +10,24 @@ jobs:
             python-version: [3.7]
     steps:
       - uses: actions/checkout@v2
+      - name: Cache conda
+        uses: actions/cache@v2
+        env:
+          # Increase this value to reset cache if etc/example-environment.yml has not changed
+          CACHE_NUMBER: 0
+        with:
+          path: ~/conda_pkgs_dir
+          key:
+            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
+            hashFiles('etc/environment.yml') }} 
       - uses: conda-incubator/setup-miniconda@v2
+      - name: Setup conda
         with:
           activate-environment: saged
           environment-file: environment.yml
           python-version: ${{ matrix.python-version }}
           mamba-version: "*"
+          use-only-tar-bz2Z: true
           auto-activate-base: false
       - name: Lint
         shell: bash -l {0}
