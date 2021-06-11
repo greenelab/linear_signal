@@ -35,7 +35,7 @@ jobs:
             mamba install flake8
             python -m flake8 ./saged --count --select=E9,F63,F7,F82 --show-source --statistics
             python -m flake8 ./saged --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Run pytest
+      - name: Run Pytest
         shell: bash -l {0}
         run: |
             mamba install pytest
