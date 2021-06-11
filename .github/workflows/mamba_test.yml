@@ -33,5 +33,5 @@ jobs:
             pip install .
             pip install coveralls
             pytest
-            pytest -v --cov=saged
-            coveralls
+            pytest -v --cov
+            coveralls --service=github
