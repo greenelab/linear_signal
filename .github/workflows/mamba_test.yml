@@ -39,4 +39,5 @@ jobs:
         shell: bash -l {0}
         run: |
             mamba install pytest
+            pip install .
             pytest
