@@ -10,16 +10,6 @@ jobs:
             python-version: [3.7]
     steps:
       - uses: actions/checkout@v2
-      - name: Cache Conda Packages
-        uses: actions/cache@v2
-        env:
-          # Increase this value to reset cache if etc/example-environment.yml has not changed
-          CACHE_NUMBER: 0
-        with:
-          path: ~/conda_pkgs_dir
-          key:
-            ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{
-            hashFiles('environment.yml') }} 
       - name: Setup Conda
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -27,7 +17,6 @@ jobs:
           environment-file: environment.yml
           python-version: ${{ matrix.python-version }}
           mamba-version: "*"
-          use-only-tar-bz2Z: true
           auto-activate-base: false
       - name: Lint
         shell: bash -l {0}
@@ -35,9 +24,14 @@ jobs:
             mamba install flake8
             python -m flake8 ./saged --count --select=E9,F63,F7,F82 --show-source --statistics
             python -m flake8 ./saged --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Run Pytest
+      - name: Test and Calculate Coverage
         shell: bash -l {0}
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-            mamba install pytest
+            mamba install pytest pytest-cov
             pip install .
+            pip install coveralls
             pytest
+            pytest -v --cov=saged
+            coveralls
