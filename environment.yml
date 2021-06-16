@@ -352,6 +352,7 @@ dependencies:
   - typing_extensions=3.7.4.3
   - tzlocal=2.1
   - ubiquerg=0.6.1
+  - umap-learn
   - uritemplate=3.0.1
   - urllib3=1.25.11
   - veracitools=0.1.3
