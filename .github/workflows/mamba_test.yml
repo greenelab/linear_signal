@@ -5,28 +5,33 @@ jobs:
     name: Test and Lint ${{ matrix.python-version }}
     runs-on: "ubuntu-latest"
     strategy:
-		max-paralell: 5
+        max-parallel: 5
         matrix:
-            python-version: [3.5, 3.6, 3.7, 3.8]
+            python-version: [3.7]
     steps:
       - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v2
         with:
-          activate-environment: test
+          activate-environment: saged
           environment-file: environment.yml
           python-version: ${{ matrix.python-version }}
-		  mamba-version: "*"
+          mamba-version: "*"
           auto-activate-base: false
       - name: Lint
         shell: bash -l {0}
         run: |
-            conda activate saged
             mamba install flake8
-            python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-            python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      - name: Run pytest
+            python -m flake8 ./saged --count --select=E9,F63,F7,F82 --show-source --statistics
+            python -m flake8 ./saged --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Test and Calculate Coverage
         shell: bash -l {0}
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-			conda activate saged
-            mamba install pytest
+            mamba install pytest pytest-cov
+            pip install .
+            pip install coveralls
             pytest
+            pytest --cov=saged test/
+            coveralls --service=github
