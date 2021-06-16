@@ -132,11 +132,6 @@ if __name__ == '__main__':
     disease_std = disease_embeddings.std(axis=0)
     healthy_std = healthy_embeddings.std(axis=0)
 
-    print(disease_centroid)
-    print(healthy_centroid)
-    print(disease_std)
-    print(healthy_std)
-
     # Sample disease data
     full_sample = np.zeros((args.sample_count, disease_embeddings.shape[1]))
     for i in range(args.sample_count):
