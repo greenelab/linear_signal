@@ -5,6 +5,7 @@ IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
 SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
 NUM_SEEDS = 3
+INTERPOLATION_RATIOS = ['{:.1f}'.format(i * .1) for i in range(0, 11, 2)]
 
 wildcard_constraints:
     # Random seeds should be numbers
@@ -223,6 +224,14 @@ rule all:
                supervised=SUPERVISED,
                dataset="simulation_configs/simulated_dataset.yml",
                seed=range(0,NUM_SEEDS)
+               ),
+        # Disease vector sim sepsis
+        "data/simulated/vector/sepsis/joint_sim_disease.pkl",
+        # Sepsis vector classifier
+        expand("results/disease_vector.sepsis.{supervised}_{seed}.{interp}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               interp=INTERPOLATION_RATIOS,
                ),
 
 rule pickle_compendium:
@@ -562,4 +571,36 @@ rule simulated_keep_ratios:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--label {wildcards.disease_label} "
+        "--negative_class healthy "
+
+rule disease_vector_sim:
+    threads: 4
+    input:
+        "data/subset_compendium.pkl",
+        dataset_config = "dataset_configs/refinebio_labeled_dataset.yml",
+    output:
+        "data/simulated/vector/sepsis/joint_sim_disease.pkl"
+    shell:
+         "python saged/disease_vector.py {input.dataset_config} data/aggregated_metadata.json "
+         "data/simulated/sepsis_vector "
+         "--label sepsis "
+         "--negative_class healthy "
+         "--batch_correction_method limma "
+
+rule disease_vector_classify:
+    threads: 8
+    input:
+        "data/simulated/vector/sepsis/joint_sim_disease.pkl",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+    output:
+        "results/disease_vector.sepsis.{supervised}_{seed}.{interp}.tsv"
+    shell:
+        "python saged/classify_disease_vector.py "
+        "data/simulated/vector/sepsis/joint_sim_{wildcards.interp}.pkl "
+        "data/simulated/vector/sepsis/joint_sim_disease.pkl "
+        "{input.supervised_model} "
+        "results/disease_vector.sepsis.{wildcards.supervised}_{wildcards.seed}.{wildcards.interp}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--label sepsis "
         "--negative_class healthy "

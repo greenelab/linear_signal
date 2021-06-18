@@ -49,6 +49,7 @@ dependencies:
   - setuptools=49.6.0
   - snakemake=6.0
   - tqdm=4.60.0
+  - umap-learn
   - urllib3=1.25.11
   - yaml=0.2.5
   - pip:
