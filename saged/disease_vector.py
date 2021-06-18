@@ -144,8 +144,6 @@ if __name__ == '__main__':
     with open(out_path, 'wb') as out_file:
         pickle.dump(sim_disease.T, out_file)
 
-    # TODO save result
-
     disease_healthy_difference = disease_centroid - healthy_centroid
     for interpolation_amount in range(0, 11, 2):
         # Calculate the shifted centroid
