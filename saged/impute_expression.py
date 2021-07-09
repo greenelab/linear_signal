@@ -44,12 +44,6 @@ if __name__ == '__main__':
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
-    # Parse config file
-    if args.neptune_config is not None:
-        with open(args.neptune_config) as neptune_file:
-            neptune_config = yaml.safe_load(neptune_file)
-            utils.initialize_neptune(neptune_config)
-
     all_data = datasets.load_all_data(args.dataset_config)
 
     # Correct for batch effects
@@ -67,7 +61,13 @@ if __name__ == '__main__':
     subset_percents = []
     val_losses = []
     for i in range(len(cv_splits)):
-        for subset_number in range(1, 11):
+        for subset_number in [2, 4, 8]:
+            neptune_run = None
+            if args.neptune_config is not None:
+                with open(args.neptune_config) as neptune_file:
+                    neptune_config = yaml.safe_load(neptune_file)
+                    neptune_run = utils.initialize_neptune(neptune_config)
+
             subset_percent = subset_number * .1
 
             train_list = cv_splits[:i] + cv_splits[i+1:]
@@ -98,7 +98,7 @@ if __name__ == '__main__':
             SupervisedClass = getattr(models, supervised_model_type)
             supervised_model = SupervisedClass(**model_config)
 
-            supervised_model.fit(train_data)
+            supervised_model.fit(train_data, neptune_run)
 
             val_loss = supervised_model.evaluate(val_data)
 
