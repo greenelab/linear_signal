@@ -15,6 +15,7 @@ import sklearn.decomposition
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from performer_pytorch import SelfAttention
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -381,6 +382,73 @@ class ThreeLayerImputation(nn.Module):
     def set_final_layer(self, new_layer: nn.Module):
         """ Overwrite the final layer of the model with the layer passed in """
         self.fc3 = new_layer
+
+
+class PerformerBlock(nn.Module):
+    def __init__(self, dim: int):
+        """
+        dim: The embedding dimension of the data. For gene expression this will be 1
+        """
+        super(PerformerBlock, self).__init__()
+
+        self.attn = SelfAttention(dim=dim,
+                                  dim_head=64,
+                                  heads=8,
+                                  causal=False)
+        self.layer_norm = nn.LayerNorm(dim)
+
+    def forward(self, x):
+        attn_out = self.attn(x)
+
+        # Include a residual connection by adding the input and the attention output
+        unnormalized_result = x + attn_out
+
+        normalized_output = self.layer_norm(unnormalized_result)
+
+        return normalized_output
+
+
+class ImputePerformer(nn.Module):
+    def __init__(self,
+                 dim: int,
+                 layer_count: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        dim: The embedding dimension of the data. For gene expression this will be 1
+        layer_count: The number of blocks to include in the model
+        """
+        super(ImputePerformer, self).__init__()
+        attn_block = PerformerBlock(dim)
+        self.layers = nn.ModuleList(self.clone(attn_block, layer_count))
+        self.dropout = nn.Dropout()
+
+    def clone(self, module: nn.Module, num_layers: int):
+        "Produce N identical layers. From https://nlp.seas.harvard.edu/2018/04/03/attention.html"
+        return nn.ModuleList([copy.deepcopy(module) for _ in range(num_layers)])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Add a single element 'embedding dimension' axis for compatability with attn
+        x = x.unsqueeze(2)
+        for i in range(len(self.layers)):
+            x = self.layers[i](x)
+
+            # Don't apply dropout to the final layer
+            if i < len(self.layers) - 1:
+                x = self.dropout(x)
+
+        return x.squeeze(2)
+
+    def get_final_layer(self):
+        """ Return the last layer in the network for use by the PytorchImpute class """
+        return self.dec
+
+    def set_final_layer(self, new_layer: nn.Module):
+        """ Overwrite the final layer of the model with the layer passed in """
+        self.dec = new_layer
 
 
 class DeepClassifier(nn.Module):
