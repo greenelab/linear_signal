@@ -491,11 +491,13 @@ rule basic_imputation:
         dataset_config = "dataset_configs/{dataset}.yml",
     output:
         "results/impute.{impute}.{dataset}.{seed}.tsv"
+    threads: 16
     shell:
         "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
         "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+        "--num_splits 3 "
         "--batch_correction_method limma"
 
 rule basic_imputation_uncorrected:
@@ -509,6 +511,7 @@ rule basic_imputation_uncorrected:
         "python saged/impute_expression.py {input.dataset_config} {input.imputation_model} "
         "results/impute.{wildcards.impute}.{wildcards.dataset}.{wildcards.seed}.uncorrected.tsv "
         "--neptune_config neptune.yml "
+        "--num_splits 3 "
         "--seed {wildcards.seed} "
 
 rule transfer_corrected:
@@ -516,6 +519,7 @@ rule transfer_corrected:
         "data/subset_compendium.pkl",
         imputation_model = "model_configs/imputation/{impute}.yml",
         dataset_config = "dataset_configs/{dataset}.yml",
+    threads: 8
     output:
         "results/transfer.{label}.{impute}.{dataset}.{seed}.be_corrected.tsv"
     shell:
