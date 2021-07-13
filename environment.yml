@@ -7,15 +7,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - bioconductor-annotate=1.64.0
-  - bioconductor-annotationdbi=1.48.0
-  - bioconductor-biobase=2.46.0
-  - bioconductor-biocgenerics=0.32.0
-  - bioconductor-genefilter=1.68.0
-  - bioconductor-iranges=2.20.0
-  - bioconductor-limma=3.42.0
-  - bioconductor-s4vectors=0.24.0
-  - bioconductor-sva=3.18.0
+  - bioconductor-genefilter
+  - bioconductor-limma
+  - bioconductor-recount3
+  - bioconductor-sva
   - cudatoolkit=11.1.74
   - curl=7.76.1
   - flake8=3.9.2
@@ -34,16 +29,15 @@ dependencies:
   - python=3.7.10
   - pytorch=1.8.0
   - pyyaml=5.4.1
-  - r=3.6.0
-  - r-assertthat=0.2.1
-  - r-base=3.6.1
-  - r-nlme=3.1_139
-  - r-nnet=7.3_12
-  - r-pkgconfig=2.0.2
-  - r-rcurl=1.95_4.12
+  - r
+  - r-assertthat
+  - r-base
+  - r-dplyr
+  - r-tibble
+  - r-rcurl
   - ratelimiter=1.2.0
   - requests=2.24.0
-  - rpy2=3.4.4
+  - rpy2
   - scikit-learn=0.24.2
   - scipy=1.5.3
   - setuptools=49.6.0
@@ -56,7 +50,8 @@ dependencies:
     - configparser==5.0.0
     - h5py==2.10.0
     - keras==2.3.1
-    - ponyo==0.5
+    - performer-pytorch==1.0.11
+    - ponyo==0.6.1
     - scikit-misc==0.1.4
     - tensorboard==1.15.0
     - tensorflow==1.15.4
