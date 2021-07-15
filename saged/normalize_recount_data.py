@@ -2,8 +2,11 @@
 
 import argparse
 from typing import Dict
+from neptune.new import run
 
 import numpy as np
+from numpy.ma import maximum
+import tqdm
 
 
 def parse_gene_lengths(file_path: str) -> Dict[str, int]:
@@ -32,6 +35,30 @@ def parse_gene_lengths(file_path: str) -> Dict[str, int]:
     return gene_to_len
 
 
+def calculate_tpm(counts: np.ndarray, gene_length_arr: np.ndarray) -> np.ndarray:
+    """"Given an array of counts, calculate the transcripts per kilobase million
+
+    Arguments
+    ---------
+    counts: The array of transcript counts per gene
+    gene_length_arr: The array of lengths for each gene in counts
+
+    Returns
+    -------
+    tpm: The tpm normalized expression data
+    """
+    counts = np.array(counts, dtype=float)
+
+    reads_per_kb = counts / gene_length_arr
+
+    sample_total_counts = np.sum(counts)
+    per_million_transcripts = sample_total_counts / 1e6
+
+    tpm = reads_per_kb / per_million_transcripts
+
+    return tpm
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
@@ -39,10 +66,10 @@ if __name__ == '__main__':
                                            'download_recount3.R')
     parser.add_argument('gene_file', help='The file with gene lengths from get_gene_lengths.R')
     parser.add_argument('out_file', help='The file to save the normalized results to')
+    parser.add_argument('--num_genes', help='The script will keep the top K most variable genes. '
+                                            'This flag sets K.', default=5000, type=int)
 
     args = parser.parse_args()
-
-    out_file = open(args.out_file, 'w')
 
     gene_to_len = parse_gene_lengths(args.gene_file)
 
@@ -51,6 +78,7 @@ if __name__ == '__main__':
         header = header.replace('"', '')
         header_genes = header.strip().split('\t')
         header_genes = [gene.split('.')[0] for gene in header_genes]
+        header = 'study\t' + header
 
         bad_indices = []
         gene_length_arr = []
@@ -62,15 +90,15 @@ if __name__ == '__main__':
 
         gene_length_arr = np.array(gene_length_arr)
 
-        header = 'study\t' + header
+        means = None
+        M2 = None
+        maximums = None
+        minimums = None
 
-        # Header already contains newline
-        out_file.write(header)
-
-        for i, line in enumerate(count_file):
+        # First time through the data, calculate statistics
+        for i, line in tqdm.tqdm(enumerate(count_file), total=317475):
             line = line.replace('"', '')
             line = line.strip().split('\t')
-            sample = line[0]
             try:
                 # Thanks to stackoverflow for this smart optimization
                 # https://stackoverflow.com/a/11303234/10930590
@@ -78,23 +106,62 @@ if __name__ == '__main__':
                 for index in reversed(bad_indices):
                     del counts[index]
 
-                counts = np.array(counts, dtype=float)
+                tpm = calculate_tpm(counts, gene_length_arr)
 
-                if any(np.isnan(counts)):
+                if any(np.isnan(tpm)):
                     continue
 
-                reads_per_kb = counts / gene_length_arr
+                # Online variance calculation https://stackoverflow.com/a/15638726/10930590
+                if means is None:
+                    means = tpm
+                    M2 = 0
+                    maximums = tpm
+                    minimums = tpm
+                else:
+                    delta = tpm - means
+                    means = means + delta / (i + 1)
+                    M2 = M2 + delta * (tpm - means)
+                    maximums = np.maximum(maximums, tpm)
+                    minimums = np.minimum(minimums, tpm)
 
-                sample_total_counts = np.sum(counts)
-                per_million_transcripts = sample_total_counts / 1e6
+            except ValueError as e:
+                # Throw out malformed lines caused by issues with downloading data
+                print(e)
 
-                tpm = reads_per_kb / per_million_transcripts
+        per_gene_variances = M2 / (i-1)
+        max_min_diff = maximums - minimums
 
-                tpm_list = tpm.tolist()
+        n = args.num_genes
+        most_variable_indices = np.argpartition(per_gene_variances, -n)[-n:]
+
+        out_file = open(args.out_file, 'w')
+        # Header already contains newline
+        out_file.write(header)
+
+    with open(args.count_file, 'r') as count_file:
+        # Second time through the data - standardize and write outputs
+        for i, line in tqdm.tqdm(enumerate(count_file), total=317475):
+            line = line.replace('"', '')
+            line = line.strip().split('\t')
+            sample = line[0]
+            try:
+                counts = line[1:]  # bad_indices is still correct because of how R saves tables
+                for index in reversed(bad_indices):
+                    del counts[index]
+
+                tpm = calculate_tpm(counts, gene_length_arr)
+
+                if any(np.isnan(tpm)):
+                    continue
+
+                # Zero-one standardize
+                standardized_tpm = (tpm - minimums) / max_min_diff
+
+                # Keep only most variable genes
+                most_variable_tpm = standardized_tpm[most_variable_indices]
+
+                tpm_list = most_variable_tpm.tolist()
                 tpm_strings = ['{}'.format(x) for x in tpm_list]
-
-                # TODO figure out how to normalize data.
-                # https://stackoverflow.com/a/15638726/10930590 may help
 
                 out_file.write('{}\t'.format(sample))
                 out_file.write('\t'.join(tpm_strings))
