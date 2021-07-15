@@ -1,15 +1,16 @@
 name: "PytorchImpute"
 optimizer_name: "Adam"
 loss_name: "MSELoss"
-model_name: "ThreeLayerImputation"
+model_name: "ImputePerformer"
+layer_count: 1
+num_heads: 8
+dim: 8
 lr: .001
 weight_decay: 0
 device: "cuda"
 seed: 42
-epochs: 50
-batch_size: 256
-experiment_name: "Three Layer Imputation"
-experiment_description: "Impute with a three layer network"
+epochs: 200
+batch_size: 2
 log_progress: True
 train_fraction: .8
 save_path: "logs/models"
