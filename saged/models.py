@@ -446,10 +446,6 @@ class ImputePerformer(nn.Module):
         for i in range(len(self.layers)):
             x = self.layers[i](x)
 
-            # Don't apply dropout to the final layer
-            if i < len(self.layers) - 1:
-                x = self.dropout(x)
-
         attn_out = x
         # Add heads together to combine to keep memory from exploding
         flattened_attn = torch.sum(attn_out, 2, keepdim=False)
