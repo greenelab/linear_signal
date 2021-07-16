@@ -125,9 +125,6 @@ if __name__ == '__main__':
                 # Throw out malformed lines caused by issues with downloading data
                 print(e)
 
-            if i > 20:
-                break
-
         per_gene_variances = M2 / (i-1)
         max_min_diff = maximums - minimums
 
@@ -143,7 +140,6 @@ if __name__ == '__main__':
         header_arr = header_arr[most_variable_indices]
 
         header = header_arr.tolist()
-        print(header)
 
         header = 'study\t' + '\t'.join(header)
         out_file.write(header)
@@ -180,6 +176,3 @@ if __name__ == '__main__':
             except ValueError as e:
                 # Throw out malformed lines caused by issues with downloading data
                 print(e)
-
-            if i > 20:
-                break
