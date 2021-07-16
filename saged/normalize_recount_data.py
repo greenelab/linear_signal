@@ -76,7 +76,6 @@ if __name__ == '__main__':
         header = header.replace('"', '')
         header_genes = header.strip().split('\t')
         header_genes = [gene.split('.')[0] for gene in header_genes]
-        header = 'study\t' + header
 
         bad_indices = []
         gene_length_arr = []
@@ -126,6 +125,9 @@ if __name__ == '__main__':
                 # Throw out malformed lines caused by issues with downloading data
                 print(e)
 
+            if i > 20:
+                break
+
         per_gene_variances = M2 / (i-1)
         max_min_diff = maximums - minimums
 
@@ -133,8 +135,19 @@ if __name__ == '__main__':
         most_variable_indices = np.argpartition(per_gene_variances, -n)[-n:]
 
         out_file = open(args.out_file, 'w')
-        # Header already contains newline
+
+        header = header.strip().split('\t')
+
+        # Use numpy to allow indexing with a list of indices
+        header_arr = np.array(header)
+        header_arr = header_arr[most_variable_indices]
+
+        header = header_arr.tolist()
+        print(header)
+
+        header = 'study\t' + '\t'.join(header)
         out_file.write(header)
+        out_file.write('\n')
 
     with open(args.count_file, 'r') as count_file:
         # Second time through the data - standardize and write outputs
@@ -157,7 +170,6 @@ if __name__ == '__main__':
 
                 # Keep only most variable genes
                 most_variable_tpm = standardized_tpm[most_variable_indices]
-
                 tpm_list = most_variable_tpm.tolist()
                 tpm_strings = ['{}'.format(x) for x in tpm_list]
 
@@ -168,3 +180,6 @@ if __name__ == '__main__':
             except ValueError as e:
                 # Throw out malformed lines caused by issues with downloading data
                 print(e)
+
+            if i > 20:
+                break
