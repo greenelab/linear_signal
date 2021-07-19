@@ -35,6 +35,8 @@ def parse_gene_lengths(file_path: str) -> Dict[str, int]:
 
 def calculate_tpm(counts: np.ndarray, gene_length_arr: np.ndarray) -> np.ndarray:
     """"Given an array of counts, calculate the transcripts per kilobase million
+    based on the steps here:
+    https://www.rna-seqblog.com/rpkm-fpkm-and-tpm-clearly-explained/
 
     Arguments
     ---------
@@ -67,6 +69,11 @@ if __name__ == '__main__':
     parser.add_argument('--num_genes', help='The script will keep the top K most variable genes. '
                                             'This flag sets K.', default=5000, type=int)
 
+    # The number of lines in the count file for calculating the number of times
+    # the loops will run. If this is incorrect the script's output will
+    # still be correct, but the progress bar will be slightly off
+    LINES_IN_FILE = 317259
+
     args = parser.parse_args()
 
     gene_to_len = parse_gene_lengths(args.gene_file)
@@ -92,8 +99,9 @@ if __name__ == '__main__':
         maximums = None
         minimums = None
 
+
         # First time through the data, calculate statistics
-        for i, line in tqdm.tqdm(enumerate(count_file), total=317475):
+        for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILE):
             line = line.replace('"', '')
             line = line.strip().split('\t')
             try:
@@ -147,7 +155,7 @@ if __name__ == '__main__':
 
     with open(args.count_file, 'r') as count_file:
         # Second time through the data - standardize and write outputs
-        for i, line in tqdm.tqdm(enumerate(count_file), total=317475):
+        for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILe):
             line = line.replace('"', '')
             line = line.strip().split('\t')
             sample = line[0]

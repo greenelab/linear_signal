@@ -22,8 +22,6 @@ library(dplyr)
 library(tibble)
 library(tidyr)
 
-`%>%` <- dplyr::`%>%`
-
 getMetadata <- function(project, project_home, metadata_df) {
   # Append the metadata for a project to a dataframe
   #
@@ -85,10 +83,10 @@ getMetadata <- function(project, project_home, metadata_df) {
 }
 
 getCounts <- function(project, project_home) {
-  # Append the metadata for a project to a dataframe
+  # Append the count data for a project to a dataframe
   #
   # Args:
-  #  project: The accession for the project whose metadata is to be added
+  #  project: The accession for the project whose read counts are to be added
   #  project_home: The subdirectory the project is stored in within recount3
   #
   # Returns:
@@ -227,10 +225,10 @@ for(i in seq_len(nrow(projects))){
   # write header with data
   if (i == 1){
     write.table(counts, file=out_file, col.names=TRUE, sep='\t', )
+  } else {
+  	# Write counts to file
+  	write.table(counts, file=out_file, append=TRUE, sep='\t', col.names=FALSE)
   }
-  
-  # Write counts to file
-  write.table(counts, file=out_file, append=TRUE, sep='\t', col.names=FALSE)
   
   projects_processed <- c(projects_processed, project)
   # I'm a little more careful about duplication here because 

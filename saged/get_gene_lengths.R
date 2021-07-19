@@ -10,7 +10,7 @@ library(recount3)
 library(dplyr)
 library(tibble)
 library(tidyr)
-library (EDASeq)
+library(EDASeq)
 
 if (rstudioapi::isAvailable()) {
   setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
