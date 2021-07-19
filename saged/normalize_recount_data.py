@@ -6,6 +6,8 @@ from typing import Dict
 import numpy as np
 import tqdm
 
+import utils
+
 
 def parse_gene_lengths(file_path: str) -> Dict[str, int]:
     """Parses a tsv file containing genes and their length
@@ -66,6 +68,7 @@ if __name__ == '__main__':
                                            'download_recount3.R')
     parser.add_argument('gene_file', help='The file with gene lengths from get_gene_lengths.R')
     parser.add_argument('out_file', help='The file to save the normalized results to')
+    parser.add_argument('metadata_file', help='The file with info mapping samples to studies')
     parser.add_argument('--num_genes', help='The script will keep the top K most variable genes. '
                                             'This flag sets K.', default=5000, type=int)
 
@@ -76,6 +79,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    sample_to_study = utils.recount_map_sample_to_study(args.metadata_file)
     gene_to_len = parse_gene_lengths(args.gene_file)
 
     with open(args.count_file, 'r') as count_file:
@@ -103,6 +107,12 @@ if __name__ == '__main__':
         for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILE):
             line = line.replace('"', '')
             line = line.strip().split('\t')
+            sample = line[0]
+
+            # https://github.com/LieberInstitute/recount3/issues/5
+            if sample not in sample_to_study:
+                print('Skipping {}'.format(sample))
+                continue
             try:
                 # Thanks to stackoverflow for this smart optimization
                 # https://stackoverflow.com/a/11303234/10930590
@@ -158,6 +168,8 @@ if __name__ == '__main__':
             line = line.replace('"', '')
             line = line.strip().split('\t')
             sample = line[0]
+            if sample not in sample_to_study:
+                continue
             try:
                 counts = line[1:]  # bad_indices is still correct because of how R saves tables
                 for index in reversed(bad_indices):
