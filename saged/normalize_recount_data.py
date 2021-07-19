@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     with open(args.count_file, 'r') as count_file:
         # Second time through the data - standardize and write outputs
-        for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILe):
+        for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILE):
             line = line.replace('"', '')
             line = line.strip().split('\t')
             sample = line[0]
