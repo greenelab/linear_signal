@@ -411,6 +411,73 @@ def load_compendium_file(compendium_path: Union[str, Path]) -> pd.DataFrame:
     return expression_df
 
 
+@functools.lru_cache()
+def load_recount_data(config_file: str) -> Tuple[pd.DataFrame, Dict[str, str], Dict[str, str]]:
+    """
+    Read the dataset config file for the recount dataset and parse the files it points to
+
+    Arguments
+    ---------
+    config_file: The file containing paths to the metadata file and counts file
+
+    Returns
+    -------
+    expression_df - A dataframe containing expression data where rows are genes and columns
+                    are samples
+    sample_to_label - A dict mapping samples to labels
+    sample_to_study - A dict mapping samples to studies
+    """
+
+    with open(config_file) as in_file:
+        dataset_config = yaml.safe_load(in_file)
+
+    compendium_path = dataset_config.pop('compendium_path')
+    metadata_path = dataset_config.pop('metadata_path')
+
+    expression_df = load_compendium_file(compendium_path).T
+    print(expression_df.shape)
+    sample_to_study = recount_map_sample_to_study(metadata_path)
+
+    # Once I implement txt2onto, this will call a function that actually stores things in the dict
+    sample_to_label = {}
+
+    return expression_df, sample_to_label, sample_to_study
+
+
+def recount_map_sample_to_study(metadata_file: str) -> Dict[str, str]:
+    """
+    Parse the recount3 metadata file and extract the sample to study mappings
+
+    Arguments
+    ---------
+    metadata_file: The path to where the metadata is stored
+
+    Returns
+    -------
+    sample_to_study: A mapping between samples and studies
+    """
+    with open(metadata_file) as in_file:
+        header = in_file.readline()
+        header = header.replace('"', '')
+        header = header.strip().split('\t')
+
+        # Add one to the indices to account for the index column in metadata not present in the
+        # header
+        sample_index = header.index('external_id') + 1
+        study_index = header.index('study') + 1
+
+        sample_to_study = {}
+        for line in in_file:
+            line = line.strip().split('\t')
+            sample = line[sample_index]
+            sample = sample.replace('"', '')
+            study = line[study_index]
+            study = study.replace('"', '')
+            sample_to_study[sample] = study
+
+    return sample_to_study
+
+
 def map_sample_to_study(metadata_json: dict, sample_ids: List[str]) -> Dict[str, str]:
     """
     Map each sample id to the study that generated it
