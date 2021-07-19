@@ -99,7 +99,6 @@ if __name__ == '__main__':
         maximums = None
         minimums = None
 
-
         # First time through the data, calculate statistics
         for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILE):
             line = line.replace('"', '')
