@@ -103,11 +103,18 @@ if __name__ == '__main__':
         maximums = None
         minimums = None
 
+        samples_seen = set()
+
         # First time through the data, calculate statistics
         for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILE):
             line = line.replace('"', '')
             line = line.strip().split('\t')
             sample = line[0]
+
+            # Remove duplicates
+            if sample in samples_seen:
+                continue
+            samples_seen.add(sample)
 
             # https://github.com/LieberInstitute/recount3/issues/5
             if sample not in sample_to_study:
@@ -158,16 +165,22 @@ if __name__ == '__main__':
 
         header = header_arr.tolist()
 
-        header = 'study\t' + '\t'.join(header)
+        header = 'sample\t' + '\t'.join(header)
         out_file.write(header)
         out_file.write('\n')
 
     with open(args.count_file, 'r') as count_file:
+        samples_seen = set()
         # Second time through the data - standardize and write outputs
         for i, line in tqdm.tqdm(enumerate(count_file), total=LINES_IN_FILE):
             line = line.replace('"', '')
             line = line.strip().split('\t')
             sample = line[0]
+
+            if sample in samples_seen:
+                continue
+            samples_seen.add(sample)
+
             if sample not in sample_to_study:
                 continue
             try:
