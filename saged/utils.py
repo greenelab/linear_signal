@@ -435,11 +435,12 @@ def load_recount_data(config_file: str) -> Tuple[pd.DataFrame, Dict[str, str], D
     metadata_path = dataset_config.pop('metadata_path')
 
     expression_df = load_compendium_file(compendium_path).T
-    print(expression_df.shape)
     sample_to_study = recount_map_sample_to_study(metadata_path)
 
     # Once I implement txt2onto, this will call a function that actually stores things in the dict
-    sample_to_label = {}
+    sample_to_label = None
+    with open(dataset_config.pop('label_path'), 'rb') as in_file:
+        sample_to_label = pickle.load(in_file)
 
     return expression_df, sample_to_label, sample_to_study
 
