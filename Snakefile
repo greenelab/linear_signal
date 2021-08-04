@@ -238,6 +238,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # Multi-tissue prediction
+        expand("results/all-tissue.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
 
 rule pickle_compendium:
     input:
@@ -629,3 +634,18 @@ rule tissue_prediction:
         "--seed {wildcards.seed} "
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
+
+rule all_tissue_prediction:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue"

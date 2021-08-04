@@ -40,6 +40,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_correction_method',
                         help='The method to use to correct for batch effects',
                         default=None)
+    parser.add_argument('--all_tissue', help='Predict all frequent tissues in the dataset',
+                        default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -49,7 +51,19 @@ if __name__ == '__main__':
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
     labeled_data = all_data.get_labeled()
-    labeled_data.subset_samples_to_labels([args.tissue1, args.tissue2])
+
+    labels_to_keep = None
+    if args.all_tissue:
+        # Keep all labels with at least ten studies in the dataset
+        labels_to_keep = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
+                          'Umbilical Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
+                          'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil', 'Blood Vessel',
+                          'Spinal Cord', 'Testis', 'Placenta'
+                          ]
+    else:
+        labels_to_keep = [args.tissue1, args.tissue2]
+
+    labeled_data.subset_samples_to_labels(labels_to_keep)
 
     # Load binary data subsets the data to two classes. Update the label encoder to treat this
     # data as binary so the F1 score doesn't break
@@ -60,7 +74,7 @@ if __name__ == '__main__':
     if args.batch_correction_method is not None:
         all_data = datasets.correct_batch_effects(all_data, args.batch_correction_method)
         labeled_data = all_data.get_labeled()
-        labeled_data.subset_samples_to_labels([args.tissue1, args.tissue2])
+        labeled_data.subset_samples_to_labels(labels_to_keep)
         unlabeled_data = all_data.get_unlabeled()
 
     # Get fivefold cross-validation splits
@@ -110,13 +124,17 @@ if __name__ == '__main__':
             if len(train_data.get_classes()) <= 1 or len(val_data.get_classes()) <= 1:
                 continue
 
+            if args.neptune_config is not None:
+                neptune_run['samples'] = len(train_data.get_samples())
+                neptune_run['studies'] = len(train_data.get_studies())
+
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
 
             print('Val data: {}'.format(len(val_data)))
             input_size = len(train_data.get_features())
             output_size = len(train_data.get_classes())
-            print('output size: {}'.format(output_size))
+            print('Classes: {}'.format(output_size))
 
             with open(args.supervised_config) as supervised_file:
                 supervised_config = yaml.safe_load(supervised_file)
@@ -136,9 +154,12 @@ if __name__ == '__main__':
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             positive_label_encoding = train_data.get_label_encoding(args.tissue1)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
-            f1_score = sklearn.metrics.f1_score(true_labels, predictions,
-                                                pos_label=positive_label_encoding,
-                                                average='binary')
+            if args.all_tissue:
+                f1_score = 'NA'
+            else:
+                f1_score = sklearn.metrics.f1_score(true_labels, predictions,
+                                                    pos_label=positive_label_encoding,
+                                                    average='binary')
 
             accuracies.append(accuracy)
             balanced_accuracies.append(balanced_acc)
