@@ -185,13 +185,13 @@ rule all:
         expand("results/impute.{impute}.{dataset}.{seed}.tsv",
                impute=IMPUTE,
                dataset=DATASETS,
-               seed=range(0,NUM_SEEDS)
+               seed=range(0,1)
                ),
         # uncorrected imputation
         expand("results/impute.{impute}.{dataset}.{seed}.uncorrected.tsv",
                impute=IMPUTE,
                dataset=DATASETS,
-               seed=range(0,NUM_SEEDS)
+               seed=range(0,1)
                ),
         # corrected transfer
         expand("results/transfer.sepsis.{impute}.{dataset}.{seed}.be_corrected.tsv",
@@ -232,6 +232,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                interp=INTERPOLATION_RATIOS,
+               ),
+        # Blood tissue vs breast tissue prediction
+        expand("results/Blood.Breast.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
                ),
 
 rule pickle_compendium:
@@ -608,3 +613,19 @@ rule disease_vector_classify:
         "--seed {wildcards.seed} "
         "--label sepsis "
         "--negative_class healthy "
+
+rule tissue_prediction:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "

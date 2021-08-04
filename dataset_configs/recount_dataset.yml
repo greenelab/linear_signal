@@ -1,0 +1,4 @@
+name: "RefineBioMixedDataset"
+compendium_path: "data/recount_tpm.pkl"
+metadata_path: "data/recount_metadata.tsv"
+label_path: "data/recount_sample_to_label.pkl"

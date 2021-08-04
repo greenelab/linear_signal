@@ -35,16 +35,12 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # TODO
-    # Set early stopping criteria
-    # Evaluate effects of study splits (am I correct to split by study to avoid
-    # leakage?)
-    # Implement adding noise?
+    # with open(args.dataset_config) as data_file:
+    #     dataset_config = yaml.safe_load(data_file)
 
-    with open(args.dataset_config) as data_file:
-        dataset_config = yaml.safe_load(data_file)
-
-    all_data = datasets.load_all_data(args.dataset_config)
+    # all_data = datasets.load_all_data(args.dataset_config)
+    expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+    all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     # Correct for batch effects
     if args.batch_correction_method is not None:
