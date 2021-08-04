@@ -9,6 +9,17 @@ import yaml
 
 from saged import utils, datasets, models
 
+AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
+                     'Umbilical Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
+                     'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil', 'Blood Vessel',
+                     'Spinal Cord', 'Testis', 'Placenta', 'Bladder', 'Adipose Tisse', 'Ovary',
+                     'Melanoma', 'Adrenal Gland', 'Bone', 'Pancreas', 'Penis',
+                     'Universal reference', 'Spleen', 'Brain reference', 'Large Intestine',
+                     'Esophagus', 'Small Intestine', 'Embryonic kidney', 'Thymus', 'Stomach',
+                     'Endometrium', 'Glioblastoma', 'Gall bladder', 'Lymph Nodes', 'Airway',
+                     'Appendix', 'Thyroid', 'Retina', 'Bowel tissue', 'Foreskin', 'Sperm', 'Foot',
+                     'Cerebellum', 'Cerebral cortex', 'Salivary Gland', 'Duodenum'
+                     ]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -22,10 +33,10 @@ if __name__ == '__main__':
                         help='The file to save the results to')
     parser.add_argument('--tissue1',
                         help='The first tissue to be predicted from the data',
-                        default='Blood')
+                        default='Blood', choices=AVAILABLE_TISSUES)
     parser.add_argument('--tissue2',
                         help='The second tissue to be predicted from the data',
-                        default='Breast')
+                        default='Breast', choices=AVAILABLE_TISSUES)
     parser.add_argument('--neptune_config',
                         help='A yaml formatted file containing init information for '
                              'neptune logging')
@@ -40,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_correction_method',
                         help='The method to use to correct for batch effects',
                         default=None)
-    parser.add_argument('--all_tissue', help='Predict all frequent tissues in the dataset',
+    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
                         default=False, action='store_true')
 
     args = parser.parse_args()
