@@ -68,8 +68,8 @@ if __name__ == '__main__':
         # Keep all labels with at least ten studies in the dataset
         labels_to_keep = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
                           'Umbilical Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
-                          'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil', 'Blood Vessel',
-                          'Spinal Cord', 'Testis', 'Placenta'
+                          'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil',
+                          'Blood Vessel', 'Spinal Cord', 'Testis', 'Placenta'
                           ]
     else:
         labels_to_keep = [args.tissue1, args.tissue2]
