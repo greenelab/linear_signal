@@ -238,11 +238,22 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # Blood tissue vs breast tissue be corrected
+        expand("results/Blood.Breast.{supervised}_{seed}_be_corrected.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
         # Multi-tissue prediction
         expand("results/all-tissue.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # Multi-tissue prediction be_corrected
+        expand("results/all-tissue.{supervised}_{seed}_be_corrected.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+
 
 rule pickle_compendium:
     input:
@@ -648,4 +659,37 @@ rule all_tissue_prediction:
         "results/all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
-        "--all_tissue"
+        "--all_tissue "
+
+rule tissue_prediction_be_corrected:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}_be_corrected.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}_be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--batch_correction_method limma "
+
+rule all_tissue_prediction_be_corrected:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/all-tissue.{supervised}_{seed}_be_corrected.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/all-tissue.{wildcards.supervised}_{wildcards.seed}_be_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--batch_correction_method limma "
