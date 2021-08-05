@@ -76,19 +76,17 @@ if __name__ == '__main__':
 
     labeled_data.subset_samples_to_labels(labels_to_keep)
 
-    # Load binary data subsets the data to two classes. Update the label encoder to treat this
-    # data as binary so the F1 score doesn't break
+    # Correct for batch effects
+    if args.batch_correction_method is not None:
+        labeled_data = all_data.get_labeled()
+        labeled_data.subset_samples_to_labels(labels_to_keep)
+        labeled_data = datasets.correct_batch_effects(labeled_data, args.batch_correction_method)
+
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
 
-    # Correct for batch effects
-    if args.batch_correction_method is not None:
-        all_data = datasets.correct_batch_effects(all_data, args.batch_correction_method)
-        labeled_data = all_data.get_labeled()
-        labeled_data.subset_samples_to_labels(labels_to_keep)
-        unlabeled_data = all_data.get_unlabeled()
-
     # Get fivefold cross-validation splits
+    print('CV splitting')
     labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
 
     # Train the model on each fold
