@@ -467,6 +467,56 @@ class ImputePerformer(nn.Module):
         self.dec = new_layer
 
 
+class FCBlock(nn.Module):
+    def __init__(self, input_size: int, output_size: int):
+        DROPOUT_PROB = .5
+        self.fc = nn.Linear(input_size, output_size)
+        self.bn = nn.BatchNorm1d(output_size)
+        self.dropout = nn.Dropout(p=DROPOUT_PROB)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc(x))
+        x = self.bn(x)
+        x = self.dropout(x)
+        return x
+
+
+class GeneralClassifier(nn.Module):
+    def __init__(self,
+                 input_size: int,
+                 intermediate_layers: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        intermediate_layers: The number of layers in the middle of the model. The total number
+                             of layers will be intermediate_layers + 2
+        output_size: The number of classes to predict
+        """
+        super(DeepClassifier, self).__init__()
+
+        self.l1 = FCBlock(input_size, input_size // 2)
+
+        intermediate_list = []
+        for _ in range(intermediate_layers):
+            intermediate_list.append(FCBlock(input_size // 2, input_size // 2))
+
+        self.intermediate = nn.ModuleList(intermediate_list)
+
+        self.output = nn.Linear(input_size // 2, output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.l1(x)
+        x = self.intermediate(x)
+        x = self.output(x)
+
+        return x
+
+
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
