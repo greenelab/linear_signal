@@ -8,7 +8,7 @@ device: "cuda"
 seed: 42
 epochs: 50
 batch_size: 16
-experiment_name: "PytorchSupervised"
+experiment_name: "5 Layer classifier"
 experiment_description: "Train a supervised pytorch model"
 log_progress: True
 train_fraction: .8
