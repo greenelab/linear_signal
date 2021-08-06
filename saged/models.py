@@ -469,6 +469,7 @@ class ImputePerformer(nn.Module):
 
 class FCBlock(nn.Module):
     def __init__(self, input_size: int, output_size: int):
+        super(FCBlock, self).__init__()
         DROPOUT_PROB = .5
         self.fc = nn.Linear(input_size, output_size)
         self.bn = nn.BatchNorm1d(output_size)
@@ -497,7 +498,7 @@ class GeneralClassifier(nn.Module):
                              of layers will be intermediate_layers + 2
         output_size: The number of classes to predict
         """
-        super(DeepClassifier, self).__init__()
+        super(GeneralClassifier, self).__init__()
 
         self.l1 = FCBlock(input_size, input_size // 2)
 
@@ -511,7 +512,8 @@ class GeneralClassifier(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.l1(x)
-        x = self.intermediate(x)
+        for layer in self.intermediate:
+            x = layer(x)
         x = self.output(x)
 
         return x
