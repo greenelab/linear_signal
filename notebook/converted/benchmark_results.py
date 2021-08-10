@@ -1089,6 +1089,7 @@ plot
 
 
 in_files = glob.glob('../../results/Blood.Breast.*.tsv')
+in_files = [f for f in in_files if 'be_corrected' not in f]
 print(in_files[:5])
 
 
@@ -1126,16 +1127,61 @@ plot += ggtitle('Blood vs Breast Tissue Prediction')
 plot
 
 
-# ### All Tissue Predictions
+# ### BE Corrected binary tissue classification
 
 # In[5]:
 
 
-in_files = glob.glob('../../results/all-tissue.*.tsv')
+in_files = glob.glob('../../results/Blood.Breast.*.tsv')
+in_files = [f for f in in_files if 'be_corrected' in f]
 print(in_files[:5])
 
 
 # In[6]:
+
+
+tissue_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('Breast.')[-1]
+    model_info = model_info.split('_')
+        
+    supervised_model = '_'.join(model_info[:2])
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-1]
+        
+    tissue_metrics = pd.concat([tissue_metrics, new_df])
+    
+tissue_metrics['train_count'] = tissue_metrics['train sample count']
+
+tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+tissue_metrics
+
+
+# In[7]:
+
+
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += geom_hline(yintercept=.5, linetype='dashed')
+plot += ggtitle('Blood vs Breast Tissue Prediction')
+plot
+
+
+# ### All Tissue Predictions
+
+# In[8]:
+
+
+in_files = glob.glob('../../results/all-tissue.*.tsv')
+in_files = [f for f in in_files if 'be_corrected' not in f]
+print(in_files[:5])
+
+
+# In[9]:
 
 
 tissue_metrics = pd.DataFrame()
@@ -1155,10 +1201,11 @@ for path in in_files:
 tissue_metrics['train_count'] = tissue_metrics['train sample count']
 
 tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('deep_net', 'five_layer_net')
 tissue_metrics
 
 
-# In[9]:
+# In[10]:
 
 
 plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 

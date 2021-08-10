@@ -1,14 +1,15 @@
 name: "PytorchSupervised"
 optimizer_name: "Adam"
 loss_name: "CrossEntropyLoss"
-model_name: "ThreeLayerClassifier"
+model_name: "GeneralClassifier"
 lr: .00001
 weight_decay: 0
 device: "cuda"
 seed: 42
 epochs: 50
 batch_size: 16
-experiment_name: "Three layer net"
+intermediate_layers: 7
+experiment_name: "9 Layer classifier"
 experiment_description: "Train a supervised pytorch model"
 log_progress: True
 train_fraction: .8
