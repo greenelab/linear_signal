@@ -875,10 +875,10 @@ class RefineBioDataset(ExpressionDataset):
             test_studies = shuffled_studies[last_study_index:]
 
         train_samples = utils.get_samples_in_studies(samples,
-                                                     train_studies,
+                                                     set(train_studies),
                                                      self.sample_to_study)
         test_samples = utils.get_samples_in_studies(samples,
-                                                    test_studies,
+                                                    set(test_studies),
                                                     self.sample_to_study)
 
         train_expression = self.all_expression.loc[:, train_samples]
