@@ -4,7 +4,7 @@
 # # Benchmark Results
 # This notebook visualizes the output from the different models on different classification problems
 
-# In[1]:
+# In[4]:
 
 
 import collections
@@ -1212,6 +1212,46 @@ plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color=
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
 plot += ggtitle('Multiclass Tissue Prediction')
+plot
+
+
+# ## Imputation pretraining
+
+# In[13]:
+
+
+in_files = ['../../results/tissue_imputation.txt']
+
+
+# In[16]:
+
+
+tissue_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('all-tissue.')[-1]
+    model_info = model_info.split('_')
+        
+    supervised_model = '_'.join(model_info[:2])
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-1]
+        
+    tissue_metrics = pd.concat([tissue_metrics, new_df])
+    
+tissue_metrics['train_count'] = tissue_metrics['train sample count']
+
+tissue_metrics['supervised'] = 'three layer net'
+
+
+# In[17]:
+
+
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='factor(impute_samples)')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Effects of Imputation on Multiclass Tissue Prediction')
 plot
 
 
