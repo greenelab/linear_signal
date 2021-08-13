@@ -348,6 +348,65 @@ class PytorchLR(nn.Module):
         return x
 
 
+class FiveLayerImputation(nn.Module):
+    """An imputation model based off the FiveLayerImputation model"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(DeepClassifier, self).__init__()
+
+        DROPOUT_PROB = .5
+
+        self.fc1 = nn.Linear(input_size, input_size // 2)
+        self.bn1 = nn.BatchNorm1d(input_size // 2)
+        self.fc2 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn2 = nn.BatchNorm1d(input_size // 2)
+        self.fc3 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn3 = nn.BatchNorm1d(input_size // 2)
+        self.fc4 = nn.Linear(input_size // 2, input_size // 4)
+        self.bn4 = nn.BatchNorm1d(input_size // 4)
+        self.fc5 = nn.Linear(input_size // 4, output_size)
+        self.dropout = nn.Dropout(p=DROPOUT_PROB)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = self.bn1(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc2(x))
+        x = self.bn2(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc3(x))
+        x = self.bn3(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc4(x))
+        x = self.bn4(x)
+        x = self.dropout(x)
+
+        x = self.fc5(x)
+
+        return x
+
+    def get_final_layer(self):
+        """ Return the last layer in the network for use by the PytorchImpute class """
+        return self.fc5
+
+    def set_final_layer(self, new_layer: nn.Module):
+        """ Overwrite the final layer of the model with the layer passed in """
+        self.fc5 = new_layer
+
+
 class ThreeLayerImputation(nn.Module):
     """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
@@ -1186,7 +1245,7 @@ class PytorchSupervised(ExpressionModel):
 
                 loss.backward()
 
-                if self.clip_grads:
+                if getattr(self, 'clip_grads', False):
                     nn.utils.clip_grad_norm_(self.model.parameters(), .01)
 
                 self.optimizer.step()

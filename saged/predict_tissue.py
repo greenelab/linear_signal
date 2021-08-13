@@ -123,8 +123,9 @@ if __name__ == '__main__':
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
-            train_data = utils.subset_to_equal_ratio(train_data, val_data, args.tissue1,
-                                                     args.tissue2, args.seed)
+            if not args.all_tissue:
+                train_data = utils.subset_to_equal_ratio(train_data, val_data, args.tissue1,
+                                                         args.tissue2, args.seed)
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)

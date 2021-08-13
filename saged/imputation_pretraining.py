@@ -12,51 +12,11 @@ import yaml
 from saged import utils, datasets, models
 
 
-def subset_to_equal_ratio(train_data: datasets.LabeledDataset,
-                          val_data: datasets.LabeledDataset
-                          ) -> datasets.LabeledDataset:
-    """
-    Subset the training dataset to match the ratio of positive to negative expression samples in
-    the validation dataset
-
-    Arguments
-    ---------
-    train_data: The train expression dataset
-    val_data: The validation expression dataset
-
-    Returns
-    -------
-    train_data: The subsetted expression dataset
-    """
-
-    train_disease_counts = train_data.map_labels_to_counts()
-    val_disease_counts = val_data.map_labels_to_counts()
-
-    train_positive = train_disease_counts.get(args.label, 0)
-    train_negative = train_disease_counts.get(args.negative_class, 0)
-    val_positive = val_disease_counts.get(args.label, 0)
-    val_negative = val_disease_counts.get(args.negative_class, 0)
-
-    train_disease_fraction = train_positive / (train_positive + train_negative)
-    val_disease_fraction = val_positive / (val_positive + val_negative)
-
-    subset_fraction = utils.determine_subset_fraction(train_positive,
-                                                      train_negative,
-                                                      val_positive,
-                                                      val_negative)
-
-    # If train ratio is too high, remove positive samples
-    if train_disease_fraction > val_disease_fraction:
-        train_data = train_data.subset_samples_for_label(subset_fraction,
-                                                         args.label,
-                                                         args.seed)
-    # If train ratio is too low, remove negative samples
-    elif train_disease_fraction < val_disease_fraction:
-        train_data = train_data.subset_samples_for_label(subset_fraction,
-                                                         args.negative_class,
-                                                         args.seed)
-    return train_data
-
+PREDICT_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
+                   'Umbilical Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
+                   'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil',
+                   'Blood Vessel', 'Spinal Cord', 'Testis', 'Placenta'
+                   ]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -75,41 +35,27 @@ if __name__ == '__main__':
                         help='The random seed to be used in splitting data',
                         type=int,
                         default=42)
-    parser.add_argument('--label',
-                        help='The label to be predicted from the data',
-                        default='sepsis')
-    parser.add_argument('--negative_class',
-                        help='The baseline class to predict the label against. For example '
-                             'in the refinebio dataset the negative class is "healthy"',
-                        default='healthy')
     parser.add_argument('--num_splits',
                         help='The number of splits to use in cross-validation',
                         type=int,
                         default=5)
-    parser.add_argument('--batch_correction_method',
-                        help='The method to use to correct for batch effects',
-                        default=None)
 
     args = parser.parse_args()
+
+    # Pretrain on unlabeled data
+    # Supervised fine-tune on labeled data
+    # Predict top X tissues as in predict_tissue
 
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
-    # Parse config file
-    if args.neptune_config is not None:
-        with open(args.neptune_config) as neptune_file:
-            neptune_config = yaml.safe_load(neptune_file)
-            utils.initialize_neptune(neptune_config)
+    expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+    all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
-    all_data, labeled_data, unlabeled_data = datasets.load_binary_data(args.dataset_config,
-                                                                       args.label,
-                                                                       args.negative_class)
-    # Correct for batch effects
-    if args.batch_correction_method is not None:
-        all_data = datasets.correct_batch_effects(all_data, args.batch_correction_method)
+    unlabeled_data = all_data.get_unlabeled()
+    labeled_data = all_data.get_labeled()
 
-    labeled_samples = labeled_data.get_samples()
-    all_data = all_data.remove_samples(labeled_samples)
+    labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
 
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
@@ -133,7 +79,6 @@ if __name__ == '__main__':
         # Output size is the same as the input because we're doing
         # imputation
         model_config['output_size'] = input_size
-        model_config['save_path'] += '/impute_{}_{}'.format(subset_percent, args.seed)
 
     imputation_model_type = model_config.pop('name')
     SupervisedClass = getattr(models, imputation_model_type)
@@ -144,28 +89,32 @@ if __name__ == '__main__':
     subset_percents.append(0)
 
     # Imputation training loop
-    for subset_number in [1, 10]:
+    #for subset_number in [1, 10]:
+    for subset_number in [1]:
         subset_percent = subset_number * .1
 
-        # TODO fix this logic if you want to track impute performance
-        # val_data isn't necessary for model training b/c a tune set is pulled out in the
-        # train function
+        neptune_run = None
+        # Parse config file
+        if args.neptune_config is not None:
+            with open(args.neptune_config) as neptune_file:
+                neptune_config = yaml.safe_load(neptune_file)
+                neptune_run = utils.initialize_neptune(neptune_config)
 
-        # train_list = cv_splits[:i] + cv_splits[i+1:]
-
-        train_data = all_data
-        train_data = train_data.subset_samples(subset_percent, args.seed)
+        train_data = unlabeled_data
+        if subset_number < 10:
+            train_data = train_data.subset_samples(subset_percent, args.seed)
 
         print('Train Samples: {}'.format(len(train_data.get_samples())))
         print('Train Studies: {}'.format(len(train_data.get_studies())))
 
-        assert len(all_data) > 0
+        assert len(train_data) > 0
 
-        input_size = all_data[0].shape[0]
+        input_size = train_data[0].shape[0]
 
+        model_config['save_path'] += '/impute_{}_{}'.format(subset_percent, args.seed)
         imputation_model = SupervisedClass(**model_config)
 
-        imputation_model.fit(train_data)
+        imputation_model.fit(train_data, neptune_run)
 
         # Keep model from taking up GPU space
         imputation_model.model = imputation_model.model.to('cpu')
@@ -188,7 +137,6 @@ if __name__ == '__main__':
     # Classification training loop
     accuracies = []
     balanced_accuracies = []
-    f1_scores = []
     supervised_train_studies = []
     supervised_train_sample_names = []
     supervised_val_sample_names = []
@@ -202,6 +150,13 @@ if __name__ == '__main__':
                 # https://github.com/facebookresearch/higher/pull/15
                 gc.collect()
 
+                neptune_run = None
+                # Parse config file
+                if args.neptune_config is not None:
+                    with open(args.neptune_config) as neptune_file:
+                        neptune_config = yaml.safe_load(neptune_file)
+                        neptune_run = utils.initialize_neptune(neptune_config)
+
                 subset_percent = subset_number * .1
 
                 train_list = labeled_splits[:i] + labeled_splits[i+1:]
@@ -211,19 +166,12 @@ if __name__ == '__main__':
                 train_data = LabeledDatasetClass.from_list(train_list)
                 val_data = labeled_splits[i]
 
-                # This isn't strictly necessary since we're checking whether both classes
-                # are present, but it's safer
                 train_data.set_label_encoder(label_encoder)
                 val_data.set_label_encoder(label_encoder)
 
-                train_data = subset_to_equal_ratio(train_data, val_data)
                 # Now that the ratio is correct, actually subset the samples
                 train_data = train_data.subset_samples(subset_percent,
                                                        args.seed)
-
-                # Skip entries where there is only data for one class
-                if len(train_data.get_classes()) <= 1 or len(val_data.get_classes()) <= 1:
-                    continue
 
                 print('Samples: {}'.format(len(train_data.get_samples())))
                 print('Studies: {}'.format(len(train_data.get_studies())))
@@ -239,7 +187,7 @@ if __name__ == '__main__':
                 supervised_model = imputation_model_copy.to_classifier(output_size,
                                                                        'CrossEntropyLoss')
 
-                supervised_model.fit(train_data)
+                supervised_model.fit(train_data, neptune_run)
 
                 predictions, true_labels = supervised_model.evaluate(val_data)
 
@@ -247,15 +195,10 @@ if __name__ == '__main__':
                 imputation_model_copy.free_memory()
 
                 accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
-                positive_label_encoding = train_data.get_label_encoding(args.label)
                 balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
-                f1_score = sklearn.metrics.f1_score(true_labels, predictions,
-                                                    pos_label=positive_label_encoding,
-                                                    average='binary')
 
                 accuracies.append(accuracy)
                 balanced_accuracies.append(balanced_acc)
-                f1_scores.append(f1_score)
                 supervised_train_studies.append(','.join(train_data.get_studies()))
                 supervised_train_sample_names.append(','.join(train_data.get_samples()))
                 supervised_val_sample_names.append(','.join(val_data.get_samples()))
@@ -268,12 +211,11 @@ if __name__ == '__main__':
 
     with open(args.out_file, 'w') as out_file:
         # Write header
-        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
+        out_file.write('accuracy\tbalanced_accuracy\ttrain studies\ttrain samples\t'
                        'val samples\ttrain sample count\tfraction of data used\timpute_samples\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
-                              f1_scores,
                               supervised_train_studies,
                               supervised_train_sample_names,
                               supervised_val_sample_names,
