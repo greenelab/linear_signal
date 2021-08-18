@@ -253,6 +253,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # Tissue prediction with imputation pretraining
+        expand("results/tissue_impute.{impute}_{seed}.tsv",
+               impute=IMPUTE,
+               seed=range(0,NUM_SEEDS),
+               ),
 
 
 rule pickle_compendium:
@@ -693,3 +698,17 @@ rule all_tissue_prediction_be_corrected:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--batch_correction_method limma "
+
+rule transfer_tissue:
+    input:
+        "data/recount_tpm.pkl",
+        imputation_model = "model_configs/imputation/{impute}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    threads: 8
+    output:
+        "results/tissue_impute.{impute}_{seed}.tsv"
+    shell:
+        "python saged/imputation_pretraining.py {input.dataset_config} {input.imputation_model} "
+        "results/tissue_impute.{wildcards.impute}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
