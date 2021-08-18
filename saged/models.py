@@ -362,7 +362,7 @@ class FiveLayerImputation(nn.Module):
         input_size: The number of features in the dataset
         output_size: The number of classes to predict
         """
-        super(DeepClassifier, self).__init__()
+        super(FiveLayerImputation, self).__init__()
 
         DROPOUT_PROB = .5
 
