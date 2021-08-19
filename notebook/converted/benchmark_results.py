@@ -4,7 +4,7 @@
 # # Benchmark Results
 # This notebook visualizes the output from the different models on different classification problems
 
-# In[4]:
+# In[1]:
 
 
 import collections
@@ -1173,7 +1173,7 @@ plot
 
 # ### All Tissue Predictions
 
-# In[8]:
+# In[12]:
 
 
 in_files = glob.glob('../../results/all-tissue.*.tsv')
@@ -1181,7 +1181,7 @@ in_files = [f for f in in_files if 'be_corrected' not in f]
 print(in_files[:5])
 
 
-# In[9]:
+# In[13]:
 
 
 tissue_metrics = pd.DataFrame()
@@ -1190,7 +1190,7 @@ for path in in_files:
     model_info = path.strip('.tsv').split('all-tissue.')[-1]
     model_info = model_info.split('_')
         
-    supervised_model = '_'.join(model_info[:2])
+    supervised_model = '_'.join(model_info[:-1])
              
     new_df['supervised'] = supervised_model
     
@@ -1205,7 +1205,7 @@ tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('deep_ne
 tissue_metrics
 
 
-# In[10]:
+# In[14]:
 
 
 plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
@@ -1217,19 +1217,20 @@ plot
 
 # ## Imputation pretraining
 
-# In[13]:
+# In[3]:
 
 
-in_files = ['../../results/tissue_imputation.txt']
+in_files = glob.glob('../../results/tissue_impute.*.tsv')
+print(in_files[:5])
 
 
-# In[16]:
+# In[7]:
 
 
 tissue_metrics = pd.DataFrame()
 for path in in_files:
     new_df = pd.read_csv(path, sep='\t')
-    model_info = path.strip('.tsv').split('all-tissue.')[-1]
+    model_info = path.strip('.tsv').split('tissue_impute.')[-1]
     model_info = model_info.split('_')
         
     supervised_model = '_'.join(model_info[:2])
@@ -1241,11 +1242,21 @@ for path in in_files:
     tissue_metrics = pd.concat([tissue_metrics, new_df])
     
 tissue_metrics['train_count'] = tissue_metrics['train sample count']
+tissue_metrics
 
-tissue_metrics['supervised'] = 'three layer net'
+
+# In[11]:
 
 
-# In[17]:
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='factor(supervised)')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Effects of Imputation on Multiclass Tissue Prediction')
+plot += facet_grid('impute_samples ~ .')
+plot
+
+
+# In[5]:
 
 
 plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='factor(impute_samples)')) 
