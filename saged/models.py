@@ -293,6 +293,37 @@ class LogisticRegression(ExpressionModel):
             return pickle.load(model_file)
 
 
+class ThreeLayerWideBottleneck(nn.Module):
+    """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(ThreeLayerWideBottleneck, self).__init__()
+
+        self.fc1 = nn.Linear(input_size, input_size // 2)
+        self.fc2 = nn.Linear(input_size // 2, input_size // 2)
+        self.fc3 = nn.Linear(input_size // 2, output_size)
+        self.dropout = nn.Dropout()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = self.fc3(x)
+
+        return x
+
+
 class ThreeLayerClassifier(nn.Module):
     """ A basic three layer neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
