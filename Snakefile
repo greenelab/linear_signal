@@ -10,12 +10,6 @@ wildcard_constraints:
     # Random seeds should be numbers
     seed="\d+"
 
-ruleorder:
-    # Fix ambiguity with label wildcard
-    single_label_unsupervised > single_label
-
-ruleorder: subset_label_unsupervised > subset_label
-
 rule all:
     input:
         # TODO add data processing scripts
