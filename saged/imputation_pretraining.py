@@ -42,10 +42,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Pretrain on unlabeled data
-    # Supervised fine-tune on labeled data
-    # Predict top X tissues as in predict_tissue
-
     with open(args.dataset_config) as data_file:
         dataset_config = yaml.safe_load(data_file)
 
