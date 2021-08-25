@@ -3,6 +3,8 @@ This benchmark compares the performance of different models in
 predicting tissue based on gene expression
 """
 import argparse
+import numpy as np
+import pandas as pd
 
 import sklearn.metrics
 import yaml
@@ -53,14 +55,50 @@ if __name__ == '__main__':
                         default=None)
     parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
                         default=False, action='store_true')
+    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
+                        default=False, action='store_true')
 
     args = parser.parse_args()
 
-    with open(args.dataset_config) as data_file:
-        dataset_config = yaml.safe_load(data_file)
-
+    with open(args.dataset_config) as in_file:
+        dataset_config = yaml.safe_load(in_file)
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+    if args.biobert:
+        embeddings = utils.load_biobert_embeddings(args.dataset_config)
+
+        # These indices are correct, the expression dataframe is genes x samples currently
+        placeholder_array = np.ones((embeddings.shape[1], expression_df.shape[1]))
+        with open(dataset_config['metadata_path'], 'r') as in_file:
+            header = in_file.readline()
+            header = header.replace('"', '')
+            header = header.strip().split('\t')
+
+            # Add one to the indices to account for the index column in metadata not present in the
+            # header
+            sample_index = header.index('external_id') + 1
+            for line_number, metadata_line in enumerate(in_file):
+                line = metadata_line.strip().split('\t')
+                sample = line[sample_index]
+                sample = sample.replace('"', '')
+
+                # Not all samples with metadata are in compendium
+                if sample not in expression_df.columns:
+                    continue
+
+                index_in_df = expression_df.columns.get_loc(sample)
+                placeholder_array[:, index_in_df] = embeddings[line_number, :]
+
+            # 0-1 normalize embeddings to match scale of expression
+            pa = placeholder_array
+            pa_positive = pa - np.min(pa, axis=0)
+            pa_range = (np.max(pa, axis=0) - np.min(pa, axis=0))
+            placeholder_array = pa_positive / pa_range
+
+            embedding_df = pd.DataFrame(placeholder_array, columns=expression_df.columns)
+            expression_df = pd.concat([expression_df, embedding_df], axis='rows')
+
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
+
     labeled_data = all_data.get_labeled()
 
     labels_to_keep = None
