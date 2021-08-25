@@ -40,6 +40,11 @@ rule all:
                impute=IMPUTE,
                seed=range(0,NUM_SEEDS),
                ),
+        # biobert_multitissue
+        expand("results/all-tissue-biobert.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
 
 
 rule create_biobert_metadata_file:
@@ -143,3 +148,19 @@ rule transfer_tissue:
         "results/tissue_impute.{wildcards.impute}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+
+rule all_tissue_biobert:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/all-tissue-biobert.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/all-tissue-biobert.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--biobert"
