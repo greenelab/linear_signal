@@ -12,6 +12,8 @@ wildcard_constraints:
 
 rule all:
     input:
+        "data/recount_text.txt",
+        "data/recount_embeddings.hdf5",
         # TODO add data processing scripts
         # Blood tissue vs breast tissue prediction
         expand("results/Blood.Breast.{supervised}_{seed}.tsv",
@@ -39,6 +41,30 @@ rule all:
                seed=range(0,NUM_SEEDS),
                ),
 
+
+rule create_biobert_metadata_file:
+    input:
+        "data/recount_metadata.tsv"
+    output:
+        "data/recount_text.txt"
+    shell:
+        "python saged/extract_metadata_text.py "
+        "data/recount_metadata.tsv "
+        "data/recount_text.txt "
+
+
+rule create_biobert_embeddings:
+    input:
+        "data/recount_text.txt"
+    output:
+        "data/recount_embeddings.hdf5"
+    shell:
+        "python biobert-pytorch/embedding/run_embedding.py "
+        "--model_name_or_path dmis-lab/biobert-large-cased-v1.1 "
+        "--data_path data/recount_text.txt "
+        "--output_path data/recount_embeddings.hdf5 "
+        "--pooling=sum "
+        "--keep_text_order "
 
 rule tissue_prediction:
     threads: 8
