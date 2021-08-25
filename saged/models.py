@@ -380,7 +380,7 @@ class PytorchLR(nn.Module):
 
 
 class FiveLayerImputation(nn.Module):
-    """An imputation model based off the FiveLayerImputation model"""
+    """An imputation model based off the DeepClassifier (five-layer) model"""
     def __init__(self,
                  input_size: int,
                  output_size: int,
