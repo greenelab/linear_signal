@@ -55,3 +55,4 @@ dependencies:
     - scikit-misc==0.1.4
     - tensorboard==1.15.0
     - tensorflow==1.15.4
+    - transformers==3.0.0
