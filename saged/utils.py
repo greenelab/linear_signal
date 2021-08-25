@@ -8,6 +8,7 @@ from pathlib import Path
 import random
 from typing import Any, Dict, Set, Text, Union, List, Tuple
 
+import h5py as h5
 import neptune.new as neptune
 import numpy as np
 import pandas as pd
@@ -437,12 +438,46 @@ def load_recount_data(config_file: str) -> Tuple[pd.DataFrame, Dict[str, str], D
     expression_df = load_compendium_file(compendium_path).T
     sample_to_study = recount_map_sample_to_study(metadata_path)
 
-    # Once I implement txt2onto, this will call a function that actually stores things in the dict
     sample_to_label = None
     with open(dataset_config.pop('label_path'), 'rb') as in_file:
         sample_to_label = pickle.load(in_file)
 
     return expression_df, sample_to_label, sample_to_study
+
+
+@functools.lru_cache()
+def load_biobert_embeddings(config_file: str) -> np.array:
+    """
+    Read the biobert embeddings of the metadata for each sample in the dataset
+
+    Arguments
+    ---------
+    config_file: The file containing paths to the embedding file
+
+    Returns
+    -------
+    biobert_embeddings - A numpy array containing the biobert embeddings of the metadata in the
+                         same order as expression_df
+    """
+
+    with open(config_file) as in_file:
+        dataset_config = yaml.safe_load(in_file)
+
+    embedding_path = dataset_config.pop('embedding_path')
+
+    in_file = h5.File(embedding_path, 'r')
+
+    biobert_embeddings = None
+
+    for embedding_index in range(len(in_file.keys())):
+        current_embedding = in_file[str(embedding_index)]['embedding'][:]
+
+        if biobert_embeddings is None:
+            biobert_embeddings = np.ones((len(in_file.keys()), len(current_embedding)))
+
+        biobert_embeddings[embedding_index, :] = current_embedding
+
+    return biobert_embeddings
 
 
 def recount_map_sample_to_study(metadata_file: str) -> Dict[str, str]:
