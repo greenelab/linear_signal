@@ -204,6 +204,8 @@ if __name__ == '__main__':
                     else:
                         extra_info = '{}-{}'.format(args.tissue1, args.tissue2)
 
+                    extra_info = '{}_{}_{}'.format(extra_info, i, args.seed)
+
                     save_path = os.path.join(save_path + 'predict_{}.pt'.format(extra_info))
 
                     supervised_config['save_path'] = save_path
