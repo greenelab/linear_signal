@@ -677,6 +677,7 @@ class PytorchImpute(ExpressionModel):
                  save_path: str = None,
                  train_fraction: float = None,
                  train_count: float = None,
+                 early_stopping_patience: int = 3,
                  **kwargs,
                  ) -> None:
         """
@@ -699,6 +700,8 @@ class PytorchImpute(ExpressionModel):
         save_path: The path to save the model to
         train_fraction: The percent of samples to use in training
         train_count: The number of studies to use in training
+        early_stopping_patience: The number of epochs to wait before stopping early
+                                 if loss doesn't improve
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -924,6 +927,7 @@ class PytorchImpute(ExpressionModel):
             run['model'] = str(type(self.model))
 
         best_tune_loss = None
+        epochs_since_best = 0
 
         for epoch in tqdm(range(epochs)):
             train_loss = 0
@@ -966,7 +970,7 @@ class PytorchImpute(ExpressionModel):
 
             # Save model if applicable
             save_path = getattr(self, 'save_path', None)
-            if save_path is not None and not tune_is_empty:
+            if not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
                     # Keep track of model state for the best model
@@ -981,12 +985,23 @@ class PytorchImpute(ExpressionModel):
                         else:
                             best_optimizer_state[key] = value
                     best_optimizer_state = OrderedDict(best_optimizer_state)
+                    epochs_since_best = 0
+                else:
+                    epochs_since_best += 1
+
+                if epochs_since_best >= self.early_stopping_patience:
+                    self.load_parameters(best_model_state)
+                    self.optimizer.load_state_dict(best_optimizer_state)
+                    return self
+
+            break
 
         # Load model from state dict
-        if save_path is not None and not tune_is_empty:
+        if not tune_is_empty:
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
-            self.save_model(save_path)
+            if save_path is not None:
+                self.save_model(save_path)
 
         return self
 

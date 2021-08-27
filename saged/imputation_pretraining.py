@@ -5,6 +5,7 @@ classification setting
 import argparse
 import copy
 import gc
+import os
 
 import sklearn.metrics
 import yaml
@@ -182,6 +183,13 @@ if __name__ == '__main__':
                 imputation_model_copy = copy.deepcopy(imputation_model)
                 supervised_model = imputation_model_copy.to_classifier(output_size,
                                                                        'CrossEntropyLoss')
+
+                imputation_save = supervised_model.save_path
+                imputation_save = imputation_save.split('impute')[0]
+
+                model_name = type(supervised_model.model)
+                extra_information = '{}_{}_{}'.format(model_name, i, args.seed)
+                supervised_save = os.path.join(imputation_save, extra_information)
 
                 supervised_model.fit(train_data, neptune_run)
 
