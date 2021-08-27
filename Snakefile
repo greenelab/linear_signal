@@ -150,9 +150,10 @@ rule transfer_tissue:
         "--seed {wildcards.seed} "
 
 rule all_tissue_biobert:
-    threads: 8
+    threads: 16
     input:
         "dataset_configs/recount_dataset.yml",
+        "data/recount_embeddings.hdf5",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
