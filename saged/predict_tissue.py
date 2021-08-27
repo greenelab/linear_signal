@@ -206,7 +206,7 @@ if __name__ == '__main__':
 
                     extra_info = '{}_{}_{}'.format(extra_info, i, args.seed)
 
-                    save_path = os.path.join(save_path + 'predict_{}.pt'.format(extra_info))
+                    save_path = os.path.join(save_path + '_predict_{}.pt'.format(extra_info))
 
                     supervised_config['save_path'] = save_path
 
