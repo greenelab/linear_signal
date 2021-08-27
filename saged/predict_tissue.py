@@ -3,9 +3,10 @@ This benchmark compares the performance of different models in
 predicting tissue based on gene expression
 """
 import argparse
+import os
+
 import numpy as np
 import pandas as pd
-
 import sklearn.metrics
 import yaml
 
@@ -188,6 +189,24 @@ if __name__ == '__main__':
                 supervised_config = yaml.safe_load(supervised_file)
                 supervised_config['input_size'] = input_size
                 supervised_config['output_size'] = output_size
+                if 'save_path' in supervised_config:
+                    # Append script-specific information to model save file
+                    save_path = supervised_config['save_path']
+                    # Remove extension
+                    save_path = os.path.splitext(save_path)[0]
+
+                    if args.all_tissue and args.biobert:
+                        extra_info = 'all_tissue_biobert'
+                    elif args.all_tissue:
+                        extra_info = 'all_tissue'
+                    elif args.biobert:
+                        extra_info = 'biobert'
+                    else:
+                        extra_info = '{}-{}'.format(args.tissue1, args.tissue2)
+
+                    save_path = os.path.join(save_path + 'predict_{}.pt'.format(extra_info))
+
+                    supervised_config['save_path'] = save_path
 
             supervised_model_type = supervised_config.pop('name')
             SupervisedClass = getattr(models, supervised_model_type)

@@ -1067,6 +1067,7 @@ class PytorchSupervised(ExpressionModel):
                  train_fraction: float = None,
                  train_count: float = None,
                  clip_grads: bool = False,
+                 early_stopping_patience: int = 3,
                  **kwargs,
                  ) -> None:
         """
@@ -1090,6 +1091,8 @@ class PytorchSupervised(ExpressionModel):
         train_fraction: The percent of samples to use in training
         train_count: The number of studies to use in training
         clip_grads: A flag reflecting whether to perform clip gradients during training
+        early_stopping_patience: The number of epochs to wait before stopping early
+                                 if loss doesn't improve
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -1113,6 +1116,8 @@ class PytorchSupervised(ExpressionModel):
         self.train_fraction = train_fraction
         self.train_count = train_count
         self.clip_grads = clip_grads
+        self.save_path = save_path
+        self.early_stopping_patience = early_stopping_patience
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -1247,6 +1252,7 @@ class PytorchSupervised(ExpressionModel):
                 run['tune_baseline', tune_baseline]
 
         best_tune_loss = None
+        epochs_since_best = 0
 
         for epoch in tqdm(range(epochs)):
             train_loss = 0
@@ -1301,7 +1307,6 @@ class PytorchSupervised(ExpressionModel):
 
                         tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
                         tune_correct += utils.count_correct(output, labels)
-                        # TODO f1 score
 
             train_acc = train_correct / len(train_dataset)
             if not tune_is_empty:
@@ -1315,7 +1320,7 @@ class PytorchSupervised(ExpressionModel):
                     run['tune/acc'].log(tune_acc)
 
             save_path = getattr(self, 'save_path', None)
-            if save_path is not None and not tune_is_empty:
+            if not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
                     # Keep track of model state for the best model
@@ -1330,12 +1335,23 @@ class PytorchSupervised(ExpressionModel):
                         else:
                             best_optimizer_state[key] = value
                     best_optimizer_state = OrderedDict(best_optimizer_state)
+                else:
+                    epochs_since_best += 1
+
+                if epochs_since_best >= self.early_stopping_patience:
+                    self.load_parameters(best_model_state)
+                    self.optimizer.load_state_dict(best_optimizer_state)
+                    return self
 
         # Load model from state dict
-        if save_path is not None and not tune_is_empty:
+        if not tune_is_empty:
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
-            self.save_model(save_path)
+            if save_path is not None:
+                self.save_model(save_path)
+
+        else:
+            print('Using model from final epoch; early stopping is off')
 
         return self
 
