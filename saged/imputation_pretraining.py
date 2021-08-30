@@ -184,12 +184,15 @@ if __name__ == '__main__':
                 supervised_model = imputation_model_copy.to_classifier(output_size,
                                                                        'CrossEntropyLoss')
 
-                imputation_save = supervised_model.save_path
-                imputation_save = imputation_save.split('impute')[0]
+                if imputation_model_copy.save_path is not None:
+                    imputation_save = imputation_model_copy.save_path
+                    imputation_save = imputation_save.split('impute')[0]
 
-                model_name = type(supervised_model.model)
-                extra_information = '{}_{}_{}'.format(model_name, i, args.seed)
-                supervised_save = os.path.join(imputation_save, extra_information)
+                    model_name = imputation_model.model_name
+                    extra_information = '{}_{}_{}_{}'.format(model_name, i,
+                                                             args.seed, impute_sample_count)
+                    supervised_save = os.path.join(imputation_save, extra_information)
+                    supervised_model.save_path = supervised_save
 
                 supervised_model.fit(train_data, neptune_run)
 
