@@ -906,13 +906,11 @@ class PytorchImpute(ExpressionModel):
         if train_fraction is None:
             train_count = self.train_count
 
-        # TODO early stopping
         # Split dataset and create dataloaders
         train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
                                                                train_study_count=train_count,
                                                                seed=seed)
         # For very small training sets the tune dataset will be empty
-        # TODO figure out how to more elegantly handle this when implementing early stopping
         tune_is_empty = False
         if len(tune_dataset) == 0:
             sys.stderr.write('Warning: Tune dataset is empty')
@@ -970,8 +968,6 @@ class PytorchImpute(ExpressionModel):
                 run['train/loss'].log(train_loss / len(train_dataset))
                 run['tune/loss'].log(tune_loss / len(tune_dataset))
 
-            # Save model if applicable
-            save_path = getattr(self, 'save_path', None)
             if not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
@@ -992,13 +988,10 @@ class PytorchImpute(ExpressionModel):
                     epochs_since_best += 1
 
                 if epochs_since_best >= self.early_stopping_patience:
-                    self.load_parameters(best_model_state)
-                    self.optimizer.load_state_dict(best_optimizer_state)
-                    return self
-
-            break
+                    break
 
         # Load model from state dict
+        save_path = getattr(self, 'save_path', None)
         if not tune_is_empty:
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
@@ -1360,10 +1353,7 @@ class PytorchSupervised(ExpressionModel):
                     epochs_since_best += 1
 
                 if epochs_since_best >= self.early_stopping_patience:
-                    self.load_parameters(best_model_state)
-                    self.optimizer.load_state_dict(best_optimizer_state)
-
-                    save_path = getattr(self, 'save_path', None)
+                    break
 
         # Load model from state dict
         save_path = getattr(self, 'save_path', None)
