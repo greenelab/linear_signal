@@ -726,6 +726,8 @@ class PytorchImpute(ExpressionModel):
         self.train_count = train_count
         self.loss_fn = self.loss_class(reduction='sum')
         self.save_path = save_path
+        self.early_stopping_patience = early_stopping_patience
+        self.model_name = model_name
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -1077,12 +1079,12 @@ class PytorchSupervised(ExpressionModel):
                  batch_size: int,
                  log_progress: bool,
                  experiment_name: str = None,
-                 experiment_description: str = None,
                  save_path: str = None,
                  train_fraction: float = None,
                  train_count: float = None,
                  clip_grads: bool = False,
                  early_stopping_patience: int = 3,
+                 pretrained_model: nn.Module = None,
                  **kwargs,
                  ) -> None:
         """
@@ -1108,6 +1110,8 @@ class PytorchSupervised(ExpressionModel):
         clip_grads: A flag reflecting whether to perform clip gradients during training
         early_stopping_patience: The number of epochs to wait before stopping early
                                  if loss doesn't improve
+        pretrained_model: If a model is passed here, it will be used instead of initializing
+                          a new model
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -1139,8 +1143,11 @@ class PytorchSupervised(ExpressionModel):
         torch.backends.cudnn.benchmark = False
         np.random.seed(seed)
 
-        model_class = get_model_by_name(model_name)
-        self.model = model_class(**kwargs)
+        if pretrained_model is None:
+            model_class = get_model_by_name(model_name)
+            self.model = model_class(**kwargs)
+        else:
+            self.model = pretrained_model
 
         self.optimizer = optimizer_class(self.model.parameters(),
                                          lr=lr,
@@ -1334,7 +1341,6 @@ class PytorchSupervised(ExpressionModel):
                     run['tune/loss'].log(tune_loss)
                     run['tune/acc'].log(tune_acc)
 
-            save_path = getattr(self, 'save_path', None)
             if not tune_is_empty:
                 if best_tune_loss is None or tune_loss < best_tune_loss:
                     best_tune_loss = tune_loss
@@ -1356,9 +1362,11 @@ class PytorchSupervised(ExpressionModel):
                 if epochs_since_best >= self.early_stopping_patience:
                     self.load_parameters(best_model_state)
                     self.optimizer.load_state_dict(best_optimizer_state)
-                    return self
+
+                    save_path = getattr(self, 'save_path', None)
 
         # Load model from state dict
+        save_path = getattr(self, 'save_path', None)
         if not tune_is_empty:
             self.load_parameters(best_model_state)
             self.optimizer.load_state_dict(best_optimizer_state)
@@ -1782,21 +1790,7 @@ class PseudolabelModel(PytorchSupervised):
 
 class TransferClassifier(PytorchSupervised):
     def __init__(self,
-                 pretrained_model: PytorchImpute,
-                 optimizer_name: str,
-                 loss_name: str,
-                 lr: float,
-                 weight_decay: float,
-                 device: str,
-                 seed: int,
-                 epochs: int,
-                 batch_size: int,
-                 log_progress: bool,
-                 experiment_name: str = None,
-                 experiment_description: str = None,
-                 save_path: str = None,
-                 train_fraction: float = None,
-                 train_count: float = None,
+                 pretrained_model: nn.Module,
                  **kwargs,):
         """
         Standard model init function for a supervised model
@@ -1804,51 +1798,11 @@ class TransferClassifier(PytorchSupervised):
         Arguments
         ---------
         pretrained_model: A model trained via imputing gene expression data
-        optimizer_name: The name of the optimizer class to be used when training the model
-        loss_name: The loss function class to use
-        lr: The learning rate for the optimizer
-        weight_decay: The weight decay for the optimizer
-        device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
-        seed: The random seed to use in stochastic operations
-        epochs: The number of epochs to train the model
-        batch_size: The number of items in each training batch
-        log_progress: True if you want to use neptune to log progress, otherwise False
-        experiment_name: A short name for the experiment you're running for use in neptune logs
-        experiment_description: A description for the experiment you're running
-        save_path: The path to save the model to
-        train_fraction: The percent of samples to use in training
-        train_count: The number of studies to use in training
+        optimizer_name: The name of the optimizer to be used to train the classifier
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
         -----
         Either `train_count` or `train_fraction` should be None but not both
         """
-        # A piece of obscure python, this gets a dict of all python local variables.
-        # Since it is called at the start of a function it gets all the arguments for the
-        # function as if they were passed in a dict. This is useful, because we can feed
-        # self.config to neptune to keep track of all our run's parameters
-        self.config = locals()
-
-        optimizer_class = getattr(torch.optim, optimizer_name)
-        self.loss_class = getattr(nn, loss_name)
-        self.seed = seed
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.experiment_name = experiment_name
-        self.log_progress = log_progress
-        self.train_fraction = train_fraction
-        self.train_count = train_count
-
-        torch.manual_seed(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-        np.random.seed(seed)
-
-        self.model = pretrained_model
-
-        self.optimizer = optimizer_class(self.model.parameters(),
-                                         lr=lr,
-                                         weight_decay=weight_decay)
-
-        self.device = torch.device(device)
+        super(TransferClassifier, self).__init__(pretrained_model=pretrained_model, **kwargs)
