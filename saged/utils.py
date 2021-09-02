@@ -457,7 +457,7 @@ def load_biobert_embeddings(config_file: str) -> np.array:
     Returns
     -------
     biobert_embeddings - A numpy array containing the biobert embeddings of the metadata in the
-                         same order as expression_df
+                         same sample order as expression_df
     """
 
     with open(config_file) as in_file:
