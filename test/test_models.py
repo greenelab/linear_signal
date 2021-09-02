@@ -50,6 +50,7 @@ def pytorch_models(dataset, pytorch_configs):
     for config in pytorch_configs:
         config['input_size'] = input_size
         config['output_size'] = output_size
+        config['save_path'] = None
         model_class = getattr(models, config['name'])
         model = model_class(**config)
         model_list.append(model)
