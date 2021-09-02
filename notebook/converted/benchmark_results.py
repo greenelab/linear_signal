@@ -4,7 +4,7 @@
 # # Benchmark Results
 # This notebook visualizes the output from the different models on different classification problems
 
-# In[1]:
+# In[2]:
 
 
 import collections
@@ -1085,7 +1085,7 @@ plot
 
 # ## Tissue Prediction
 
-# In[2]:
+# In[15]:
 
 
 in_files = glob.glob('../../results/Blood.Breast.*.tsv')
@@ -1093,7 +1093,7 @@ in_files = [f for f in in_files if 'be_corrected' not in f]
 print(in_files[:5])
 
 
-# In[3]:
+# In[16]:
 
 
 tissue_metrics = pd.DataFrame()
@@ -1116,7 +1116,7 @@ tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch
 tissue_metrics
 
 
-# In[4]:
+# In[17]:
 
 
 plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
@@ -1173,7 +1173,7 @@ plot
 
 # ### All Tissue Predictions
 
-# In[12]:
+# In[18]:
 
 
 in_files = glob.glob('../../results/all-tissue.*.tsv')
@@ -1181,7 +1181,7 @@ in_files = [f for f in in_files if 'be_corrected' not in f]
 print(in_files[:5])
 
 
-# In[13]:
+# In[19]:
 
 
 tissue_metrics = pd.DataFrame()
@@ -1205,7 +1205,7 @@ tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('deep_ne
 tissue_metrics
 
 
-# In[14]:
+# In[20]:
 
 
 plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
@@ -1217,14 +1217,14 @@ plot
 
 # ## Imputation pretraining
 
-# In[3]:
+# In[11]:
 
 
 in_files = glob.glob('../../results/tissue_impute.*.tsv')
 print(in_files[:5])
 
 
-# In[7]:
+# In[12]:
 
 
 tissue_metrics = pd.DataFrame()
@@ -1242,27 +1242,69 @@ for path in in_files:
     tissue_metrics = pd.concat([tissue_metrics, new_df])
     
 tissue_metrics['train_count'] = tissue_metrics['train sample count']
+tissue_metrics = tissue_metrics.rename({'impute_samples': 'pretraining_sample_count'}, axis='columns')
 tissue_metrics
 
 
-# In[11]:
+# In[13]:
 
 
 plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='factor(supervised)')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
 plot += ggtitle('Effects of Imputation on Multiclass Tissue Prediction')
-plot += facet_grid('impute_samples ~ .')
+plot += facet_grid('pretraining_sample_count ~ .')
 plot
 
 
-# In[5]:
+# In[14]:
 
 
-plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='factor(impute_samples)')) 
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='factor(pretraining_sample_count)')) 
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
 plot += ggtitle('Effects of Imputation on Multiclass Tissue Prediction')
+plot
+
+
+# ## Adding BioBERT Embeddings
+
+# In[9]:
+
+
+in_files = glob.glob('../../results/all-tissue-biobert*.tsv')
+print(in_files[:5])
+
+
+# In[10]:
+
+
+tissue_metrics = pd.DataFrame()
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('biobert.')[-1]
+    model_info = model_info.split('_')
+        
+    supervised_model = '_'.join(model_info[:2])
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-1]
+        
+    tissue_metrics = pd.concat([tissue_metrics, new_df])
+    
+tissue_metrics['train_count'] = tissue_metrics['train sample count']
+tissue_metrics = tissue_metrics.rename({'impute_samples': 'pretraining_sample_count'}, axis='columns')
+tissue_metrics
+
+
+# In[11]:
+
+
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='supervised')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Multiclass Tissue Prediction With Expression + BioBERT')
 plot
 
 
