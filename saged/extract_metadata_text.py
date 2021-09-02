@@ -22,12 +22,17 @@ if __name__ == '__main__':
             title = row['sra.sample_title']
             experiment_description = row['sra.design_description']
             sample_description = row['sra.sample_description']
+            if str(title) == 'nan':
+                title = ''
+            if str(experiment_description) == 'nan':
+                experiment_description = ''
+            if str(sample_description) == 'nan':
+                sample_description = ''
 
             metadata_string = ' '.join([str(title),
                                         str(experiment_description),
                                         str(sample_description)])
 
-            metadata_string = metadata_string.replace('nan', '')
             metadata_string = metadata_string.strip()
 
             if len(metadata_string) == 0:
