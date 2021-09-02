@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 import yaml
+from sklearn.preprocessing import MinMaxScaler
 
 from saged import utils, datasets, models
 
@@ -90,10 +91,8 @@ if __name__ == '__main__':
                 placeholder_array[:, index_in_df] = embeddings[line_number, :]
 
             # 0-1 normalize embeddings to match scale of expression
-            pa = placeholder_array
-            pa_positive = pa - np.min(pa, axis=0)
-            pa_range = (np.max(pa, axis=0) - np.min(pa, axis=0))
-            placeholder_array = pa_positive / pa_range
+            scaler = MinMaxScaler()
+            placeholder_array = scaler.fit_transform(placeholder_array.T).T
 
             embedding_df = pd.DataFrame(placeholder_array, columns=expression_df.columns)
             expression_df = pd.concat([expression_df, embedding_df], axis='rows')
