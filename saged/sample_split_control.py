@@ -13,6 +13,7 @@ import torch
 import yaml
 
 from saged import utils, datasets, models
+from saged.models import LogisticRegression
 
 
 PREDICT_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
@@ -89,7 +90,8 @@ if __name__ == '__main__':
         imputation_model_type = model_config['name']
         SupervisedClass = getattr(models, imputation_model_type)
         pretrained_model = SupervisedClass(**model_config)
-        pretrained_model.model = pretrained_model.model.to('cpu')
+        if type(pretrained_model) != LogisticRegression:
+            pretrained_model.model = pretrained_model.model.to('cpu')
 
         no_pretraining_model = copy.deepcopy(pretrained_model)
 
@@ -131,7 +133,7 @@ if __name__ == '__main__':
                 neptune_run = utils.initialize_neptune(neptune_config)
 
         # Pretrain model on first split
-        if torch.cuda.is_available():
+        if torch.cuda.is_available() and type(pretrained_model) != LogisticRegression:
             pretrained_model.model = pretrained_model.model.to('cuda')
         pretrained_model.fit(pretrain_data, neptune_run)
 
@@ -148,12 +150,13 @@ if __name__ == '__main__':
 
             model.fit(train_data, neptune_run)
 
-            if torch.cuda.is_available():
+            if torch.cuda.is_available() and type(model) != LogisticRegression:
                 model.model = model.model.to('cuda')
 
             predictions, true_labels = model.evaluate(val_data)
 
-            model.model = model.model.to('cpu')
+            if type(model) != LogisticRegression:
+                model.model = model.model.to('cpu')
             model.free_memory()
 
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
