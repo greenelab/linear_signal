@@ -45,6 +45,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # sample_split
+        expand("results/sample-split.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
 
 
 rule create_biobert_metadata_file:
@@ -165,3 +170,17 @@ rule all_tissue_biobert:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--biobert"
+
+rule sample_level_control:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/sample-split.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "results/sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
