@@ -70,7 +70,7 @@ if __name__ == '__main__':
         model_config['output_size'] = input_size
 
     # Split the data into two sets
-    labeled_splits = labeled_data.get_cv_splits(num_splits=3,
+    labeled_splits = labeled_data.get_cv_splits(num_splits=5,
                                                 seed=args.seed,
                                                 split_by_sample=True)
 
@@ -86,61 +86,50 @@ if __name__ == '__main__':
     subset_percents = []
     pretrained_or_trained = []
 
-    for subset_number in range(1, 11, 1):
-        imputation_model_type = model_config['name']
-        SupervisedClass = getattr(models, imputation_model_type)
-        pretrained_model = SupervisedClass(**model_config)
-        if type(pretrained_model) != LogisticRegression:
-            pretrained_model.model = pretrained_model.model.to('cpu')
+    for i in range(len(labeled_splits)):
+        for subset_number in range(1, 11, 1):
+            imputation_model_type = model_config['name']
+            SupervisedClass = getattr(models, imputation_model_type)
+            pretrained_model = SupervisedClass(**model_config)
+            if type(pretrained_model) != LogisticRegression:
+                pretrained_model.model = pretrained_model.model.to('cpu')
 
-        no_pretraining_model = copy.deepcopy(pretrained_model)
+            no_pretraining_model = copy.deepcopy(pretrained_model)
 
-        # https://github.com/facebookresearch/higher/pull/15
-        gc.collect()
+            # https://github.com/facebookresearch/higher/pull/15
+            gc.collect()
 
-        subset_percent = subset_number * .1
+            subset_percent = subset_number * .1
 
-        pretrain_data = labeled_splits[0]
-        train_data = labeled_splits[1]
-        val_data = labeled_splits[2]
+            pretrain_list = [labeled_splits[(i+1) % 5], labeled_splits[(i+2) % 5]]
+            train_list = [labeled_splits[(i+3) % 5], labeled_splits[(i+4) % 5]]
+            val_data = labeled_splits[i]
 
-        # Ensure the labels are encoded the same way in all three datasets
-        pretrain_data.set_label_encoder(label_encoder)
-        train_data.set_label_encoder(label_encoder)
-        val_data.set_label_encoder(label_encoder)
+            DatasetClass = type(labeled_data)
+            pretrain_data = DatasetClass.from_list(train_list)
+            train_data = DatasetClass.from_list(train_list)
 
-        # Now that the ratio is correct, actually subset the samples
-        train_data = train_data.subset_samples(subset_percent,
-                                               args.seed)
-        pretrain_data = pretrain_data.subset_samples(subset_percent,
-                                                     args.seed)
+            # Ensure the labels are encoded the same way in all three datasets
+            pretrain_data.set_label_encoder(label_encoder)
+            train_data.set_label_encoder(label_encoder)
+            val_data.set_label_encoder(label_encoder)
 
-        print('Samples: {}'.format(len(train_data.get_samples())))
-        print('Studies: {}'.format(len(train_data.get_studies())))
+            # Now that the ratio is correct, actually subset the samples
+            train_data = train_data.subset_samples(subset_percent,
+                                                   args.seed)
+            pretrain_data = pretrain_data.subset_samples(subset_percent,
+                                                         args.seed)
 
-        output_size = len(train_data.get_classes())
+            print('Samples: {}'.format(len(train_data.get_samples())))
+            print('Studies: {}'.format(len(train_data.get_studies())))
 
-        print('Val data: {}'.format(len(val_data)))
-        print('output size: {}'.format(output_size))
+            output_size = len(train_data.get_classes())
 
-        # TODO modify save path for no_pretraining_model
+            print('Val data: {}'.format(len(val_data)))
+            print('output size: {}'.format(output_size))
 
-        neptune_run = None
-        # Parse config file
-        if args.neptune_config is not None:
-            with open(args.neptune_config) as neptune_file:
-                neptune_config = yaml.safe_load(neptune_file)
-                neptune_run = utils.initialize_neptune(neptune_config)
+            # TODO modify save path for no_pretraining_model
 
-        # Pretrain model on first split
-        if torch.cuda.is_available() and type(pretrained_model) != LogisticRegression:
-            pretrained_model.model = pretrained_model.model.to('cuda')
-        pretrained_model.fit(pretrain_data, neptune_run)
-
-        # Train pretrained model on second split
-
-        model_type = ['pretrained', 'not_pretrained']
-        for m_type, model in zip(model_type, [pretrained_model, no_pretraining_model]):
             neptune_run = None
             # Parse config file
             if args.neptune_config is not None:
@@ -148,31 +137,46 @@ if __name__ == '__main__':
                     neptune_config = yaml.safe_load(neptune_file)
                     neptune_run = utils.initialize_neptune(neptune_config)
 
-            model.fit(train_data, neptune_run)
+            # Pretrain model on first split
+            if torch.cuda.is_available() and type(pretrained_model) != LogisticRegression:
+                pretrained_model.model = pretrained_model.model.to('cuda')
+            pretrained_model.fit(pretrain_data, neptune_run)
 
-            if torch.cuda.is_available() and type(model) != LogisticRegression:
-                model.model = model.model.to('cuda')
+            # Train pretrained model on second split
+            model_type = ['pretrained', 'not_pretrained']
+            for m_type, model in zip(model_type, [pretrained_model, no_pretraining_model]):
+                neptune_run = None
+                # Parse config file
+                if args.neptune_config is not None:
+                    with open(args.neptune_config) as neptune_file:
+                        neptune_config = yaml.safe_load(neptune_file)
+                        neptune_run = utils.initialize_neptune(neptune_config)
 
-            predictions, true_labels = model.evaluate(val_data)
+                model.fit(train_data, neptune_run)
 
-            if type(model) != LogisticRegression:
-                model.model = model.model.to('cpu')
-            model.free_memory()
+                if torch.cuda.is_available() and type(model) != LogisticRegression:
+                    model.model = model.model.to('cuda')
 
-            accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
-            balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
+                predictions, true_labels = model.evaluate(val_data)
 
-            accuracies.append(accuracy)
-            balanced_accuracies.append(balanced_acc)
-            train_studies.append(','.join(train_data.get_studies()))
-            train_sample_names.append(','.join(train_data.get_samples()))
-            val_sample_names.append(','.join(val_data.get_samples()))
-            train_sample_counts.append(len(train_data))
-            subset_percents.append(subset_percent)
-            pretrained_or_trained.append(pretrained_or_trained)
+                if type(model) != LogisticRegression:
+                    model.model = model.model.to('cpu')
+                model.free_memory()
 
-        pretrain_data.reset_filters()
-        train_data.reset_filters()
+                accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
+                balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
+
+                accuracies.append(accuracy)
+                balanced_accuracies.append(balanced_acc)
+                train_studies.append(','.join(train_data.get_studies()))
+                train_sample_names.append(','.join(train_data.get_samples()))
+                val_sample_names.append(','.join(val_data.get_samples()))
+                train_sample_counts.append(len(train_data))
+                subset_percents.append(subset_percent)
+                pretrained_or_trained.append(m_type)
+
+            pretrain_data.reset_filters()
+            train_data.reset_filters()
 
     with open(args.out_file, 'w') as out_file:
         # Write header
