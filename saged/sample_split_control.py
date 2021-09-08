@@ -87,30 +87,52 @@ if __name__ == '__main__':
     pretrained_or_trained = []
 
     for i in range(len(labeled_splits)):
-        for subset_number in range(1, 11, 1):
-            imputation_model_type = model_config['name']
-            SupervisedClass = getattr(models, imputation_model_type)
-            pretrained_model = SupervisedClass(**model_config)
-            if type(pretrained_model) != LogisticRegression:
-                pretrained_model.model = pretrained_model.model.to('cpu')
+        neptune_run = None
+        # Parse config file
+        if args.neptune_config is not None:
+            with open(args.neptune_config) as neptune_file:
+                neptune_config = yaml.safe_load(neptune_file)
+                neptune_run = utils.initialize_neptune(neptune_config)
 
-            no_pretraining_model = copy.deepcopy(pretrained_model)
+        model_type = model_config['name']
+        SupervisedClass = getattr(models, model_type)
+        root_model = SupervisedClass(**model_config)
+
+        pretrain_base = copy.deepcopy(root_model)
+
+        # Get the pretraining fraction of the data
+        DatasetClass = type(labeled_data)
+        pretrain_list = [labeled_splits[(i+1) % 5], labeled_splits[(i+2) % 5]]
+        pretrain_data = DatasetClass.from_list(pretrain_list)
+        pretrain_data.set_label_encoder(label_encoder)
+
+        # Ensure the model is training on GPU if possible
+        if torch.cuda.is_available() and type(pretrain_base) != LogisticRegression:
+            pretrain_base.model = pretrain_base.model.to('cuda')
+        pretrain_base.fit(pretrain_data, neptune_run)
+
+        # Move model back to CPU to allow easy copying
+        if type(pretrain_base) != LogisticRegression:
+            pretrain_base.model = pretrain_base.model.to('cpu')
+
+        for subset_number in range(1, 11, 1):
+
+            # Grab a pretrained model and a copy of the original initialization for no_pretraining
+            pretrained_model = copy.deepcopy(pretrain_base)
+            no_pretraining_model = copy.deepcopy(root_model)
 
             # https://github.com/facebookresearch/higher/pull/15
             gc.collect()
 
             subset_percent = subset_number * .1
 
-            pretrain_list = [labeled_splits[(i+1) % 5], labeled_splits[(i+2) % 5]]
+            # Split = 40% pretrain, 40% train, 20% val
             train_list = [labeled_splits[(i+3) % 5], labeled_splits[(i+4) % 5]]
             val_data = labeled_splits[i]
 
-            DatasetClass = type(labeled_data)
-            pretrain_data = DatasetClass.from_list(train_list)
             train_data = DatasetClass.from_list(train_list)
 
             # Ensure the labels are encoded the same way in all three datasets
-            pretrain_data.set_label_encoder(label_encoder)
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
@@ -135,12 +157,7 @@ if __name__ == '__main__':
                     neptune_config = yaml.safe_load(neptune_file)
                     neptune_run = utils.initialize_neptune(neptune_config)
 
-            # Pretrain model on first split
-            if torch.cuda.is_available() and type(pretrained_model) != LogisticRegression:
-                pretrained_model.model = pretrained_model.model.to('cuda')
-            pretrained_model.fit(pretrain_data, neptune_run)
-
-            # Train pretrained model on second split
+            # Train or fine tune the model on the train set
             model_type = ['pretrained', 'not_pretrained']
             for m_type, model in zip(model_type, [pretrained_model, no_pretraining_model]):
                 neptune_run = None
