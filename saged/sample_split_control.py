@@ -117,8 +117,6 @@ if __name__ == '__main__':
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
-            pretrain_data = pretrain_data.subset_samples(subset_percent,
-                                                         args.seed)
 
             print('Samples: {}'.format(len(train_data.get_samples())))
             print('Studies: {}'.format(len(train_data.get_studies())))
