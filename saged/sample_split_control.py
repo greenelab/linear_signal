@@ -39,6 +39,10 @@ if __name__ == '__main__':
                         help='The random seed to be used in splitting data',
                         type=int,
                         default=42)
+    parser.add_argument('--sample_split',
+                        help='If this flag is set, split cv folds at the sample level instead '
+                             'of the study level',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -72,7 +76,7 @@ if __name__ == '__main__':
     # Split the data into two sets
     labeled_splits = labeled_data.get_cv_splits(num_splits=5,
                                                 seed=args.seed,
-                                                split_by_sample=True)
+                                                split_by_sample=args.sample_split)
 
     del(all_data)
 
