@@ -261,7 +261,10 @@ class ExpressionDataset(ABC):
     @abstractmethod
     # For more info on using a forward reference for the type, see
     # https://github.com/python/mypy/issues/3661#issuecomment-313157498
-    def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["ExpressionDataset"]:
+    def get_cv_splits(self,
+                      num_splits: int,
+                      seed: int = 42,
+                      split_by_sample: bool = False) -> Sequence["ExpressionDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of samples in each.
@@ -273,6 +276,12 @@ class ExpressionDataset(ABC):
         ---------
         num_splits: The number of groups to split the dataset into
         seed: The seed for the random number generator involved in subsetting
+        split_by_sample: If this flag is set, the cross-validation splits will not be study-aware.
+            That is to say that data will leak between the CV splits if the flag
+            is set to True. As a result, it should only be used as a positive control
+            with the understanding of how this fails to be an accurate representation
+            of performance from e.g.
+            autobencoder.com/2021-01-29-paper-evaluation/#failures-of-data-splitting-in-biology
 
         Returns
         -------
@@ -736,7 +745,10 @@ class RefineBioDataset(ExpressionDataset):
         self.data_changed = True
         return self
 
-    def get_cv_expression(self, num_splits: int, seed: int = 42) -> List[pd.DataFrame]:
+    def get_cv_expression(self,
+                          num_splits: int,
+                          seed: int = 42,
+                          split_by_sample: bool = False) -> List[pd.DataFrame]:
         """
         Split the expression present in the dataset into `num_splits` partitions for
         use in cross-validation
@@ -745,6 +757,12 @@ class RefineBioDataset(ExpressionDataset):
         ---------
         num_splits: The number of groups to split the dataset into
         seed: The seed for the random number generator involved in subsetting
+        split_by_sample: If this flag is set, the cross-validation splits will not be study-aware.
+            That is to say that data will leak between the CV splits if the flag
+            is set to True. As a result, it should only be used as a positive control
+            with the understanding of how this fails to be an accurate representation
+            of performance from e.g.
+            autobencoder.com/2021-01-29-paper-evaluation/#failures-of-data-splitting-in-biology
 
         Returns
         -------
@@ -754,31 +772,55 @@ class RefineBioDataset(ExpressionDataset):
 
         samples = self.get_samples()
         studies = self.get_studies()
-        shuffled_studies = utils.deterministic_shuffle_set(studies)
 
-        base_study_count = len(studies) // num_splits
-        leftover = len(studies) % num_splits
-        study_index = 0
+        if split_by_sample:
+            shuffled_samples = utils.deterministic_shuffle_set(samples)
+            base_sample_count = len(samples) // num_splits
+            leftover = len(samples) % num_splits
 
-        cv_dataframes = []
-        for i in range(num_splits):
-            study_count = base_study_count
-            if i < leftover:
-                study_count += 1
+            sample_index = 0
 
-            current_studies = shuffled_studies[study_index:study_index+study_count]
-            study_index += study_count
+            cv_dataframes = []
+            for i in range(num_splits):
+                sample_count = base_sample_count
+                if i < leftover:
+                    sample_count += 1
 
-            current_samples = utils.get_samples_in_studies(samples,
-                                                           current_studies,
-                                                           self.sample_to_study)
+                current_samples = shuffled_samples[sample_index:sample_index+sample_count]
+                sample_index += sample_count
 
-            cv_expression = self.all_expression.loc[:, current_samples]
-            cv_dataframes.append(cv_expression)
+                cv_expression = self.all_expression.loc[:, current_samples]
+                cv_dataframes.append(cv_expression)
+
+        else:
+            shuffled_studies = utils.deterministic_shuffle_set(studies)
+
+            base_study_count = len(studies) // num_splits
+            leftover = len(studies) % num_splits
+            study_index = 0
+
+            cv_dataframes = []
+            for i in range(num_splits):
+                study_count = base_study_count
+                if i < leftover:
+                    study_count += 1
+
+                current_studies = shuffled_studies[study_index:study_index+study_count]
+                study_index += study_count
+
+                current_samples = utils.get_samples_in_studies(samples,
+                                                               current_studies,
+                                                               self.sample_to_study)
+
+                cv_expression = self.all_expression.loc[:, current_samples]
+                cv_dataframes.append(cv_expression)
 
         return cv_dataframes
 
-    def get_cv_splits(self, num_splits: int, seed: int = 42) -> Sequence["RefineBioDataset"]:
+    def get_cv_splits(self,
+                      num_splits: int,
+                      seed: int = 42,
+                      split_by_sample: bool = False) -> Sequence["RefineBioDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of studies in each.
@@ -790,12 +832,18 @@ class RefineBioDataset(ExpressionDataset):
         ---------
         num_splits: The number of groups to split the dataset into
         seed: The seed for the random number generator involved in subsetting
+        split_by_sample: If this flag is set, the cross-validation splits will not be study-aware.
+            That is to say that data will leak between the CV splits if the flag
+            is set to True. As a result, it should only be used as a positive control
+            with the understanding of how this fails to be an accurate representation
+            of performance from e.g.
+            autobencoder.com/2021-01-29-paper-evaluation/#failures-of-data-splitting-in-biology
 
         Returns
         -------
         subsets: A list of datasets, each composed of fractions of the original
         """
-        cv_dataframes = self.get_cv_expression(num_splits, seed)
+        cv_dataframes = self.get_cv_expression(num_splits, seed, split_by_sample)
 
         cv_datasets = []
         for expression_df in cv_dataframes:
@@ -1410,7 +1458,8 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
 
     def get_cv_splits(self,
                       num_splits: int,
-                      seed: int = 42) -> Sequence["RefineBioLabeledDataset"]:
+                      seed: int = 42,
+                      split_by_sample: bool = False) -> Sequence["RefineBioLabeledDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of studies in each.
@@ -1422,12 +1471,18 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
         ---------
         num_splits: The number of groups to split the dataset into
         seed: The seed for the random number generator involved in subsetting
+        split_by_sample: If this flag is set, the cross-validation splits will not be study-aware.
+            That is to say that data will leak between the CV splits if the flag
+            is set to True. As a result, it should only be used as a positive control
+            with the understanding of how this fails to be an accurate representation
+            of performance from e.g.
+            autobencoder.com/2021-01-29-paper-evaluation/#failures-of-data-splitting-in-biology
 
         Returns
         -------
         subsets: A list of datasets, each composed of fractions of the original
         """
-        cv_dataframes = self.get_cv_expression(num_splits, seed)
+        cv_dataframes = self.get_cv_expression(num_splits, seed, split_by_sample)
 
         cv_datasets = []
         for expression_df in cv_dataframes:
@@ -1720,7 +1775,8 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
 
     def get_cv_splits(self,
                       num_splits: int,
-                      seed: int = 42) -> Sequence["RefineBioMixedDataset"]:
+                      seed: int = 42,
+                      split_by_sample: bool = False) -> Sequence["RefineBioMixedDataset"]:
         """
         Split the dataset into a list of smaller dataset objects with a roughly equal
         number of studies in each.
@@ -1732,12 +1788,18 @@ class RefineBioMixedDataset(RefineBioDataset, MixedDataset):
         ---------
         num_splits: The number of groups to split the dataset into
         seed: The seed for the random number generator involved in subsetting
+        split_by_sample: If this flag is set, the cross-validation splits will not be study-aware.
+            That is to say that data will leak between the CV splits if the flag
+            is set to True. As a result, it should only be used as a positive control
+            with the understanding of how this fails to be an accurate representation
+            of performance from e.g.
+            autobencoder.com/2021-01-29-paper-evaluation/#failures-of-data-splitting-in-biology
 
         Returns
         -------
         subsets: A list of datasets, each composed of fractions of the original
         """
-        cv_dataframes = self.get_cv_expression(num_splits, seed)
+        cv_dataframes = self.get_cv_expression(num_splits, seed, split_by_sample)
 
         cv_datasets = []
         for expression_df in cv_dataframes:

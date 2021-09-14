@@ -4,7 +4,7 @@
 # # Benchmark Results
 # This notebook visualizes the output from the different models on different classification problems
 
-# In[2]:
+# In[1]:
 
 
 import collections
@@ -1295,6 +1295,8 @@ for path in in_files:
     
 tissue_metrics['train_count'] = tissue_metrics['train sample count']
 tissue_metrics = tissue_metrics.rename({'impute_samples': 'pretraining_sample_count'}, axis='columns')
+tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+
 tissue_metrics
 
 
@@ -1305,6 +1307,146 @@ plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color=
 plot += geom_smooth()
 plot += geom_point(alpha=.2)
 plot += ggtitle('Multiclass Tissue Prediction With Expression + BioBERT')
+plot
+
+
+# In[ ]:
+
+
+
+
+
+# ## Sample Split Positive Control
+
+# In[14]:
+
+
+in_files = glob.glob('../../results/sample-split.*.tsv')
+print(in_files[:5])
+
+
+# In[15]:
+
+
+tissue_metrics = pd.DataFrame()
+
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('biobert.')[-1]
+    model_info = model_info.split('.')
+    model_info = model_info[-1]
+    model_info = model_info.split('_')
+        
+    supervised_model = '_'.join(model_info[:2])
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-1]
+            
+    tissue_metrics = pd.concat([tissue_metrics, new_df])
+    
+tissue_metrics['train_count'] = tissue_metrics['train sample count']
+tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+
+tissue_metrics
+
+
+# In[16]:
+
+
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Transfer Learning Sample Positive Control')
+plot += facet_grid('supervised ~ .')
+plot
+
+
+# In[17]:
+
+
+single_run_df = tissue_metrics[tissue_metrics['seed'] == '1']
+single_run_df.head()
+
+
+# In[18]:
+
+
+plot = ggplot(single_run_df, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
+#plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Sample Control Single Run Points')
+plot += facet_grid('supervised ~ .')
+plot
+
+
+# In[ ]:
+
+
+
+
+
+# ## Study Split Positive Control
+
+# In[19]:
+
+
+in_files = glob.glob('../../results/study-split.*.tsv')
+print(in_files[:5])
+
+
+# In[20]:
+
+
+tissue_metrics = pd.DataFrame()
+
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('biobert.')[-1]
+    model_info = model_info.split('.')
+    model_info = model_info[-1]
+    model_info = model_info.split('_')
+        
+    supervised_model = '_'.join(model_info[:2])
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-1]
+            
+    tissue_metrics = pd.concat([tissue_metrics, new_df])
+    
+tissue_metrics['train_count'] = tissue_metrics['train sample count']
+tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+
+tissue_metrics
+
+
+# In[21]:
+
+
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Transfer Learning Study Positive Control')
+plot += facet_grid('supervised ~ .')
+plot
+
+
+# In[22]:
+
+
+single_run_df = tissue_metrics[tissue_metrics['seed'] == '1']
+single_run_df.head()
+
+
+# In[23]:
+
+
+plot = ggplot(single_run_df, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Study Level Single Run Points')
+plot += facet_grid('supervised ~ .')
 plot
 
 
