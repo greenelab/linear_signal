@@ -14,6 +14,7 @@ rule all:
     input:
         "data/recount_text.txt",
         "data/recount_embeddings.hdf5",
+        "data/recount_metadata.tsv",
         "data/no_scrna_counts.tsv",
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
