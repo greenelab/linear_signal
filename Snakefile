@@ -90,7 +90,7 @@ rule normalize_data:
         "python saged/normalize_recount_data.py "
         "data/no_scrna_counts.tsv "
         "data/gene_lengths.tsv "
-        "data/no_scrna_counts.tsv "
+        "data/tpm.tsv "
         "data/recount_metadata.tsv "
 
 rule get_gene_lengths:
@@ -99,6 +99,11 @@ rule get_gene_lengths:
     shell:
         "Rscript saged/get_gene_lengths.R "
 
+rule pickle_counts:
+    input:
+        "data/no_scrna_tpm.tsv"
+    output:
+        "data/no_scrna_tpm.pkl"
 
 rule create_biobert_metadata_file:
     input:
