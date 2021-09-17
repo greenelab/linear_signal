@@ -14,6 +14,9 @@ rule all:
     input:
         "data/recount_text.txt",
         "data/recount_embeddings.hdf5",
+        "data/no_scrna_counts.tsv",
+        "data/gene_lengths.tsv",
+        "data/no_scrna_tpm.tsv",
         # TODO add data processing scripts
         # Blood tissue vs breast tissue prediction
         expand("results/Blood.Breast.{supervised}_{seed}.tsv",
@@ -55,6 +58,45 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+
+rule metadata_to_tsv:
+    input:
+        "data/metadata_df.rda"
+    output:
+        "data/recount_metadata.tsv"
+    shell:
+        "Rscript saged/metadata_to_tsv.R"
+
+rule remove_scrna:
+    input:
+        "data/sra_counts.tsv",
+        "data/recount_metadata.tsv"
+    output:
+        "data/no_scrna_counts.tsv"
+    shell:
+        "python saged/remove_scrnaseq.py "
+        "data/sra_counts.tsv "
+        "data/recount_metadata.tsv "
+        "data/no_scrna_counts.tsv "
+
+rule normalize_data:
+    input:
+        "data/no_scrna_counts.tsv",
+        "data/gene_lengths.tsv"
+    output:
+        "data/no_scrna_tpm.tsv"
+    shell:
+        "python saged/normalize_recount_data.py "
+        "data/no_scrna_counts.tsv "
+        "data/gene_lengths.tsv "
+        "data/no_scrna_counts.tsv "
+        "data/recount_metadata.tsv "
+
+rule get_gene_lengths:
+    output:
+        "data/gene_lengths.tsv"
+    shell:
+        "Rscript saged/get_gene_lengths.R "
 
 
 rule create_biobert_metadata_file:
