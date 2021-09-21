@@ -59,7 +59,6 @@ if __name__ == '__main__':
             try:
                 sample_metadata = metadata.loc[sample, :]
             except KeyError:
-                # print(e)
                 continue
 
             recount_pred = sample_metadata['recount_pred.pattern.predict.type']
@@ -76,6 +75,9 @@ if __name__ == '__main__':
                     continue
                 else:
                     out_file.write(line)
+            # Skip malformed lines
             except ValueError as e:
                 print(recount_pred)
                 raise(e)
+
+        out_file.close()
