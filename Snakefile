@@ -90,7 +90,7 @@ rule normalize_data:
         "python saged/normalize_recount_data.py "
         "data/no_scrna_counts.tsv "
         "data/gene_lengths.tsv "
-        "data/tpm.tsv "
+        "data/no_scrna_tpm.tsv.tsv "
         "data/recount_metadata.tsv "
 
 rule get_gene_lengths:
