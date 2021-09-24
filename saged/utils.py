@@ -1,6 +1,7 @@
 """ A file full of useful functions """
 
 import collections
+import copy
 import functools
 import json
 import pickle
@@ -52,6 +53,93 @@ BLOOD_KEYS = ['blood',
               'whole blood, maternal peripheral',
               'whole venous blood'
               ]
+
+
+def remove_study_samples(dataset: datasets.ExpressionDataset,
+                         studies_to_remove: Set[str]) -> datasets.ExpressionDataset:
+    """
+    Remove the samples corresponding to the given studies from a dataset
+
+    Arguments
+    ---------
+    dataset - The dataset samples will be removed from
+    studies_to_remove - The studies whose samples should be removed from the dataset
+
+    Returns
+    -------
+    dataset - The dataset after samples have been removed
+    """
+    samples = dataset.get_samples()
+    sample_to_study = dataset.get_samples_to_studies()
+    samples_to_remove = get_samples_in_studies(samples,
+                                               studies_to_remove,
+                                               sample_to_study)
+    dataset.remove_samples(samples_to_remove)
+
+    return dataset
+
+
+def split_by_tissue(data: datasets.ExpressionDataset,
+                    tissues: List[str],
+                    num_splits: int = 5) -> List[datasets.ExpressionDataset]:
+    """
+    Split a dataset into sections, with each split containing distinct tissues
+
+    Arguments
+    ---------
+    data: The dataset to split
+    tissues: The list of tissues to keep
+    num_splits: The number of partitions to divide the dataset into
+
+    Returns
+    -------
+    splits: A list of datasets split by tissue
+    """
+    if num_splits <= 1:
+        return data
+
+    splits = []
+
+    # Split labels into lists
+    all_subsets = []
+    for i in range(num_splits):
+        subset_tissues = [t for t_index, t in enumerate(tissues) if t_index % num_splits == i]
+        all_subsets.append(subset_tissues)
+
+    # Use subset_to_label to create five datasets
+    for subset in all_subsets:
+        data = data.subset_samples_to_labels(subset)
+        # This is very memory intensive since the full dataset gets stored behind the scenes after
+        # subsetting. It could be made more efficient with a special subset function that
+        # removes the old data, but that may make the API too messy
+        data_copy = copy.deepcopy(data)
+        data.reset_filters()
+
+        splits.append(data_copy)
+
+    # Ensure no studies are shared between the datasets
+    for i, data_one in enumerate(splits):
+        for j, data_two in enumerate(splits):
+            # We need to get the studies each time because they'll updated when samples change
+            set_one = data_one.get_studies()
+            set_two = data_two.get_studies()
+
+            if set_one == set_two:
+                continue
+
+            shared_studies = set_one.intersection(set_two)
+            if len(shared_studies) > 0:
+                pass
+                # If there are more studies in set one, remove samples from set one
+                if len(set_one) >= len(set_two):
+                    data_one = remove_study_samples(data_one, shared_studies)
+                    splits[i] = data_one
+                # If there are more studies in set two, remove samples from set two
+                else:
+                    data_two = remove_study_samples(data_two, shared_studies)
+                    splits[j] = data_two
+
+    return splits
 
 
 def split_sample_names(df_row: pd.DataFrame) -> Tuple[List[str], List[str]]:
