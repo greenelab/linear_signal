@@ -632,6 +632,7 @@ class RefineBioDataset(ExpressionDataset):
         self: The class after removing the samples
         """
         self.current_expression = self.current_expression.drop(samples, axis=1)
+        self.data_changed = True
 
         return self
 
