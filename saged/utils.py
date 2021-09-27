@@ -55,8 +55,8 @@ BLOOD_KEYS = ['blood',
               ]
 
 
-def remove_study_samples(dataset: datasets.ExpressionDataset,
-                         studies_to_remove: Set[str]) -> datasets.ExpressionDataset:
+def remove_study_samples(dataset: "datasets.ExpressionDataset",
+                         studies_to_remove: Set[str]) -> "datasets.ExpressionDataset":
     """
     Remove the samples corresponding to the given studies from a dataset
 
@@ -79,9 +79,9 @@ def remove_study_samples(dataset: datasets.ExpressionDataset,
     return dataset
 
 
-def split_by_tissue(data: datasets.ExpressionDataset,
+def split_by_tissue(data: "datasets.ExpressionDataset",
                     tissues: List[str],
-                    num_splits: int = 5) -> List[datasets.ExpressionDataset]:
+                    num_splits: int = 5) -> List["datasets.ExpressionDataset"]:
     """
     Split a dataset into sections, with each split containing distinct tissues
 
