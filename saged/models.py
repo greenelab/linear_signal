@@ -765,10 +765,9 @@ class PytorchImpute(ExpressionModel):
             final_layer = self.model.get_final_layer()
         else:
             sys.stderr.write('Warning: the model used in imputation does not have a ')
-            sys.stderr.write('get_final_layer function. ')
-            sys.stderr.write('Using model.parameters()[-1] instead...\n')
+            sys.stderr.write('get_final_layer function\n')
 
-            final_layer = self.model.parameters()[-1]
+            raise NotImplementedError
 
         intermediate_dimension = final_layer.in_features
 
@@ -776,7 +775,10 @@ class PytorchImpute(ExpressionModel):
         if hasattr(self.model, 'set_final_layer'):
             self.model.set_final_layer(new_layer)
         else:
-            self.model.parameters()[-1] = nn.Linear(intermediate_dimension, num_classes)
+            sys.stderr.write('Warning: the model used in imputation does not have a ')
+            sys.stderr.write('set_final_layer function\n')
+
+            raise NotImplementedError
 
         model_config = self.config
         model_config['pretrained_model'] = self.model
@@ -1078,6 +1080,7 @@ class PytorchSupervised(ExpressionModel):
                  clip_grads: bool = False,
                  early_stopping_patience: int = 3,
                  pretrained_model: nn.Module = None,
+                 final_layer_name: str = None,
                  **kwargs,
                  ) -> None:
         """
@@ -1105,6 +1108,7 @@ class PytorchSupervised(ExpressionModel):
                                  if loss doesn't improve
         pretrained_model: If a model is passed here, it will be used instead of initializing
                           a new model
+        final_layer_name: The name of the attribute in the model that stores the final layer
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -1130,6 +1134,7 @@ class PytorchSupervised(ExpressionModel):
         self.clip_grads = clip_grads
         self.save_path = save_path
         self.early_stopping_patience = early_stopping_patience
+        self.final_layer_name = final_layer_name
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
