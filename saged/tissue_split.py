@@ -13,7 +13,7 @@ import torch
 import yaml
 
 from saged import utils, datasets, models
-from saged.models import LogisticRegression
+from saged.models import LogisticRegression, PytorchSupervised
 
 
 PREDICT_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
@@ -118,14 +118,22 @@ if __name__ == '__main__':
         pretrain_base.fit(pretrain_data, neptune_run)
 
         if neptune_run is not None:
-            neptune_run.close()
+            neptune_run.stop()
+
+        if issubclass(type(pretrain_base), PytorchSupervised):
+            final_layer_name = pretrain_base.final_layer_name
+            print(final_layer_name)
+            final_layer = getattr(pretrain_base.model, final_layer_name)
+
+            # Reinitialize final layer
+            final_layer.reset_parameters()
 
         # Move model back to CPU to allow easy copying
         if type(pretrain_base) != LogisticRegression:
             pretrain_base.model = pretrain_base.model.to('cpu')
 
         for i in range(len(labeled_splits)):
-            for subset_number in range(1, 11, 1):
+            for subset_number in range(2, 11, 2):
 
                 # Grab a pretrained model and a copy of the original initialization
                 pretrained_model = copy.deepcopy(pretrain_base)
@@ -175,7 +183,7 @@ if __name__ == '__main__':
                     model.fit(train_data, neptune_run)
 
                     if neptune_run is not None:
-                        neptune_run.close()
+                        neptune_run.stop()
 
                     if torch.cuda.is_available() and type(model) != LogisticRegression:
                         model.model = model.model.to('cuda')
