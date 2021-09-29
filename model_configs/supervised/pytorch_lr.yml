@@ -14,5 +14,6 @@ log_progress: True
 train_fraction: .8
 save_path: "logs/models/pytorch_lr.pt"
 clip_grads: True
+final_layer_name: "fc1"
 
 # config.input_size and config.output_size should be set dynamically

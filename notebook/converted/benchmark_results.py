@@ -1450,8 +1450,66 @@ plot += facet_grid('supervised ~ .')
 plot
 
 
-# In[ ]:
+# ## Tissue Split
+
+# In[2]:
 
 
+in_files = glob.glob('../../results/tissue-split.*.tsv')
+print(in_files[:5])
 
+
+# In[3]:
+
+
+tissue_metrics = pd.DataFrame()
+
+for path in in_files:
+    new_df = pd.read_csv(path, sep='\t')
+    model_info = path.strip('.tsv').split('biobert.')[-1]
+    model_info = model_info.split('.')
+    model_info = model_info[-1]
+    model_info = model_info.split('_')
+        
+    supervised_model = '_'.join(model_info[:2])
+             
+    new_df['supervised'] = supervised_model
+    
+    new_df['seed'] = model_info[-1]
+            
+    tissue_metrics = pd.concat([tissue_metrics, new_df])
+    
+tissue_metrics['train_count'] = tissue_metrics['train sample count']
+tissue_metrics['supervised'] = tissue_metrics['supervised'].str.replace('pytorch_supervised', 'three_layer_net')
+
+tissue_metrics
+
+
+# In[4]:
+
+
+plot = ggplot(tissue_metrics, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Cross-Tissue Pretraining')
+plot += facet_grid('supervised ~ .')
+plot
+
+
+# In[5]:
+
+
+single_run_df = tissue_metrics[tissue_metrics['seed'] == '1']
+single_run_df.head()
+
+
+# In[6]:
+
+
+plot = ggplot(single_run_df, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
+plot += geom_smooth()
+plot += geom_point(alpha=.2)
+plot += ggtitle('Cross-tissue Single Run Points')
+plot += facet_grid('supervised ~ .')
+plot
 

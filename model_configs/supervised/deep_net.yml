@@ -14,5 +14,6 @@ log_progress: True
 train_fraction: .8
 save_path: "logs/models/deep_net.pt"
 clip_grads: True
+final_layer_name: "fc5"
 
 # config.input_size and config.output_size should be set dynamically
