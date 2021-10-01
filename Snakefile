@@ -18,6 +18,7 @@ rule all:
         "data/no_scrna_counts.tsv",
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
+        "data/no_scrna_tpm.pkl",
         # TODO add data processing scripts
         # Blood tissue vs breast tissue prediction
         expand("results/Blood.Breast.{supervised}_{seed}.tsv",
@@ -95,7 +96,7 @@ rule normalize_data:
         "python saged/normalize_recount_data.py "
         "data/no_scrna_counts.tsv "
         "data/gene_lengths.tsv "
-        "data/no_scrna_tpm.tsv.tsv "
+        "data/no_scrna_tpm.tsv "
         "data/recount_metadata.tsv "
 
 rule get_gene_lengths:
@@ -109,6 +110,8 @@ rule pickle_counts:
         "data/no_scrna_tpm.tsv"
     output:
         "data/no_scrna_tpm.pkl"
+    shell:
+        "python saged/pickle_tsv.py data/no_scrna_tpm.tsv data/no_scrna_tpm.pkl"
 
 rule create_biobert_metadata_file:
     input:
