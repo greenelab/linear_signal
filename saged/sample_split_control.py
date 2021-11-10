@@ -6,6 +6,7 @@ pretraining has a positive effect on model accuracy under ideal conditions
 import argparse
 import copy
 import gc
+import json
 
 import sklearn.metrics
 import torch
@@ -96,6 +97,9 @@ if __name__ == '__main__':
     train_sample_counts = []
     subset_percents = []
     pretrained_or_trained = []
+    val_predictions = []
+    val_true_labels = []
+    val_encoders = []
 
     for i in range(len(labeled_splits)):
         neptune_run = None
@@ -192,6 +196,18 @@ if __name__ == '__main__':
                 accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
                 balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
 
+                label_mapping = dict(zip(label_encoder.classes_,
+                                         range(len(label_encoder.classes_))))
+
+                # Ensure this mapping is correct
+                for label in label_mapping.keys():
+                    assert label_encoder.transform([label]) == label_mapping[label]
+
+                encoder_string = json.dumps(label_mapping)
+                # Format predictions to be a comma separated string of numbers without spaces
+                prediction_string = ','.join(list(predictions.astype('str')))
+                truth_string = ','.join(list(true_labels.astype('str')))
+
                 accuracies.append(accuracy)
                 balanced_accuracies.append(balanced_acc)
                 train_studies.append(','.join(train_data.get_studies()))
@@ -200,6 +216,9 @@ if __name__ == '__main__':
                 train_sample_counts.append(len(train_data))
                 subset_percents.append(subset_percent)
                 pretrained_or_trained.append(m_type)
+                val_predictions.append(prediction_string)
+                val_true_labels.append(truth_string)
+                val_encoders.append(encoder_string)
 
             pretrain_data.reset_filters()
             train_data.reset_filters()
@@ -207,7 +226,8 @@ if __name__ == '__main__':
     with open(args.out_file, 'w') as out_file:
         # Write header
         out_file.write('accuracy\tbalanced_accuracy\ttrain studies\ttrain samples\t'
-                       'val samples\ttrain sample count\tfraction of data used\tis_pretrained\n')
+                       'val samples\ttrain sample count\tfraction of data used\tis_pretrained\t'
+                       'val_predictions\tval_true_labels\tval_encoders\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
@@ -216,7 +236,10 @@ if __name__ == '__main__':
                               val_sample_names,
                               train_sample_counts,
                               subset_percents,
-                              pretrained_or_trained
+                              pretrained_or_trained,
+                              val_predictions,
+                              val_true_labels,
+                              val_encoders
                               )
         for stats in result_iterator:
             stat_strings = [str(item) for item in stats]
