@@ -14,6 +14,7 @@ import yaml
 
 from saged import utils, datasets, models
 from saged.models import LogisticRegression
+from saged.utils import calculate_loss_weights
 
 
 PREDICT_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
@@ -43,6 +44,9 @@ if __name__ == '__main__':
                         help='If this flag is set, split cv folds at the sample level instead '
                              'of the study level',
                         action='store_true')
+    parser.add_argument('--weighted_loss',
+                        help='Weight classes based on the inverse of their prevalence',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -66,12 +70,6 @@ if __name__ == '__main__':
     val_losses = []
 
     input_size = all_data[0].shape[0]
-    with open(args.model_config) as supervised_file:
-        model_config = yaml.safe_load(supervised_file)
-        model_config['input_size'] = input_size
-        # Output size is the same as the input because we're doing
-        # imputation
-        model_config['output_size'] = input_size
 
     # Split the data into two sets
     labeled_splits = labeled_data.get_cv_splits(num_splits=5,
@@ -79,6 +77,15 @@ if __name__ == '__main__':
                                                 split_by_sample=args.sample_split)
 
     del(all_data)
+
+    with open(args.model_config) as supervised_file:
+        model_config = yaml.safe_load(supervised_file)
+        model_config['input_size'] = input_size
+        model_config['output_size'] = len(label_encoder.classes_)
+
+    if args.weighted_loss:
+        loss_weights = calculate_loss_weights(labeled_data)
+        model_config['loss_weights'] = loss_weights
 
     accuracies = []
     balanced_accuracies = []
