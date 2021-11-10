@@ -478,6 +478,29 @@ def parse_metadata_file(metadata_path: Union[str, Path]) -> dict:
         return metadata
 
 
+def calculate_loss_weights(dataset: datasets.RefineBioLabeledDataset) -> torch.Tensor:
+    """
+    Calculate the weights to use in training based on the inverse of their class frequency
+
+    Arguments
+    ---------
+    dataset: The object containing data to calculate the class frequencies from
+
+    Returns
+    -------
+    weights: A 1-d tensor compatible with pytorch weighted loss functions
+    """
+    classes = dataset.get_label_encoder().classes_
+    counts = torch.zeros(len(classes))
+
+    for _, label in dataset:
+        counts[label] += 1
+
+    # Weight classes based on the inverse of their frequencies
+    weights = 1 / (counts + 1)
+    return weights
+
+
 @functools.lru_cache()
 def load_compendium_file(compendium_path: Union[str, Path]) -> pd.DataFrame:
     """
