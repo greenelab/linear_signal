@@ -14,6 +14,7 @@ import yaml
 
 from saged import utils, datasets, models
 from saged.models import LogisticRegression, PytorchSupervised
+from saged.utils import calculate_loss_weights
 
 
 PREDICT_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
@@ -35,6 +36,9 @@ if __name__ == '__main__':
     parser.add_argument('--neptune_config',
                         help='A yaml formatted file containing init information for '
                              'neptune logging')
+    parser.add_argument('--weighted_loss',
+                        help='Weight classes based on the inverse of their prevalence',
+                        action='store_true')
     parser.add_argument('--seed',
                         help='The random seed to be used in splitting data',
                         type=int,
@@ -51,8 +55,6 @@ if __name__ == '__main__':
 
     labeled_data = all_data.get_labeled()
 
-    # TODO should I reset the final layer like in standard transfer learning for the
-    #      second training run? Probably, right?
     labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
@@ -70,7 +72,11 @@ if __name__ == '__main__':
     with open(args.model_config) as supervised_file:
         model_config = yaml.safe_load(supervised_file)
         model_config['input_size'] = input_size
-        model_config['output_size'] = input_size
+        model_config['output_size'] = len(label_encoder.classes_)
+
+    if args.weighted_loss:
+        loss_weights = calculate_loss_weights(labeled_data)
+        model_config['loss_weights'] = loss_weights
 
     accuracies = []
     balanced_accuracies = []
@@ -95,6 +101,9 @@ if __name__ == '__main__':
         labeled_splits = train_data.get_cv_splits(num_splits=5,
                                                   seed=args.seed)
 
+        # Get the pretraining fraction of the data
+        pretrain_data.set_label_encoder(label_encoder)
+
         # Pretrain a model once
         neptune_run = None
         # Parse config file
@@ -109,9 +118,6 @@ if __name__ == '__main__':
 
         pretrain_base = copy.deepcopy(root_model)
 
-        # Get the pretraining fraction of the data
-        pretrain_data.set_label_encoder(label_encoder)
-
         # Ensure the model is training on GPU if possible
         if torch.cuda.is_available() and type(pretrain_base) != LogisticRegression:
             pretrain_base.model = pretrain_base.model.to('cuda')
@@ -122,7 +128,6 @@ if __name__ == '__main__':
 
         if issubclass(type(pretrain_base), PytorchSupervised):
             final_layer_name = pretrain_base.final_layer_name
-            print(final_layer_name)
             final_layer = getattr(pretrain_base.model, final_layer_name)
 
             # Reinitialize final layer
