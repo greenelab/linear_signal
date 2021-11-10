@@ -246,7 +246,7 @@ rule sample_level_control:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--sample_split "
-        "--weighted_loss"
+        "--weighted_loss "
 
 rule study_level_control:
     threads: 8
@@ -275,3 +275,4 @@ rule tissue_split:
         "results/tissue-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+        "--weighted_loss "
