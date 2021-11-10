@@ -246,6 +246,7 @@ rule sample_level_control:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--sample_split "
+        "--weighted_loss"
 
 rule study_level_control:
     threads: 8
