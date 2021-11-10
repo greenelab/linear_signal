@@ -1081,6 +1081,7 @@ class PytorchSupervised(ExpressionModel):
                  early_stopping_patience: int = 3,
                  pretrained_model: nn.Module = None,
                  final_layer_name: str = None,
+                 loss_weights: torch.Tensor = None,
                  **kwargs,
                  ) -> None:
         """
@@ -1109,6 +1110,7 @@ class PytorchSupervised(ExpressionModel):
         pretrained_model: If a model is passed here, it will be used instead of initializing
                           a new model
         final_layer_name: The name of the attribute in the model that stores the final layer
+        loss_weights: Per-class weights for handling class imbalance
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -1135,6 +1137,7 @@ class PytorchSupervised(ExpressionModel):
         self.save_path = save_path
         self.early_stopping_patience = early_stopping_patience
         self.final_layer_name = final_layer_name
+        self.loss_weights = loss_weights
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -1255,9 +1258,10 @@ class PytorchSupervised(ExpressionModel):
 
         self.loss_fn = self.loss_class()
         # If the loss function is weighted, weight losses based on the classes' prevalance
-        if torch.nn.modules.loss._WeightedLoss in self.loss_class.__bases__:
-            # TODO calculate class weights
-            self.loss_fn = self.loss_class(weight=None)
+        if (torch.nn.modules.loss._WeightedLoss in self.loss_class.__bases__ and
+           self.loss_weights is not None):
+            self.loss_weights = self.loss_weights.to(device)
+            self.loss_fn = self.loss_class(weight=self.loss_weights)
 
         if log_progress:
             run['experiment_name'] = self.experiment_name
