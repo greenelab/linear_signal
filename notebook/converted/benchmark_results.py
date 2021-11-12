@@ -1362,14 +1362,14 @@ plot += facet_grid('supervised ~ .')
 plot
 
 
-# In[17]:
+# In[5]:
 
 
 single_run_df = tissue_metrics[tissue_metrics['seed'] == '1']
 single_run_df.head()
 
 
-# In[18]:
+# In[6]:
 
 
 plot = ggplot(single_run_df, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
@@ -1496,14 +1496,14 @@ plot += facet_grid('supervised ~ .')
 plot
 
 
-# In[5]:
+# In[10]:
 
 
 single_run_df = tissue_metrics[tissue_metrics['seed'] == '1']
 single_run_df.head()
 
 
-# In[6]:
+# In[11]:
 
 
 plot = ggplot(single_run_df, aes(x='train_count', y='balanced_accuracy', color='is_pretrained')) 
@@ -1512,4 +1512,10 @@ plot += geom_point(alpha=.2)
 plot += ggtitle('Cross-tissue Single Run Points')
 plot += facet_grid('supervised ~ .')
 plot
+
+
+# In[ ]:
+
+
+
 
