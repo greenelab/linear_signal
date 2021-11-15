@@ -478,7 +478,7 @@ def parse_metadata_file(metadata_path: Union[str, Path]) -> dict:
         return metadata
 
 
-def calculate_loss_weights(dataset: datasets.RefineBioLabeledDataset) -> torch.Tensor:
+def calculate_loss_weights(dataset: "datasets.RefineBioLabeledDataset") -> torch.Tensor:
     """
     Calculate the weights to use in training based on the inverse of their class frequency
 
