@@ -7,6 +7,7 @@ import argparse
 import copy
 import gc
 import json
+import os
 
 import sklearn.metrics
 import torch
@@ -163,8 +164,6 @@ if __name__ == '__main__':
             print('Val data: {}'.format(len(val_data)))
             print('output size: {}'.format(output_size))
 
-            # TODO modify save path for no_pretraining_model
-
             neptune_run = None
             # Parse config file
             if args.neptune_config is not None:
@@ -188,6 +187,27 @@ if __name__ == '__main__':
                     model.model = model.model.to('cuda')
 
                 predictions, true_labels = model.evaluate(val_data)
+
+                # Don't save every model, just a representative one per class
+                if subset_number == 10 and args.seed == 0:
+                    model_save_path = model_config['save_path']
+                    model_save_path = os.path.dirname(model_save_path)
+
+                    # Sample or study split
+                    if args.sample_split:
+                        model_save_path += '/sample-level_'
+                    else:
+                        model_save_path += '/study-level_'
+
+                    # Model class
+                    model_save_path += '{}_'.format(model_config['name'])
+
+                    # Pretrained or not
+                    model_save_path += '{}_'.format(model_type)
+
+                    model_save_path += '.pt'
+
+                    model.save(model_save_path)
 
                 if type(model) != LogisticRegression:
                     model.model = model.model.to('cpu')
