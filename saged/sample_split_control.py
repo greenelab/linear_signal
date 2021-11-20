@@ -190,24 +190,25 @@ if __name__ == '__main__':
 
                 # Don't save every model, just a representative one per class
                 if subset_number == 10 and args.seed == 0:
-                    model_save_path = model_config['save_path']
-                    model_save_path = os.path.dirname(model_save_path)
+                    if 'save_path' in model_config:
+                        model_save_path = model_config['save_path']
+                        model_save_path = os.path.dirname(model_save_path)
 
-                    # Sample or study split
-                    if args.sample_split:
-                        model_save_path += '/sample-level_'
-                    else:
-                        model_save_path += '/study-level_'
+                        # Sample or study split
+                        if args.sample_split:
+                            model_save_path += '/sample-level_'
+                        else:
+                            model_save_path += '/study-level_'
 
-                    # Model class
-                    model_save_path += '{}_'.format(model_config['name'])
+                        # Model class
+                        model_save_path += '{}_'.format(model_config['name'])
 
-                    # Pretrained or not
-                    model_save_path += '{}_'.format(model_type)
+                        # Pretrained or not
+                        model_save_path += '{}_'.format(model_type)
 
-                    model_save_path += '.pt'
+                        model_save_path += '.pt'
 
-                    model.save(model_save_path)
+                        model.save_model(model_save_path)
 
                 if type(model) != LogisticRegression:
                     model.model = model.model.to('cpu')
