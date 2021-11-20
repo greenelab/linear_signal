@@ -117,9 +117,6 @@ if __name__ == '__main__':
 
     labeled_data.subset_samples_to_labels(labels_to_keep)
 
-    if args.weighted_loss:
-        loss_weights = utils.calculate_loss_weights(labeled_data)
-
     # Correct for batch effects
     if args.batch_correction_method is not None:
         labeled_data = all_data.get_labeled()
@@ -194,6 +191,8 @@ if __name__ == '__main__':
                 supervised_config = yaml.safe_load(supervised_file)
                 supervised_config['input_size'] = input_size
                 supervised_config['output_size'] = output_size
+                if args.weighted_loss:
+                    loss_weights = utils.calculate_loss_weights(train_data)
                 supervised_config['loss_weights'] = loss_weights
                 if 'save_path' in supervised_config:
                     # Append script-specific information to model save file
