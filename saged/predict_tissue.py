@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
             print('Val data: {}'.format(len(val_data)))
             input_size = len(train_data.get_features())
-            output_size = len(train_data.get_classes())
+            output_size = len(label_encoder.classes_)
             print('Classes: {}'.format(output_size))
 
             with open(args.supervised_config) as supervised_file:
