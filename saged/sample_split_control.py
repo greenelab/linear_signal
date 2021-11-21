@@ -204,7 +204,7 @@ if __name__ == '__main__':
                         model_save_path += '{}_'.format(model_config['name'])
 
                         # Pretrained or not
-                        model_save_path += '{}_'.format(model_type)
+                        model_save_path += '{}'.format(m_type)
 
                         model_save_path += '.pt'
 
