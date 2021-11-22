@@ -49,6 +49,9 @@ if __name__ == '__main__':
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
                         action='store_true')
+    parser.add_argument('--sex_label_path',
+                        help='The path to the labels from Flynn et al., if they should be used',
+                        default=None)
 
     args = parser.parse_args()
 
@@ -56,6 +59,11 @@ if __name__ == '__main__':
         dataset_config = yaml.safe_load(data_file)
 
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+
+    if 'sex_label_path' in args:
+        sample_to_label = utils.parse_flynn_labels(args.sex_label_path)
+        print(sample_to_label)
+
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     labeled_data = all_data.get_labeled()
@@ -196,9 +204,14 @@ if __name__ == '__main__':
 
                         # Sample or study split
                         if args.sample_split:
-                            model_save_path += '/sample-level_'
+                            model_save_path += '/sample-level'
                         else:
-                            model_save_path += '/study-level_'
+                            model_save_path += '/study-level'
+
+                        # Sex prediction or tissue prediction
+                        if 'sex_label_path' in args:
+                            model_save_path += '-sex-prediction'
+                        model_save_path += '_'
 
                         # Model class
                         model_save_path += '{}_'.format(model_config['name'])
