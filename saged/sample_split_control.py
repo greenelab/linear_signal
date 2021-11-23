@@ -62,12 +62,12 @@ if __name__ == '__main__':
 
     if 'sex_label_path' in args:
         sample_to_label = utils.parse_flynn_labels(args.sex_label_path)
-        print(sample_to_label)
 
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     labeled_data = all_data.get_labeled()
-    labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
+    if 'sex_label_path' not in args:
+        labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
 
