@@ -152,6 +152,7 @@ rule tissue_prediction:
         "--seed {wildcards.seed} "
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
 
 rule all_tissue_prediction:
     threads: 8
@@ -167,6 +168,7 @@ rule all_tissue_prediction:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
+        "--weighted_loss "
 
 rule tissue_prediction_be_corrected:
     threads: 8
@@ -184,6 +186,7 @@ rule tissue_prediction_be_corrected:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--batch_correction_method limma "
+        "--weighted_loss "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
@@ -200,6 +203,7 @@ rule all_tissue_prediction_be_corrected:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--batch_correction_method limma "
+        "--weighted_loss "
 
 rule transfer_tissue:
     input:
@@ -214,6 +218,7 @@ rule transfer_tissue:
         "results/tissue_impute.{wildcards.impute}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+        "--weighted_loss "
 
 rule all_tissue_biobert:
     threads: 16
@@ -230,7 +235,8 @@ rule all_tissue_biobert:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
-        "--biobert"
+        "--biobert "
+        "--weighted_loss "
 
 rule sample_level_control:
     threads: 8
@@ -261,6 +267,7 @@ rule study_level_control:
         "results/study-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+        "--weighted_loss "
 
 rule tissue_split:
     threads: 8

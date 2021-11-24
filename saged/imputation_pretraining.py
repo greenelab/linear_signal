@@ -40,6 +40,9 @@ if __name__ == '__main__':
                         help='The number of splits to use in cross-validation',
                         type=int,
                         default=5)
+    parser.add_argument('--weighted_loss',
+                        help='Weight classes based on the inverse of their prevalence',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -76,6 +79,13 @@ if __name__ == '__main__':
         # Output size is the same as the input because we're doing
         # imputation
         model_config['output_size'] = input_size
+
+        if args.weighted_loss:
+            loss_weights = utils.calculate_loss_weights(labeled_data)
+
+            # This won't affect the imputation model, but will kick in when to_classifier
+            # is called (which is exactly what we want)
+            model_config['loss_weights'] = loss_weights
 
     imputation_model_type = model_config.pop('name')
     SupervisedClass = getattr(models, imputation_model_type)

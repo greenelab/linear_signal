@@ -59,6 +59,9 @@ if __name__ == '__main__':
                         default=False, action='store_true')
     parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
                         default=False, action='store_true')
+    parser.add_argument('--weighted_loss',
+                        help='Weight classes based on the inverse of their prevalence',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -181,13 +184,16 @@ if __name__ == '__main__':
 
             print('Val data: {}'.format(len(val_data)))
             input_size = len(train_data.get_features())
-            output_size = len(train_data.get_classes())
+            output_size = len(label_encoder.classes_)
             print('Classes: {}'.format(output_size))
 
             with open(args.supervised_config) as supervised_file:
                 supervised_config = yaml.safe_load(supervised_file)
                 supervised_config['input_size'] = input_size
                 supervised_config['output_size'] = output_size
+                if args.weighted_loss:
+                    loss_weights = utils.calculate_loss_weights(train_data)
+                supervised_config['loss_weights'] = loss_weights
                 if 'save_path' in supervised_config:
                     # Append script-specific information to model save file
                     save_path = supervised_config['save_path']

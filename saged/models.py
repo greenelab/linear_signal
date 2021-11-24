@@ -677,7 +677,7 @@ class PytorchImpute(ExpressionModel):
                  save_path: str = None,
                  train_fraction: float = None,
                  train_count: float = None,
-                 early_stopping_patience: int = 3,
+                 early_stopping_patience: int = 7,
                  **kwargs,
                  ) -> None:
         """
@@ -1078,7 +1078,7 @@ class PytorchSupervised(ExpressionModel):
                  train_fraction: float = None,
                  train_count: float = None,
                  clip_grads: bool = False,
-                 early_stopping_patience: int = 3,
+                 early_stopping_patience: int = 7,
                  pretrained_model: nn.Module = None,
                  final_layer_name: str = None,
                  loss_weights: torch.Tensor = None,

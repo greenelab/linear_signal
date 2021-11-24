@@ -1,31 +1,14 @@
 # SAGED
 
 ![Status Badge](https://github.com/greenelab/saged/workflows/PythonTests/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/ben-heil/saged/badge.svg?branch=master)](https://coveralls.io/github/ben-heil/saged?branch=master)
+
+## Setup
+Before running scripts involving sex prediction, you need to download the Flynn et al. labels from [this link](https://figshare.com/s/985621c1705043421962) and put the results in the `saged/data` directory.
+Because of the settings on the figshare repo it isn't possible to incorporate that part of the data download into the Snakefile, otherwise I would.
 
 
-This repository contains analyses designed to determine whether the semi-supervised learning
-and representation learning are helpful in training models on gene expresion data.
 
-It is currently a work in progress, so trust but verify when using the code.
 
-Analysis plan:
-- Plot dataset by labeled and unlabeled samples. Look at whether batch effect correction tools get studies to overlap
-- After batch effect correction can we still differentiate between PBMCs and whole blood?
-- If we simulate unlabeled samples via VAE on the labeled samples, does semi-supervision work?
-This should test whether our models work correctly and whether the semi-supervision assumptions hold under controlled circumstances.
-- Across all diseases, can we predict the disease better by using a semi-supervised method?
-Compare semi-supervised and traditional supervised learning on neural net, SVM, and LR.
-- For a single disease, probably sepsis, how does decreasing the amount of data change how helpful semi-supervised learning is?
-Does this change when decreasing the amount of data uniformly or one study at a time?
-- How do we know that semi-supervised learning is what’s leading to an increase in performance?
-Do random projections work as well as PCA? Does a random tissue work as well as blood?
-- How do batch effects affect us?
-- - Do things get better after using ComBAT?
-- - What about PEER?
-- - Mutual nearest neighbors methods like INSCT might fit well here, but would struggle without labels I think?
-- Figure: To what extent does each source of variation affect the results?
-Similar to batch effect figure, but control for study, platform, both, and neither
 
 ### Neptune setup instructions
 If you want to log training results, you will need to sign up for a free neptune account [here](https://neptune.ai/).
