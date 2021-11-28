@@ -55,9 +55,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    with open(args.dataset_config) as data_file:
-        dataset_config = yaml.safe_load(data_file)
-
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
 
     if 'sex_label_path' in args:
