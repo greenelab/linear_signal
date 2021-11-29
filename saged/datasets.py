@@ -13,18 +13,37 @@ from saged import utils
 
 
 def correct_batch_effects(data: "RefineBioDataset",
-                          method: str = 'limma') -> "RefineBioDataset":
+                          method: str = 'limma',
+                          factor: str = 'studies') -> "RefineBioDataset":
+    """
+    Remove the linear signals in the data associated with the given factor
+
+    Arguments
+    ---------
+    data: The dataset to run batch effect correction on
+    method: The batch effect correction method to use (limma or comBat)
+    factor: The factor whose signal should be regressed out (studies or labels)
+    """
     samples = data.get_samples()
-    # We don't use get_studies here because we want the study for every sample
-    # instead of the set of all studies
-    studies = np.array([data.sample_to_study[sample] for sample in samples])
+
+    if factor == 'studies':
+        # We don't use get_studies here because we want the study for every sample
+        # instead of the set of all studies
+        sample_to_study = data.get_samples_to_studies()
+        batches = np.array([sample_to_study[sample] for sample in samples])
+    elif factor == 'labels':
+        sample_to_label = data.get_sample_to_label()
+        batches = np.array([sample_to_label[sample] for sample in samples])
+    else:
+        message = 'Valid factors for batch effect correction are "studies" and "labels"'
+        raise NotImplementedError(message)
 
     expression = data.current_expression.values
 
     if method == 'limma':
-        corrected_expression = utils.run_limma(expression, studies)
+        corrected_expression = utils.run_limma(expression, batches)
     elif method == 'combat':
-        corrected_expression = utils.run_combat(expression, studies)
+        corrected_expression = utils.run_combat(expression, batches)
     else:
         raise NotImplementedError('{} is not a batch effect correction method'.format(method))
 
@@ -1321,6 +1340,16 @@ class RefineBioLabeledDataset(RefineBioDataset, LabeledDataset):
             classes.add(self.sample_to_label[sample])
 
         return classes
+
+    def get_sample_to_label(self) -> Dict[str, str]:
+        """
+        Return the mapping from sample to (unencoded) label used by the dataset
+
+        Returns
+        -------
+        sample_to_label: A dict mapping each sample to its corresponding label
+        """
+        return self.sample_to_label
 
     def recode(self) -> None:
         """
