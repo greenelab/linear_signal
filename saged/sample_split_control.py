@@ -52,21 +52,28 @@ if __name__ == '__main__':
     parser.add_argument('--sex_label_path',
                         help='The path to the labels from Flynn et al., if they should be used',
                         default=None)
+    parser.add_argument('--signal_removal',
+                        help='If this flag is set, limma will be used to remove linear signals '
+                             'associated with the labels',
+                        action='store_true')
 
     args = parser.parse_args()
 
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
 
-    if 'sex_label_path' in args:
+    if args.sex_label_path is not None:
         sample_to_label = utils.parse_flynn_labels(args.sex_label_path)
 
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     labeled_data = all_data.get_labeled()
-    if 'sex_label_path' not in args:
+    if args.sex_label_path is None:
         labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
+
+    if args.signal_removal:
+        labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'labels')
 
     # Train the model on each fold
     train_studies = []
@@ -208,6 +215,9 @@ if __name__ == '__main__':
                         # Sex prediction or tissue prediction
                         if 'sex_label_path' in args:
                             model_save_path += '-sex-prediction'
+
+                        if args.signal_removal:
+                            model_save_path += '-signal-removed'
                         model_save_path += '_'
 
                         # Model class
