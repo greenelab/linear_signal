@@ -501,6 +501,34 @@ def calculate_loss_weights(dataset: "datasets.RefineBioLabeledDataset") -> torch
     return weights
 
 
+def parse_flynn_labels(label_path: str) -> Dict[str, str]:
+    """
+    Create a sample to label mapping from the Flynn et al. sex labels
+
+    Arguments
+    ---------
+    label_path: The path to the metadata file from Flynn et al
+
+    Returns
+    -------
+    sample_to_label: A sample to label mapping
+    """
+    metadata_df = pd.read_csv(label_path)
+
+    sample_to_label = {}
+
+    for _, row in metadata_df.iterrows():
+        if row['organism'] != 'human' or row['data_type'] != 'rnaseq':
+            continue
+
+        # Remove samples without known sex or from studies with male and female samples
+        # where the given sample's sex is unknown
+        if row['metadata_sex'] == 'male' or row['metadata_sex'] == 'female':
+            sample_to_label[row['sample_acc']] = row['metadata_sex']
+
+    return sample_to_label
+
+
 @functools.lru_cache()
 def load_compendium_file(compendium_path: Union[str, Path]) -> pd.DataFrame:
     """

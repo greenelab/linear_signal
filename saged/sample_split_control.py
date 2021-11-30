@@ -49,19 +49,35 @@ if __name__ == '__main__':
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
                         action='store_true')
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
+    parser.add_argument('--signal_removal',
+                        help='If this flag is set, limma will be used to remove linear signals '
+                             'associated with the labels',
+                        action='store_true')
 
     args = parser.parse_args()
 
-    with open(args.dataset_config) as data_file:
-        dataset_config = yaml.safe_load(data_file)
-
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+
+    if args.use_sex_labels:
+        with open(args.dataset_config) as in_file:
+            dataset_config = yaml.safe_load(in_file)
+
+        label_path = dataset_config.pop('sex_label_path')
+        sample_to_label = utils.parse_flynn_labels(label_path)
+
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     labeled_data = all_data.get_labeled()
-    labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
+    if not args.use_sex_labels:
+        labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
+
+    if args.signal_removal:
+        labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'labels')
 
     # Train the model on each fold
     train_studies = []
@@ -196,9 +212,17 @@ if __name__ == '__main__':
 
                         # Sample or study split
                         if args.sample_split:
-                            model_save_path += '/sample-level_'
+                            model_save_path += '/sample-level'
                         else:
-                            model_save_path += '/study-level_'
+                            model_save_path += '/study-level'
+
+                        # Sex prediction or tissue prediction
+                        if args.use_sex_labels:
+                            model_save_path += '-sex-prediction'
+
+                        if args.signal_removal:
+                            model_save_path += '-signal-removed'
+                        model_save_path += '_'
 
                         # Model class
                         model_save_path += '{}_'.format(model_config['name'])
