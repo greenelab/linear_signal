@@ -49,9 +49,9 @@ if __name__ == '__main__':
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
                         action='store_true')
-    parser.add_argument('--sex_label_path',
-                        help='The path to the labels from Flynn et al., if they should be used',
-                        default=None)
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
     parser.add_argument('--signal_removal',
                         help='If this flag is set, limma will be used to remove linear signals '
                              'associated with the labels',
@@ -61,13 +61,17 @@ if __name__ == '__main__':
 
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
 
-    if args.sex_label_path is not None:
-        sample_to_label = utils.parse_flynn_labels(args.sex_label_path)
+    if args.use_sex_labels:
+        with open(args.dataset_config) as in_file:
+            dataset_config = yaml.safe_load(in_file)
+
+        label_path = dataset_config.pop('sex_label_path')
+        sample_to_label = utils.parse_flynn_labels(label_path)
 
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     labeled_data = all_data.get_labeled()
-    if args.sex_label_path is None:
+    if not args.use_sex_labels:
         labeled_data.subset_samples_to_labels(PREDICT_TISSUES)
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
@@ -213,7 +217,7 @@ if __name__ == '__main__':
                             model_save_path += '/study-level'
 
                         # Sex prediction or tissue prediction
-                        if 'sex_label_path' in args:
+                        if args.use_sex_labels:
                             model_save_path += '-sex-prediction'
 
                         if args.signal_removal:
