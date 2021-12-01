@@ -300,7 +300,7 @@ rule sample_level_control_sex_prediction:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-        "--sex_label_path data/combined_human_mouse_meta_v2.csv "
+        "--use_sex_labels "
 
 rule sample_level_control_signal_removed:
     threads: 8
@@ -366,7 +366,7 @@ rule study_level_sex_prediction:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
-        "--sex_label_path data/combined_human_mouse_meta_v2.csv "
+        "--use_sex_labels "
 
 rule study_level_signal_removed:
     threads: 8
