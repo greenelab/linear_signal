@@ -80,6 +80,16 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # sample_split be_corrected
+        expand("results/sample-split-study-corrected.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # study_split be_corrected
+        expand("results/study-split-study-corrected.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
         # tissue_split
         expand("results/tissue-split.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -309,6 +319,23 @@ rule sample_level_control_signal_removed:
         "--weighted_loss "
         "--signal_removal "
 
+rule sample_level_be_corrected:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/sample-split-study-corrected.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "results/sample-split-study-corrected.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--sample_split "
+        "--weighted_loss "
+        "--study_correct  "
+
 rule study_level_control:
     threads: 8
     input:
@@ -324,7 +351,7 @@ rule study_level_control:
         "--seed {wildcards.seed} "
         "--weighted_loss "
 
-rule study_level_control_sex_prediction:
+rule study_level_sex_prediction:
     threads: 8
     input:
         "dataset_configs/recount_dataset.yml",
@@ -341,7 +368,7 @@ rule study_level_control_sex_prediction:
         "--weighted_loss "
         "--sex_label_path data/combined_human_mouse_meta_v2.csv "
 
-rule study_level_control_signal_removed:
+rule study_level_signal_removed:
     threads: 8
     input:
         "dataset_configs/recount_dataset.yml",
@@ -355,6 +382,23 @@ rule study_level_control_signal_removed:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
+        "--signal_removal "
+
+rule study_level_be_corrected:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/study-split-study-corrected.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "results/study-split-study-corrected.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--weighted_loss "
+        "--study_correct  "
 
 rule tissue_split:
     threads: 8
