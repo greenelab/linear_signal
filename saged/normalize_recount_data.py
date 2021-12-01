@@ -18,7 +18,7 @@ def parse_gene_lengths(file_path: str) -> Dict[str, int]:
 
     Returns
     -------
-    gene_to_len - A dict mapping ensembl gene ids to their lenght in base pairs
+    gene_to_len - A dict mapping ensembl gene ids to their length in base pairs
     """
     gene_to_len = {}
     with open(file_path) as in_file:
