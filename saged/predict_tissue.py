@@ -243,11 +243,11 @@ if __name__ == '__main__':
             supervised_model.free_memory()
 
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
-            positive_label_encoding = train_data.get_label_encoding(tissue_1)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
             if args.all_tissue:
                 f1_score = 'NA'
             else:
+                positive_label_encoding = train_data.get_label_encoding(tissue_1)
                 f1_score = sklearn.metrics.f1_score(true_labels, predictions,
                                                     pos_label=positive_label_encoding,
                                                     average='binary')
