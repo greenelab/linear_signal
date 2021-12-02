@@ -3,6 +3,7 @@ This benchmark compares the performance of different models in
 predicting tissue based on gene expression
 """
 import argparse
+import json
 import os
 
 import numpy as np
@@ -152,6 +153,9 @@ if __name__ == '__main__':
     supervised_val_sample_names = []
     supervised_train_sample_counts = []
     subset_percents = []
+    val_predictions = []
+    val_true_labels = []
+    val_encoders = []
     for i in range(len(labeled_splits)):
         for subset_number in range(1, 11, 1):
             # The new neptune version doesn't have a create_experiment function so you have to
@@ -248,6 +252,17 @@ if __name__ == '__main__':
                                                     pos_label=positive_label_encoding,
                                                     average='binary')
 
+            label_mapping = dict(zip(label_encoder.classes_,
+                                     range(len(label_encoder.classes_))))
+
+            # Ensure this mapping is correct
+            for label in label_mapping.keys():
+                assert label_encoder.transform([label]) == label_mapping[label]
+
+            encoder_string = json.dumps(label_mapping)
+            prediction_string = ','.join(list(predictions.astype('str')))
+            truth_string = ','.join(list(true_labels.astype('str')))
+
             accuracies.append(accuracy)
             balanced_accuracies.append(balanced_acc)
             f1_scores.append(f1_score)
@@ -256,6 +271,9 @@ if __name__ == '__main__':
             supervised_val_sample_names.append(','.join(val_data.get_samples()))
             supervised_train_sample_counts.append(len(train_data))
             subset_percents.append(subset_percent)
+            val_predictions.append(prediction_string)
+            val_true_labels.append(truth_string)
+            val_encoders.append(encoder_string)
 
             train_data.reset_filters()
             val_data.reset_filters()
@@ -263,7 +281,8 @@ if __name__ == '__main__':
     with open(args.out_file, 'w') as out_file:
         # Write header
         out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
-                       'val samples\ttrain sample count\tfraction of data used\n')
+                       'val samples\ttrain sample count\tfraction of data used\t'
+                       'val_predictions\tval_true_labels\tval_encoders\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
@@ -272,7 +291,10 @@ if __name__ == '__main__':
                               supervised_train_sample_names,
                               supervised_val_sample_names,
                               supervised_train_sample_counts,
-                              subset_percents
+                              subset_percents,
+                              val_predictions,
+                              val_true_labels,
+                              val_encoders
                               )
         for stats in result_iterator:
             stat_strings = [str(item) for item in stats]
