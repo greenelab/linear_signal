@@ -9,8 +9,7 @@ SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}
 
 NUM_SEEDS = 3
 
-#top_five_tissues = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain']
-top_five_tissues = ['Blood', 'Breast', 'Stem_Cell']
+top_five_tissues = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain']
 
 combo_iterator = itertools.combinations(top_five_tissues, 2)
 TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
@@ -266,7 +265,7 @@ rule all_tissue_prediction_be_corrected:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
-        "--batch_correction_method limma "
+        "--study_correct "
         "--weighted_loss "
 
 rule transfer_tissue:
