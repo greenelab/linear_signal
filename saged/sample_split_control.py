@@ -56,6 +56,10 @@ if __name__ == '__main__':
                         help='If this flag is set, limma will be used to remove linear signals '
                              'associated with the labels',
                         action='store_true')
+    parser.add_argument('--study_correct',
+                        help='If this flag is set, limma will be used to remove linear signals '
+                             'associated with the studies',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -78,6 +82,9 @@ if __name__ == '__main__':
 
     if args.signal_removal:
         labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'labels')
+
+    if args.study_correct:
+        labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'studies')
 
     # Train the model on each fold
     train_studies = []
@@ -222,7 +229,9 @@ if __name__ == '__main__':
 
                         if args.signal_removal:
                             model_save_path += '-signal-removed'
-                        model_save_path += '_'
+
+                        if args.study_correct:
+                            model_save_path += '-study-corrected'
 
                         # Model class
                         model_save_path += '{}_'.format(model_config['name'])
