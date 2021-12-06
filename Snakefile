@@ -50,6 +50,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        # Multi-tissue prediction sample split
+        expand("results/all-tissue_sample-split.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
         # Multi-tissue prediction be_corrected
         expand("results/all-tissue.{supervised}_{seed}_be_corrected.tsv",
                supervised=SUPERVISED,
@@ -214,6 +219,23 @@ rule all_tissue_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
+
+rule all_tissue_sample_split:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/all-tissue_sample-split.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/results/all-tissue_sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--sample_split"
 
 rule tissue_prediction_signal_removed:
     threads: 8
