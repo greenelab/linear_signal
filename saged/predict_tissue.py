@@ -76,6 +76,10 @@ if __name__ == '__main__':
     parser.add_argument('--use_sex_labels',
                         help='If this flag is set, use Flynn sex labels instead of tissue labels',
                         action='store_true')
+    parser.add_argument('--sample_split',
+                        help='If this flag is set, split cv folds at the sample level instead '
+                             'of the study level',
+                        action='store_true')
 
     args = parser.parse_args()
 
@@ -152,7 +156,9 @@ if __name__ == '__main__':
 
     # Get fivefold cross-validation splits
     print('CV splitting')
-    labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
+    labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits,
+                                                seed=args.seed,
+                                                split_by_sample=args.sample_split)
 
     # Train the model on each fold
     accuracies = []
