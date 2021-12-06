@@ -73,12 +73,21 @@ if __name__ == '__main__':
                         help='If this flag is set, limma will be used to remove linear signals '
                              'associated with the studies',
                         action='store_true')
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
 
     args = parser.parse_args()
 
+    expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+
     with open(args.dataset_config) as in_file:
         dataset_config = yaml.safe_load(in_file)
-    expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+
+        if args.use_sex_labels:
+            label_path = dataset_config.pop('sex_label_path')
+            sample_to_label = utils.parse_flynn_labels(label_path)
+
     if args.biobert:
         embeddings = utils.load_biobert_embeddings(args.dataset_config)
 
@@ -89,8 +98,8 @@ if __name__ == '__main__':
             header = header.replace('"', '')
             header = header.strip().split('\t')
 
-            # Add one to the indices to account for the index column in metadata not present in the
-            # header
+            # Add one to the indices to account for the index column in metadata not present in
+            # the header
             sample_index = header.index('external_id') + 1
             for line_number, metadata_line in enumerate(in_file):
                 line = metadata_line.strip().split('\t')
@@ -128,7 +137,8 @@ if __name__ == '__main__':
         tissue_2 = args.tissue2.replace('_', ' ')
         labels_to_keep = [tissue_1, tissue_2]
 
-    labeled_data.subset_samples_to_labels(labels_to_keep)
+    if not args.use_sex_labels:
+        labeled_data.subset_samples_to_labels(labels_to_keep)
 
     # Correct for batch effects
     if args.study_correct:
@@ -147,7 +157,6 @@ if __name__ == '__main__':
     # Train the model on each fold
     accuracies = []
     balanced_accuracies = []
-    f1_scores = []
     supervised_train_studies = []
     supervised_train_sample_names = []
     supervised_val_sample_names = []
@@ -181,9 +190,6 @@ if __name__ == '__main__':
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
-            if not args.all_tissue:
-                train_data = utils.subset_to_equal_ratio(train_data, val_data, tissue_1,
-                                                         tissue_2, args.seed)
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
@@ -219,6 +225,8 @@ if __name__ == '__main__':
 
                     if args.all_tissue and args.biobert:
                         extra_info = 'all_tissue_biobert'
+                    elif args.use_sex_labels:
+                        extra_info = 'sex_prediction'
                     elif args.all_tissue:
                         extra_info = 'all_tissue'
                     elif args.biobert:
@@ -244,13 +252,6 @@ if __name__ == '__main__':
 
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
-            if args.all_tissue:
-                f1_score = 'NA'
-            else:
-                positive_label_encoding = train_data.get_label_encoding(tissue_1)
-                f1_score = sklearn.metrics.f1_score(true_labels, predictions,
-                                                    pos_label=positive_label_encoding,
-                                                    average='binary')
 
             label_mapping = dict(zip(label_encoder.classes_,
                                      range(len(label_encoder.classes_))))
@@ -265,7 +266,6 @@ if __name__ == '__main__':
 
             accuracies.append(accuracy)
             balanced_accuracies.append(balanced_acc)
-            f1_scores.append(f1_score)
             supervised_train_studies.append(','.join(train_data.get_studies()))
             supervised_train_sample_names.append(','.join(train_data.get_samples()))
             supervised_val_sample_names.append(','.join(val_data.get_samples()))
@@ -280,13 +280,12 @@ if __name__ == '__main__':
 
     with open(args.out_file, 'w') as out_file:
         # Write header
-        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
+        out_file.write('accuracy\tbalanced_accuracy\ttrain studies\ttrain samples\t'
                        'val samples\ttrain sample count\tfraction of data used\t'
                        'val_predictions\tval_true_labels\tval_encoders\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
-                              f1_scores,
                               supervised_train_studies,
                               supervised_train_sample_names,
                               supervised_val_sample_names,
