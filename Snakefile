@@ -230,7 +230,7 @@ rule all_tissue_sample_split:
         "results/all-tissue_sample-split.{supervised}_{seed}.tsv"
     shell:
         "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/results/all-tissue_sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "results/all-tissue_sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
