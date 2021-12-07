@@ -3,6 +3,7 @@ This benchmark compares the performance of different models in
 predicting tissue based on gene expression
 """
 import argparse
+import json
 import os
 
 import numpy as np
@@ -13,16 +14,18 @@ from sklearn.preprocessing import MinMaxScaler
 
 from saged import utils, datasets, models
 
-AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
-                     'Umbilical Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
-                     'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil', 'Blood Vessel',
-                     'Spinal Cord', 'Testis', 'Placenta', 'Bladder', 'Adipose Tisse', 'Ovary',
-                     'Melanoma', 'Adrenal Gland', 'Bone', 'Pancreas', 'Penis',
-                     'Universal reference', 'Spleen', 'Brain reference', 'Large Intestine',
-                     'Esophagus', 'Small Intestine', 'Embryonic kidney', 'Thymus', 'Stomach',
-                     'Endometrium', 'Glioblastoma', 'Gall bladder', 'Lymph Nodes', 'Airway',
-                     'Appendix', 'Thyroid', 'Retina', 'Bowel tissue', 'Foreskin', 'Sperm', 'Foot',
-                     'Cerebellum', 'Cerebral cortex', 'Salivary Gland', 'Duodenum'
+# Note, the arguments will have underscores, but the labels in the encoder
+# will use spaces
+AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney',
+                     'Umbilical_Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
+                     'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil', 'Blood_Vessel',
+                     'Spinal_Cord', 'Testis', 'Placenta', 'Bladder', 'Adipose_Tisse', 'Ovary',
+                     'Melanoma', 'Adrenal_Gland', 'Bone', 'Pancreas', 'Penis',
+                     'Universal reference', 'Spleen', 'Brain_reference', 'Large_Intestine',
+                     'Esophagus', 'Small Intestine', 'Embryonic_kidney', 'Thymus', 'Stomach',
+                     'Endometrium', 'Glioblastoma', 'Gall_bladder', 'Lymph_Nodes', 'Airway',
+                     'Appendix', 'Thyroid', 'Retina', 'Bowel_tissue', 'Foreskin', 'Sperm', 'Foot',
+                     'Cerebellum', 'Cerebral_cortex', 'Salivary_Gland', 'Duodenum'
                      ]
 
 if __name__ == '__main__':
@@ -61,6 +64,14 @@ if __name__ == '__main__':
                         default=False, action='store_true')
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
+                        action='store_true')
+    parser.add_argument('--signal_removal',
+                        help='If this flag is set, limma will be used to remove linear signals '
+                             'associated with the labels',
+                        action='store_true')
+    parser.add_argument('--study_correct',
+                        help='If this flag is set, limma will be used to remove linear signals '
+                             'associated with the studies',
                         action='store_true')
 
     args = parser.parse_args()
@@ -113,15 +124,18 @@ if __name__ == '__main__':
                           'Blood Vessel', 'Spinal Cord', 'Testis', 'Placenta'
                           ]
     else:
-        labels_to_keep = [args.tissue1, args.tissue2]
+        tissue_1 = args.tissue1.replace('_', ' ')
+        tissue_2 = args.tissue2.replace('_', ' ')
+        labels_to_keep = [tissue_1, tissue_2]
 
     labeled_data.subset_samples_to_labels(labels_to_keep)
 
     # Correct for batch effects
-    if args.batch_correction_method is not None:
-        labeled_data = all_data.get_labeled()
-        labeled_data.subset_samples_to_labels(labels_to_keep)
-        labeled_data = datasets.correct_batch_effects(labeled_data, args.batch_correction_method)
+    if args.study_correct:
+        labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'studies')
+
+    if args.signal_removal:
+        labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'labels')
 
     labeled_data.recode()
     label_encoder = labeled_data.get_label_encoder()
@@ -139,6 +153,9 @@ if __name__ == '__main__':
     supervised_val_sample_names = []
     supervised_train_sample_counts = []
     subset_percents = []
+    val_predictions = []
+    val_true_labels = []
+    val_encoders = []
     for i in range(len(labeled_splits)):
         for subset_number in range(1, 11, 1):
             # The new neptune version doesn't have a create_experiment function so you have to
@@ -165,8 +182,8 @@ if __name__ == '__main__':
             val_data.set_label_encoder(label_encoder)
 
             if not args.all_tissue:
-                train_data = utils.subset_to_equal_ratio(train_data, val_data, args.tissue1,
-                                                         args.tissue2, args.seed)
+                train_data = utils.subset_to_equal_ratio(train_data, val_data, tissue_1,
+                                                         tissue_2, args.seed)
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
@@ -226,14 +243,25 @@ if __name__ == '__main__':
             supervised_model.free_memory()
 
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
-            positive_label_encoding = train_data.get_label_encoding(args.tissue1)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
             if args.all_tissue:
                 f1_score = 'NA'
             else:
+                positive_label_encoding = train_data.get_label_encoding(tissue_1)
                 f1_score = sklearn.metrics.f1_score(true_labels, predictions,
                                                     pos_label=positive_label_encoding,
                                                     average='binary')
+
+            label_mapping = dict(zip(label_encoder.classes_,
+                                     range(len(label_encoder.classes_))))
+
+            # Ensure this mapping is correct
+            for label in label_mapping.keys():
+                assert label_encoder.transform([label]) == label_mapping[label]
+
+            encoder_string = json.dumps(label_mapping)
+            prediction_string = ','.join(list(predictions.astype('str')))
+            truth_string = ','.join(list(true_labels.astype('str')))
 
             accuracies.append(accuracy)
             balanced_accuracies.append(balanced_acc)
@@ -243,6 +271,9 @@ if __name__ == '__main__':
             supervised_val_sample_names.append(','.join(val_data.get_samples()))
             supervised_train_sample_counts.append(len(train_data))
             subset_percents.append(subset_percent)
+            val_predictions.append(prediction_string)
+            val_true_labels.append(truth_string)
+            val_encoders.append(encoder_string)
 
             train_data.reset_filters()
             val_data.reset_filters()
@@ -250,7 +281,8 @@ if __name__ == '__main__':
     with open(args.out_file, 'w') as out_file:
         # Write header
         out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
-                       'val samples\ttrain sample count\tfraction of data used\n')
+                       'val samples\ttrain sample count\tfraction of data used\t'
+                       'val_predictions\tval_true_labels\tval_encoders\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
@@ -259,7 +291,10 @@ if __name__ == '__main__':
                               supervised_train_sample_names,
                               supervised_val_sample_names,
                               supervised_train_sample_counts,
-                              subset_percents
+                              subset_percents,
+                              val_predictions,
+                              val_true_labels,
+                              val_encoders
                               )
         for stats in result_iterator:
             stat_strings = [str(item) for item in stats]

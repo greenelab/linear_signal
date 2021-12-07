@@ -207,7 +207,8 @@ class LogisticRegression(ExpressionModel):
         ---------
         seed: The random seed to use in training
         """
-        self.model = sklearn.linear_model.LogisticRegression(random_state=seed)
+        self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
+                                                             class_weight='balanced')
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """

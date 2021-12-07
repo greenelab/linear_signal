@@ -1,10 +1,19 @@
+import itertools
+
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
 
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
 IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
 UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
 SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
+
 NUM_SEEDS = 3
+
+top_five_tissues = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain']
+
+combo_iterator = itertools.combinations(top_five_tissues, 2)
+TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
+
 
 wildcard_constraints:
     # Random seeds should be numbers
@@ -19,16 +28,22 @@ rule all:
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
         "data/no_scrna_tpm.pkl",
-        # TODO add data processing scripts
-        # Blood tissue vs breast tissue prediction
-        expand("results/Blood.Breast.{supervised}_{seed}.tsv",
+        # Binary classification
+        expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
                ),
-        # Blood tissue vs breast tissue be corrected
-        expand("results/Blood.Breast.{supervised}_{seed}_be_corrected.tsv",
+        # Binary classification study corrected
+        expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
+               ),
+        expand("results/{tissues}.{supervised}_{seed}-study_corrected.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
                ),
         # Multi-tissue prediction
         expand("results/all-tissue.{supervised}_{seed}.tsv",
@@ -200,23 +215,41 @@ rule all_tissue_prediction:
         "--all_tissue "
         "--weighted_loss "
 
-rule tissue_prediction_be_corrected:
+rule tissue_prediction_signal_removed:
     threads: 8
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
-        "results/{tissue1}.{tissue2}.{supervised}_{seed}_be_corrected.tsv"
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}-signal_removed.tsv"
     shell:
         "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}_be_corrected.tsv "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-signal_removed.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
-        "--batch_correction_method limma "
         "--weighted_loss "
+        "--signal_removal "
+
+rule tissue_prediction_study_corrected:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}-study_corrected.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-study_corrected.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--study_correct "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
@@ -232,7 +265,7 @@ rule all_tissue_prediction_be_corrected:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
-        "--batch_correction_method limma "
+        "--study_correct "
         "--weighted_loss "
 
 rule transfer_tissue:
