@@ -34,8 +34,13 @@ rule all:
                seed=range(0,NUM_SEEDS),
                tissues=TISSUE_STRING,
                ),
-        # Binary classification study corrected
+        # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
+               ),
+        expand("results/{tissues}.{supervised}_{seed}-signal_removed_sample_level.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=TISSUE_STRING,
@@ -188,7 +193,7 @@ rule create_biobert_embeddings:
         "--keep_text_order "
 
 rule tissue_prediction:
-    threads: 8
+    threads: 4
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
@@ -238,7 +243,7 @@ rule all_tissue_sample_split:
         "--sample_split"
 
 rule tissue_prediction_signal_removed:
-    threads: 8
+    threads: 4
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
@@ -255,8 +260,27 @@ rule tissue_prediction_signal_removed:
         "--weighted_loss "
         "--signal_removal "
 
+rule tissue_prediction_signal_removed_sample_split:
+    threads: 4
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}-signal_removed_sample_level.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-signal_removed_sample_level.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--signal_removal "
+        "--sample_split "
+
 rule tissue_prediction_study_corrected:
-    threads: 8
+    threads: 4
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
