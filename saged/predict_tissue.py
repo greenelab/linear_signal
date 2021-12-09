@@ -7,8 +7,10 @@ import json
 import os
 
 import numpy as np
+import optuna
 import pandas as pd
 import sklearn.metrics
+import torch
 import yaml
 from sklearn.preprocessing import MinMaxScaler
 
@@ -27,6 +29,62 @@ AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney'
                      'Appendix', 'Thyroid', 'Retina', 'Bowel_tissue', 'Foreskin', 'Sperm', 'Foot',
                      'Cerebellum', 'Cerebral_cortex', 'Salivary_Gland', 'Duodenum'
                      ]
+
+
+def objective(trial, train_list, supervised_config, weighted_loss=False, device='cpu'):
+    losses = []
+
+    with open(supervised_config) as supervised_file:
+        supervised_config = yaml.safe_load(supervised_file)
+    supervised_model_type = supervised_config.pop('name')
+
+    # TODO there should be a better way to do this which allows future skl models
+    if supervised_model_type != 'LogisticRegression':
+        lr = trial.suggest_float('learning_rate', 1e-6, 1)
+    l2_penalty = trial.suggest_float('l2_penalty', .01, 10)
+
+    for i in range(len(train_list)):
+        inner_train_list = train_list[:i] + train_list[i+1:]
+        LabeledDatasetClass = type(labeled_data)
+
+        inner_train_data = LabeledDatasetClass.from_list(inner_train_list)
+        inner_val_data = train_list[i]
+
+        input_size = len(inner_train_data.get_features())
+        output_size = len(label_encoder.classes_)
+
+        with open(args.supervised_config) as supervised_file:
+            supervised_config = yaml.safe_load(supervised_file)
+            supervised_config['input_size'] = input_size
+            supervised_config['output_size'] = output_size
+            supervised_config['log_progress'] = False
+            supervised_config['l2_penalty'] = l2_penalty
+            if supervised_model_type != 'LogisticRegression':
+                supervised_config['lr'] = lr
+            if weighted_loss:
+                loss_weights = utils.calculate_loss_weights(inner_train_data)
+                supervised_config['loss_weights'] = loss_weights
+
+        supervised_model_type = supervised_config.pop('name')
+        SupervisedClass = getattr(models, supervised_model_type)
+        supervised_model = SupervisedClass(**supervised_config)
+
+        supervised_model.fit(inner_train_data)
+
+        _, true_labels = supervised_model.evaluate(inner_val_data)
+        outputs = supervised_model.predict_proba(inner_val_data)
+
+        loss_fn = torch.nn.CrossEntropyLoss(weight=loss_weights)
+        out_tensor = torch.tensor(outputs, dtype=torch.float).to(device)
+        label_tensor = torch.tensor(true_labels, dtype=torch.long).to(device)
+        loss = loss_fn(out_tensor, label_tensor)
+
+        losses.append(loss)
+
+        supervised_model.free_memory()
+
+    return sum(losses)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -52,7 +110,7 @@ if __name__ == '__main__':
                         type=int,
                         default=42)
     parser.add_argument('--num_splits',
-                        help='The number of splits to use in cross-validation',
+                        help='The number of splits to use in cross-validation (must be at least 3)',
                         type=int,
                         default=5)
     parser.add_argument('--batch_correction_method',
@@ -80,8 +138,14 @@ if __name__ == '__main__':
                         help='If this flag is set, split cv folds at the sample level instead '
                              'of the study level',
                         action='store_true')
+    parser.add_argument('--disable_optuna',
+                        help="If this flag is set, don't to hyperparameter optimization",
+                        action='store_true')
 
     args = parser.parse_args()
+
+    if args.num_splits < 3:
+        raise ValueError('The num_splits argument must be >= 3')
 
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
 
@@ -171,7 +235,22 @@ if __name__ == '__main__':
     val_predictions = []
     val_true_labels = []
     val_encoders = []
+
+    tune_data = labeled_splits[0]
+
     for i in range(len(labeled_splits)):
+        # Select hyperparameters via nested CV
+        train_list = labeled_splits[:i] + labeled_splits[i+1:]
+
+        if not args.disable_optuna:
+            optuna.logging.set_verbosity(optuna.logging.ERROR)
+            study = optuna.create_study()
+            print('Tuning hyperparameters...')
+            study.optimize(lambda trial: objective(trial, train_list,
+                                                   args.supervised_config, args.weighted_loss),
+                           n_trials=25,
+                           show_progress_bar=True)
+
         for subset_number in range(1, 11, 1):
             # The new neptune version doesn't have a create_experiment function so you have to
             # reinitialize per-model
@@ -220,9 +299,16 @@ if __name__ == '__main__':
                 supervised_config = yaml.safe_load(supervised_file)
                 supervised_config['input_size'] = input_size
                 supervised_config['output_size'] = output_size
+
+                # Use optimized values for lr etc if available
+                if not args.disable_optuna:
+                    param_dict = study.best_params
+                    for param in param_dict.keys():
+                        supervised_config[param] = param_dict[param]
+
                 if args.weighted_loss:
                     loss_weights = utils.calculate_loss_weights(train_data)
-                supervised_config['loss_weights'] = loss_weights
+                    supervised_config['loss_weights'] = loss_weights
                 if 'save_path' in supervised_config:
                     # Append script-specific information to model save file
                     save_path = supervised_config['save_path']
