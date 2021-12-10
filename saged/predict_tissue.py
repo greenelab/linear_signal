@@ -31,7 +31,8 @@ AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney'
                      ]
 
 
-def objective(trial, train_list, supervised_config, weighted_loss=False, device='cpu'):
+def objective(trial, train_list, supervised_config,
+              label_encoder, weighted_loss=False, device='cpu'):
     losses = []
 
     with open(supervised_config) as supervised_file:
@@ -40,7 +41,7 @@ def objective(trial, train_list, supervised_config, weighted_loss=False, device=
 
     # TODO there should be a better way to do this which allows future skl models
     if supervised_model_type != 'LogisticRegression':
-        lr = trial.suggest_float('learning_rate', 1e-6, 1)
+        lr = trial.suggest_float('lr', 1e-6, 1)
     l2_penalty = trial.suggest_float('l2_penalty', .01, 10)
 
     for i in range(len(train_list)):
@@ -49,6 +50,13 @@ def objective(trial, train_list, supervised_config, weighted_loss=False, device=
 
         inner_train_data = LabeledDatasetClass.from_list(inner_train_list)
         inner_val_data = train_list[i]
+        inner_train_data.set_label_encoder(label_encoder)
+        inner_val_data.set_label_encoder(label_encoder)
+
+        # Sklearn logistic regression doesn't allow manually specifying classes
+        # so we have to do this
+        if len(inner_train_data.get_classes()) < len(inner_val_data.get_classes()):
+            continue
 
         input_size = len(inner_train_data.get_features())
         output_size = len(label_encoder.classes_)
@@ -246,8 +254,12 @@ if __name__ == '__main__':
             optuna.logging.set_verbosity(optuna.logging.ERROR)
             study = optuna.create_study()
             print('Tuning hyperparameters...')
-            study.optimize(lambda trial: objective(trial, train_list,
-                                                   args.supervised_config, args.weighted_loss),
+            study.optimize(lambda trial: objective(trial,
+                                                   train_list,
+                                                   args.supervised_config,
+                                                   label_encoder,
+                                                   args.weighted_loss,
+                                                   ),
                            n_trials=25,
                            show_progress_bar=True)
 
