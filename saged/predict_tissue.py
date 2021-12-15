@@ -91,7 +91,7 @@ def objective(trial, train_list, supervised_config,
 
         supervised_model.free_memory()
 
-    return sum(losses)
+    return sum(losses) / len(losses)
 
 
 if __name__ == '__main__':
@@ -251,9 +251,10 @@ if __name__ == '__main__':
         train_list = labeled_splits[:i] + labeled_splits[i+1:]
 
         if not args.disable_optuna:
-            optuna.logging.set_verbosity(optuna.logging.ERROR)
+            # optuna.logging.set_verbosity(optuna.logging.ERROR)
             study = optuna.create_study()
             print('Tuning hyperparameters...')
+            sampler = optuna.samplers.RandomSampler(seed=args.seed)
             study.optimize(lambda trial: objective(trial,
                                                    train_list,
                                                    args.supervised_config,
@@ -261,7 +262,8 @@ if __name__ == '__main__':
                                                    args.weighted_loss,
                                                    ),
                            n_trials=25,
-                           show_progress_bar=True)
+                           show_progress_bar=True,
+                           sampler=sampler)
 
         for subset_number in range(1, 11, 1):
             # The new neptune version doesn't have a create_experiment function so you have to
