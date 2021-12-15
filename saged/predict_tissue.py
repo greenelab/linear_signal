@@ -252,9 +252,10 @@ if __name__ == '__main__':
 
         if not args.disable_optuna:
             # optuna.logging.set_verbosity(optuna.logging.ERROR)
+            sampler = optuna.samplers.RandomSampler(seed=args.seed)
             study = optuna.create_study()
             print('Tuning hyperparameters...')
-            sampler = optuna.samplers.RandomSampler(seed=args.seed)
+
             study.optimize(lambda trial: objective(trial,
                                                    train_list,
                                                    args.supervised_config,
@@ -262,8 +263,7 @@ if __name__ == '__main__':
                                                    args.weighted_loss,
                                                    ),
                            n_trials=25,
-                           show_progress_bar=True,
-                           sampler=sampler)
+                           show_progress_bar=True)
 
         for subset_number in range(1, 11, 1):
             # The new neptune version doesn't have a create_experiment function so you have to
