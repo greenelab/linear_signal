@@ -41,8 +41,8 @@ def objective(trial, train_list, supervised_config,
 
     # TODO there should be a better way to do this which allows future skl models
     if supervised_model_type != 'LogisticRegression':
-        lr = trial.suggest_float('lr', 1e-6, 1)
-    l2_penalty = trial.suggest_float('l2_penalty', .01, 10)
+        lr = trial.suggest_float('lr', 1e-6, 10, log=True)
+    l2_penalty = trial.suggest_float('l2_penalty', 1e-6, 10, log=True)
 
     for i in range(len(train_list)):
         inner_train_list = train_list[:i] + train_list[i+1:]
