@@ -208,6 +208,7 @@ rule tissue_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
+        "--disable_optuna "
 
 rule all_tissue_prediction:
     threads: 8
@@ -224,6 +225,7 @@ rule all_tissue_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
+        "--disable_optuna "
 
 rule all_tissue_sample_split:
     threads: 8
@@ -240,7 +242,8 @@ rule all_tissue_sample_split:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--sample_split"
+        "--sample_split "
+        "--disable_optuna "
 
 rule tissue_prediction_signal_removed:
     threads: 4
@@ -259,6 +262,7 @@ rule tissue_prediction_signal_removed:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--signal_removal "
+        "--disable_optuna "
 
 rule tissue_prediction_signal_removed_sample_split:
     threads: 4
@@ -278,6 +282,7 @@ rule tissue_prediction_signal_removed_sample_split:
         "--weighted_loss "
         "--signal_removal "
         "--sample_split "
+        "--disable_optuna "
 
 rule tissue_prediction_study_corrected:
     threads: 4
@@ -296,6 +301,7 @@ rule tissue_prediction_study_corrected:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--study_correct "
+        "--disable_optuna "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
@@ -313,6 +319,7 @@ rule all_tissue_prediction_be_corrected:
         "--all_tissue "
         "--study_correct "
         "--weighted_loss "
+        "--disable_optuna "
 
 rule transfer_tissue:
     input:
@@ -446,6 +453,7 @@ rule study_level_sex_prediction:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
+        "--disable_optuna "
 
 rule study_level_signal_removed:
     threads: 8
