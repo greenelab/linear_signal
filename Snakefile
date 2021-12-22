@@ -40,6 +40,11 @@ rule all:
                seed=range(0,NUM_SEEDS),
                tissues=TISSUE_STRING,
                ),
+        expand("results/{tissues}.{supervised}_{seed}-split_signal.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
+               ),
         expand("results/{tissues}.{supervised}_{seed}-signal_removed_sample_level.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
@@ -261,7 +266,26 @@ rule tissue_prediction_signal_removed:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
+        "--disable_optuna "
+
+rule tissue_prediction_split_signal_removal:
+    threads: 4
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}-split_signal.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-split_signal.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--correction split_signal "
         "--disable_optuna "
 
 rule tissue_prediction_signal_removed_sample_split:
@@ -280,7 +304,7 @@ rule tissue_prediction_signal_removed_sample_split:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
         "--sample_split "
         "--disable_optuna "
 
@@ -300,7 +324,7 @@ rule tissue_prediction_study_corrected:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--study_correct "
+        "--correction study "
         "--disable_optuna "
 
 rule all_tissue_prediction_be_corrected:
@@ -317,7 +341,7 @@ rule all_tissue_prediction_be_corrected:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
-        "--study_correct "
+        "--correction study "
         "--weighted_loss "
         "--disable_optuna "
 
@@ -403,7 +427,7 @@ rule sample_level_control_signal_removed:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
 
 rule sample_level_be_corrected:
     threads: 8
@@ -420,7 +444,7 @@ rule sample_level_be_corrected:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-        "--study_correct  "
+        "--correction study  "
 
 rule study_level_control:
     threads: 8
@@ -469,7 +493,7 @@ rule study_level_signal_removed:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
 
 rule study_level_be_corrected:
     threads: 8
@@ -485,7 +509,7 @@ rule study_level_be_corrected:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
-        "--study_correct  "
+        "--correction study  "
 
 rule tissue_split:
     threads: 8
