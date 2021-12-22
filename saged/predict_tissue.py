@@ -3,6 +3,7 @@ This benchmark compares the performance of different models in
 predicting tissue based on gene expression
 """
 import argparse
+import copy
 import json
 import os
 
@@ -20,11 +21,11 @@ from saged import utils, datasets, models
 # will use spaces
 AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney',
                      'Umbilical_Cord', 'Lung', 'Epithelium', 'Prostate', 'Liver',
-                     'Heart', 'Skin', 'Colon', 'Bone Marrow', 'Muscle', 'Tonsil', 'Blood_Vessel',
+                     'Heart', 'Skin', 'Colon', 'Bone_Marrow', 'Muscle', 'Tonsil', 'Blood_Vessel',
                      'Spinal_Cord', 'Testis', 'Placenta', 'Bladder', 'Adipose_Tisse', 'Ovary',
                      'Melanoma', 'Adrenal_Gland', 'Bone', 'Pancreas', 'Penis',
-                     'Universal reference', 'Spleen', 'Brain_reference', 'Large_Intestine',
-                     'Esophagus', 'Small Intestine', 'Embryonic_kidney', 'Thymus', 'Stomach',
+                     'Universal_reference', 'Spleen', 'Brain_reference', 'Large_Intestine',
+                     'Esophagus', 'Small_Intestine', 'Embryonic_kidney', 'Thymus', 'Stomach',
                      'Endometrium', 'Glioblastoma', 'Gall_bladder', 'Lymph_Nodes', 'Airway',
                      'Appendix', 'Thyroid', 'Retina', 'Bowel_tissue', 'Foreskin', 'Sperm', 'Foot',
                      'Cerebellum', 'Cerebral_cortex', 'Salivary_Gland', 'Duodenum'
@@ -131,14 +132,15 @@ if __name__ == '__main__':
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
                         action='store_true')
-    parser.add_argument('--signal_removal',
-                        help='If this flag is set, limma will be used to remove linear signals '
-                             'associated with the labels',
-                        action='store_true')
-    parser.add_argument('--study_correct',
-                        help='If this flag is set, limma will be used to remove linear signals '
-                             'associated with the studies',
-                        action='store_true')
+    parser.add_argument('--correction',
+                        help='This argument determines how signal correction will be run.'
+                             'If "signal", then all linear signal associated with the labels '
+                             'will be removed.'
+                             'If "study", all linear study signal will be removed'
+                             'If "split_signal", all linear signal will be removed separately '
+                             'for the train and val sets',
+                        choices=['uncorrected', 'signal', 'study', 'split_signal'],
+                        default='uncorrected')
     parser.add_argument('--use_sex_labels',
                         help='If this flag is set, use Flynn sex labels instead of tissue labels',
                         action='store_true')
@@ -217,10 +219,9 @@ if __name__ == '__main__':
         labeled_data.subset_samples_to_labels(labels_to_keep)
 
     # Correct for batch effects
-    if args.study_correct:
+    if args.correction == 'study':
         labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'studies')
-
-    if args.signal_removal:
+    elif args.correction == 'signal':
         labeled_data = datasets.correct_batch_effects(labeled_data, 'limma', 'labels')
 
     labeled_data.recode()
@@ -289,7 +290,13 @@ if __name__ == '__main__':
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
-            # Now that the ratio is correct, actually subset the samples
+            if args.correction == 'signal_split':
+                # Using deep copies to make sure data resets to its original state each iteration
+                train_data = datasets.correct_batch_effects(copy.deepcopy(train_data),
+                                                            'limma', 'labels')
+                val_data = datasets.correct_batch_effects(copy.deepcopy(val_data),
+                                                          'limma', 'labels')
+
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
 
@@ -340,7 +347,7 @@ if __name__ == '__main__':
                     else:
                         extra_info = '{}-{}'.format(args.tissue1, args.tissue2)
 
-                    extra_info = '{}_{}_{}'.format(extra_info, i, args.seed)
+                    extra_info = '{}_{}_{}_{}'.format(extra_info, args.correction, i, args.seed)
 
                     save_path = os.path.join(save_path + '_predict_{}.pt'.format(extra_info))
 
