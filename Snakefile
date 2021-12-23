@@ -90,11 +90,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # sample_split sex prediction
-        expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
+        # # sample_split sex prediction
+        # expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
+        #        supervised=SUPERVISED,
+        #        seed=range(0,NUM_SEEDS),
+        #        ),
         # study_split sex prediction
         expand("results/study-split-sex-prediction.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
