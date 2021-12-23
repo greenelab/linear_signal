@@ -329,13 +329,112 @@ class LogisticRegression(ExpressionModel):
             return pickle.load(model_file)
 
 
-class BatchLogRegSKL(ExpressionModel):
+class BatchLogRegSKL(LogisticRegression):
     """
     A logistic regression implementation designed to be as close to the Pytorch implementation
     as possible while still using skl
     """
-    def __init__():
-        raise NotImplementedError
+    def __init__(self,
+                 seed: int,
+                 l2_penalty: float,
+                 epochs: int,
+                 batch_size: int,
+                 train_fraction: float,
+                 class_weights: dict,
+                 **kwargs,
+                 ) -> None:
+        """
+        Arguments
+        ---------
+        seed: The random seed to use in training
+        lr: The learning rate to be used in training
+        l2_penalty: The inverse of the degree to which weights should be penalized
+        epochs: The number of passes over the data to perform while training
+        batch_size: The number of samples to use in each gradient descent step
+        train_fraction: The percent of data to be used in training (vs for early stopping)
+        class_weights:
+        """
+        self.model = sklearn.linear_model.SGDClassifier(random_state=seed,
+                                                        loss='log',
+                                                        penalty='l2',
+                                                        C=l2_penalty,
+                                                        class_weight=class_weights,
+                                                        )
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.train_fraction = train_fraction
+
+    def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "BatchLogRegSKL":
+        """
+        Train a model using the given labeled data (based on PytorchSupervised train code)
+
+        Arguments
+        ---------
+        dataset: The labeled data for use in training
+        run: An object for logging training data if applicable
+
+        Returns
+        -------
+        results: The metrics produced during the training process
+
+        Raises
+        ------
+        AttributeError: If train_count and train_fraction are both None
+        """
+        seed = self.seed
+        epochs = self.epochs
+        batch_size = self.batch_size
+
+        train_count = None
+        train_fraction = None
+        train_fraction = getattr(self, 'train_fraction', None)
+        if train_fraction is None:
+            train_count = self.train_count
+        classes = dataset.get_classes()
+        classes = [dataset.get_label_encoding(c) for c in classes]
+
+        # Split dataset and create dataloaders
+        train_dataset, tune_dataset = dataset.train_test_split(train_fraction=train_fraction,
+                                                               train_study_count=train_count,
+                                                               seed=seed)
+
+        train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
+        epochs_since_best = 0
+        best_tune_score = None
+        best_model = None
+        for _ in tqdm(range(epochs)):
+            self.model.train()
+
+            for batch in train_loader:
+                expression, labels = batch
+
+                # Ignore singleton batches
+                if len(expression) <= 1:
+                    continue
+
+                self.model.partial_fit(expression, labels, classes)
+
+            tune_expression, tune_labels = tune_dataset.get_all_data()
+            tune_score = self.model.score(tune_expression, tune_labels)
+
+            if best_tune_score is None or tune_score < best_tune_score:
+                best_tune_score = tune_score
+                # Keep track of model state for the best model
+                best_model = copy.deepcopy(self.model)
+            else:
+                epochs_since_best += 1
+
+            if epochs_since_best >= self.early_stopping_patience:
+                break
+
+        # Load model
+        self.model = best_model
+
+        save_path = getattr(self, 'save_path', None)
+        if save_path is not None:
+            self.save_model(save_path)
+
+        return self
 
 
 class LogRegSKL(LogisticRegression):
@@ -346,7 +445,6 @@ class LogRegSKL(LogisticRegression):
     def __init__(self,
                  seed: int,
                  l2_penalty: float,
-                 epochs: int,
                  **kwargs,
                  ) -> None:
         """
@@ -357,14 +455,14 @@ class LogRegSKL(LogisticRegression):
         seed: The random seed to use in training
         lr: The learning rate to be used in training
         l2_penalty: The inverse of the degree to which weights should be penalized
-        epochs: The number of passes over the data to perform
         """
         self.model = sklearn.linear_model.SGDClassifier(random_state=seed,
                                                         loss='log',
                                                         class_weight='balanced',
                                                         penalty='l2',
-                                                        C=l2_penalty,
-                                                        max_iter=epochs)
+                                                        C=l2_penalty)
+
+
 
 
 class ThreeLayerWideBottleneck(nn.Module):
