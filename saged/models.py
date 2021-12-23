@@ -207,8 +207,8 @@ class ExpressionModel(ABC):
 
 
 class LogisticRegression(ExpressionModel):
-    """ A model API similar to the scikit-learn API that will specify the
-    base acceptable functions for models in this module's benchmarking code
+    """
+    A logistic regression implementation designed to hew closely to the skl defaults
     """
 
     def __init__(self,
@@ -223,11 +223,12 @@ class LogisticRegression(ExpressionModel):
         ---------
         seed: The random seed to use in training
         lr: The learning rate to be used in training
+        l2_penalty: The inverse of the degree to which weights should be penalized
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
                                                              class_weight='balanced',
                                                              penalty='l2',
-                                                             C=l2_penalty)
+                                                             C=l2_penalty,)
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
@@ -326,6 +327,44 @@ class LogisticRegression(ExpressionModel):
         """
         with open(model_path, 'rb') as model_file:
             return pickle.load(model_file)
+
+
+class BatchLogRegSKL(ExpressionModel):
+    """
+    A logistic regression implementation designed to be as close to the Pytorch implementation
+    as possible while still using skl
+    """
+    def __init__():
+        raise NotImplementedError
+
+
+class LogRegSKL(LogisticRegression):
+    """
+    A logistic regression implementation designed to be like the default but use gradient descent
+    optimization instead of the lgfbs optimizer
+    """
+    def __init__(self,
+                 seed: int,
+                 l2_penalty: float,
+                 epochs: int,
+                 **kwargs,
+                 ) -> None:
+        """
+        The initializer for the LogRegSKL class
+
+        Arguments
+        ---------
+        seed: The random seed to use in training
+        lr: The learning rate to be used in training
+        l2_penalty: The inverse of the degree to which weights should be penalized
+        epochs: The number of passes over the data to perform
+        """
+        self.model = sklearn.linear_model.SGDClassifier(random_state=seed,
+                                                        loss='log',
+                                                        class_weight='balanced',
+                                                        penalty='l2',
+                                                        C=l2_penalty,
+                                                        max_iter=epochs)
 
 
 class ThreeLayerWideBottleneck(nn.Module):
