@@ -445,6 +445,7 @@ class LogRegSKL(LogisticRegression):
     def __init__(self,
                  seed: int,
                  l2_penalty: float,
+                 lr: float,
                  **kwargs,
                  ) -> None:
         """
@@ -453,16 +454,18 @@ class LogRegSKL(LogisticRegression):
         Arguments
         ---------
         seed: The random seed to use in training
-        lr: The learning rate to be used in training
         l2_penalty: The inverse of the degree to which weights should be penalized
+        lr: The learning rate to be used in training
         """
         self.model = sklearn.linear_model.SGDClassifier(random_state=seed,
                                                         loss='log',
                                                         class_weight='balanced',
                                                         penalty='l2',
-                                                        C=l2_penalty)
-
-
+                                                        learning_rate='constant',
+                                                        eta0=lr,
+                                                        alpha=l2_penalty,
+                                                        early_stopping=True,
+                                                        n_iter_no_change=7)
 
 
 class ThreeLayerWideBottleneck(nn.Module):

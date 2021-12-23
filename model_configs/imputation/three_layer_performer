@@ -1,0 +1,16 @@
+name: "PytorchImpute"
+optimizer_name: "Adam"
+loss_name: "MSELoss"
+model_name: "ImputePerformer"
+layer_count: 3
+num_heads: 8
+dim: 8
+lr: .001
+weight_decay: 0
+device: "cuda"
+seed: 42
+epochs: 1000
+batch_size: 8
+log_progress: True
+train_fraction: .8
+save_path: "logs/models"
