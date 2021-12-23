@@ -501,6 +501,32 @@ def calculate_loss_weights(dataset: "datasets.RefineBioLabeledDataset") -> torch
     return weights
 
 
+def calculate_skl_class_weights(dataset: "datasets.RefineBioLabeledDataset") -> Dict[int, float]:
+    """
+    Calculate the weights to use in training based on the inverse of their class frequency
+    and return a dict for use by skl models
+
+    Arguments
+    ---------
+    dataset: The object containing data to calculate the class frequencies from
+
+    Returns
+    -------
+    class_weights: A mapping between encoded class labels and their inverse frequencies
+    """
+    classes = dataset.get_label_encoder().classes_
+    counts = torch.zeros(len(classes))
+
+    for _, label in dataset:
+        counts[label] += 1
+
+    class_weights = {}
+    for i, count in enumerate(counts):
+        class_weights[i] = 1 / (count + 1)
+
+    return class_weights
+
+
 def parse_flynn_labels(label_path: str) -> Dict[str, str]:
     """
     Create a sample to label mapping from the Flynn et al. sex labels
