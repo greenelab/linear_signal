@@ -12,6 +12,7 @@ import neptune.new as neptune
 import numpy as np
 import sklearn.linear_model
 import sklearn.decomposition
+import sklearn.metrics
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -336,11 +337,13 @@ class BatchLogRegSKL(LogisticRegression):
     """
     def __init__(self,
                  seed: int,
+                 lr: float,
                  l2_penalty: float,
                  epochs: int,
                  batch_size: int,
                  train_fraction: float,
                  class_weights: dict,
+                 early_stopping_patience: int=7,
                  **kwargs,
                  ) -> None:
         """
@@ -357,12 +360,15 @@ class BatchLogRegSKL(LogisticRegression):
         self.model = sklearn.linear_model.SGDClassifier(random_state=seed,
                                                         loss='log',
                                                         penalty='l2',
-                                                        C=l2_penalty,
+                                                        alpha=l2_penalty,
+                                                        eta0=lr,
                                                         class_weight=class_weights,
                                                         )
         self.epochs = epochs
         self.batch_size = batch_size
         self.train_fraction = train_fraction
+        self.seed = seed
+        self.early_stopping_patience = early_stopping_patience
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "BatchLogRegSKL":
         """
@@ -400,13 +406,12 @@ class BatchLogRegSKL(LogisticRegression):
 
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
         epochs_since_best = 0
-        best_tune_score = None
+        best_tune_loss = None
         best_model = None
         for _ in tqdm(range(epochs)):
-            self.model.train()
-
             for batch in train_loader:
                 expression, labels = batch
+                labels = labels.squeeze()
 
                 # Ignore singleton batches
                 if len(expression) <= 1:
@@ -415,10 +420,11 @@ class BatchLogRegSKL(LogisticRegression):
                 self.model.partial_fit(expression, labels, classes)
 
             tune_expression, tune_labels = tune_dataset.get_all_data()
-            tune_score = self.model.score(tune_expression, tune_labels)
+            tune_probs = self.model.predict_proba(tune_expression)
+            tune_loss = sklearn.metrics.log_loss(tune_labels, tune_probs)
 
-            if best_tune_score is None or tune_score < best_tune_score:
-                best_tune_score = tune_score
+            if best_tune_loss is None or tune_loss < best_tune_loss:
+                best_tune_loss = tune_loss
                 # Keep track of model state for the best model
                 best_model = copy.deepcopy(self.model)
             else:
