@@ -421,7 +421,7 @@ class BatchLogRegSKL(LogisticRegression):
 
             tune_expression, tune_labels = tune_dataset.get_all_data()
             tune_probs = self.model.predict_proba(tune_expression)
-            tune_loss = sklearn.metrics.log_loss(tune_labels, tune_probs)
+            tune_loss = sklearn.metrics.log_loss(tune_labels, tune_probs, labels=classes)
 
             if best_tune_loss is None or tune_loss < best_tune_loss:
                 best_tune_loss = tune_loss
