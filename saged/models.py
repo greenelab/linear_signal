@@ -343,7 +343,7 @@ class BatchLogRegSKL(LogisticRegression):
                  batch_size: int,
                  train_fraction: float,
                  class_weights: dict,
-                 early_stopping_patience: int=7,
+                 early_stopping_patience: int = 7,
                  **kwargs,
                  ) -> None:
         """
