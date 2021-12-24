@@ -215,6 +215,7 @@ class LogisticRegression(ExpressionModel):
     def __init__(self,
                  seed: int,
                  l2_penalty: float,
+                 solver: str,
                  **kwargs,
                  ) -> None:
         """
@@ -225,11 +226,13 @@ class LogisticRegression(ExpressionModel):
         seed: The random seed to use in training
         lr: The learning rate to be used in training
         l2_penalty: The inverse of the degree to which weights should be penalized
+        solver: The method to use to optimize the loss
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
                                                              class_weight='balanced',
                                                              penalty='l2',
-                                                             C=l2_penalty,)
+                                                             C=l2_penalty,
+                                                             solver=solver)
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
@@ -355,7 +358,7 @@ class BatchLogRegSKL(LogisticRegression):
         epochs: The number of passes over the data to perform while training
         batch_size: The number of samples to use in each gradient descent step
         train_fraction: The percent of data to be used in training (vs for early stopping)
-        class_weights:
+        class_weights: A mapping between class ids and their corresponding weights
         """
         self.model = sklearn.linear_model.SGDClassifier(random_state=seed,
                                                         loss='log',
@@ -472,6 +475,10 @@ class LogRegSKL(LogisticRegression):
                                                         alpha=l2_penalty,
                                                         early_stopping=True,
                                                         n_iter_no_change=7)
+
+    # TODO 1/3/22 - SGDClassifier uses one-vs rest classifiers instead of multinomial, making
+    # it not a true comparison. However, the logistic regression class doesn't allow partial
+    # fitting. Decide what the best way forward is after break
 
 
 class ThreeLayerWideBottleneck(nn.Module):
@@ -1257,6 +1264,10 @@ class PytorchImpute(ExpressionModel):
         return self
 
 
+class PytorchFullDataSupervised(PytorchSupervised):
+    def fit
+
+
 class PytorchSupervised(ExpressionModel):
     """
     A wrapper class implementing the ExpressionModel API while remaining modular enough
@@ -1282,6 +1293,7 @@ class PytorchSupervised(ExpressionModel):
                  pretrained_model: nn.Module = None,
                  final_layer_name: str = None,
                  loss_weights: torch.Tensor = None,
+                 full_batch_training: bool = False,
                  **kwargs,
                  ) -> None:
         """
@@ -1311,6 +1323,8 @@ class PytorchSupervised(ExpressionModel):
                           a new model
         final_layer_name: The name of the attribute in the model that stores the final layer
         loss_weights: Per-class weights for handling class imbalance
+        full_batch_training: If this flag is True, ignore batch_size and train on full dataset in
+                             each epoch
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -1338,6 +1352,7 @@ class PytorchSupervised(ExpressionModel):
         self.early_stopping_patience = early_stopping_patience
         self.final_layer_name = final_layer_name
         self.loss_weights = loss_weights
+        self.full_batch_training = full_batch_training
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -1450,6 +1465,9 @@ class PytorchSupervised(ExpressionModel):
         if len(tune_dataset) == 0:
             sys.stderr.write('Warning: Tune dataset is empty')
             tune_is_empty = True
+
+        if self.full_batch_training:
+            batch_size = len(train_dataset)
 
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
