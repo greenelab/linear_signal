@@ -1264,10 +1264,6 @@ class PytorchImpute(ExpressionModel):
         return self
 
 
-class PytorchFullDataSupervised(PytorchSupervised):
-    def fit
-
-
 class PytorchSupervised(ExpressionModel):
     """
     A wrapper class implementing the ExpressionModel API while remaining modular enough
