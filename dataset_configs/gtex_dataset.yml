@@ -1,0 +1,3 @@
+name: "RefineBioMixedDataset"
+compendium_path: "data/gtex_normalized.pkl"
+metadata_path: "data/gtex_sample_attributes.txt"
