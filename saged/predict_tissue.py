@@ -365,7 +365,8 @@ if __name__ == '__main__':
                 if args.weighted_loss:
                     loss_weights = utils.calculate_loss_weights(train_data)
                     supervised_config['loss_weights'] = loss_weights
-                    if supervised_config['name'] == 'BatchLogRegSKL' or supervised_config['name'] == 'LogRegSKL':
+                    if (supervised_config['name'] == 'BatchLogRegSKL' or
+                       supervised_config['name'] == 'LogRegSKL'):
                         weights = utils.calculate_skl_class_weights(train_data)
                         supervised_config['class_weights'] = weights
                 if 'save_path' in supervised_config:
