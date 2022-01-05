@@ -55,6 +55,47 @@ BLOOD_KEYS = ['blood',
               ]
 
 
+def get_gtex_sample_to_study(metadata_path: str) -> Dict[str, str]:
+    """
+    Parse the GTEx metadata file to map samples to studies
+
+    Arguments
+    ---------
+    metadata_path: The path to the GTEx sample attributes file
+
+    Returns
+    -------
+    sample_to_study: A dict mapping each sample to its corresponding study
+    """
+    metadata_df = pd.read_csv(metadata_path, sep='\t', index_col=0)
+
+    samples = metadata_df.index
+    donors = [s.split('-')[1] for s in samples]
+
+    sample_to_study = dict(zip(samples, donors))
+
+    return sample_to_study
+
+
+def get_gtex_sample_to_label(metadata_path: str) -> Dict[str, str]:
+    """
+    Parse the GTEx metadata file to map samples to tissues
+
+    Arguments
+    ---------
+    metadata_path: The path to the GTEx sample attributes file
+
+    Returns
+    -------
+    sample_to_study: A dict mapping each sample to its corresponding tissue
+    """
+    metadata_df = pd.read_csv(metadata_path, sep='\t', index_col=0)
+
+    sample_to_label = dict(zip(metadata_df.index, metadata_df['SMTS']))
+
+    return sample_to_label
+
+
 def remove_study_samples(dataset: "datasets.ExpressionDataset",
                          studies_to_remove: Set[str]) -> "datasets.ExpressionDataset":
     """
