@@ -6,6 +6,7 @@ import argparse
 import copy
 import json
 import os
+from typing import Tuple
 
 import numpy as np
 import optuna
@@ -95,68 +96,8 @@ def objective(trial, train_list, supervised_config,
     return sum(losses) / len(losses)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('dataset_config',
-                        help='The yaml formatted dataset configuration file. For more information '
-                             'about this file read the comments in the example_dataset.yml file')
-    parser.add_argument('supervised_config',
-                        help='The yaml formatted model configuration file. For more information '
-                             'about this file read the comments in the example_model.yml file')
-    parser.add_argument('out_file',
-                        help='The file to save the results to')
-    parser.add_argument('--tissue1',
-                        help='The first tissue to be predicted from the data',
-                        default='Blood', choices=AVAILABLE_TISSUES)
-    parser.add_argument('--tissue2',
-                        help='The second tissue to be predicted from the data',
-                        default='Breast', choices=AVAILABLE_TISSUES)
-    parser.add_argument('--neptune_config',
-                        help='A yaml formatted file containing init information for '
-                             'neptune logging')
-    parser.add_argument('--seed',
-                        help='The random seed to be used in splitting data',
-                        type=int,
-                        default=42)
-    parser.add_argument('--num_splits',
-                        help='The number of splits to use in cross-validation (must be at least 3)',
-                        type=int,
-                        default=5)
-    parser.add_argument('--batch_correction_method',
-                        help='The method to use to correct for batch effects',
-                        default=None)
-    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
-                        default=False, action='store_true')
-    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
-                        default=False, action='store_true')
-    parser.add_argument('--weighted_loss',
-                        help='Weight classes based on the inverse of their prevalence',
-                        action='store_true')
-    parser.add_argument('--correction',
-                        help='This argument determines how signal correction will be run.'
-                             'If "signal", then all linear signal associated with the labels '
-                             'will be removed.'
-                             'If "study", all linear study signal will be removed'
-                             'If "split_signal", all linear signal will be removed separately '
-                             'for the train and val sets',
-                        choices=['uncorrected', 'signal', 'study', 'split_signal'],
-                        default='uncorrected')
-    parser.add_argument('--use_sex_labels',
-                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
-                        action='store_true')
-    parser.add_argument('--sample_split',
-                        help='If this flag is set, split cv folds at the sample level instead '
-                             'of the study level',
-                        action='store_true')
-    parser.add_argument('--disable_optuna',
-                        help="If this flag is set, don't to hyperparameter optimization",
-                        action='store_true')
-
-    args = parser.parse_args()
-
-    if args.num_splits < 3:
-        raise ValueError('The num_splits argument must be >= 3')
-
+def prep_recount_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDataset,
+                                                         datasets.RefineBioLabeledDataset]:
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
 
     with open(args.dataset_config) as in_file:
@@ -217,6 +158,100 @@ if __name__ == '__main__':
 
     if not args.use_sex_labels:
         labeled_data.subset_samples_to_labels(labels_to_keep)
+
+    return all_data, labeled_data
+
+
+def prep_gtex_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDataset,
+                                                      datasets.RefineBioLabeledDataset]:
+    # Load dataset config
+    with open(args.dataset_config) as in_file:
+        dataset_config = yaml.safe_load(in_file)
+    metadata_path = dataset_config['metadata_path']
+
+    expression_df = utils.load_compendium_file(dataset_config['compendium_path']).T
+
+    sample_to_study = utils.get_gtex_sample_to_study(metadata_path)
+    sample_to_label = utils.get_gtex_sample_to_label(metadata_path)
+    # Create MixedDataset
+    all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
+
+    # TODO decide whether to use a subset of labels
+    labeled_data = all_data.get_labeled()
+
+    return all_data, labeled_data
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataset_config',
+                        help='The yaml formatted dataset configuration file. For more information '
+                             'about this file read the comments in the example_dataset.yml file')
+    parser.add_argument('supervised_config',
+                        help='The yaml formatted model configuration file. For more information '
+                             'about this file read the comments in the example_model.yml file')
+    parser.add_argument('out_file',
+                        help='The file to save the results to')
+    parser.add_argument('--dataset',
+                        help='The dataset to be used',
+                        choices=['gtex', 'recount'],
+                        default='recount')
+    parser.add_argument('--tissue1',
+                        help='The first tissue to be predicted from the data',
+                        default='Blood', choices=AVAILABLE_TISSUES)
+    parser.add_argument('--tissue2',
+                        help='The second tissue to be predicted from the data',
+                        default='Breast', choices=AVAILABLE_TISSUES)
+    parser.add_argument('--neptune_config',
+                        help='A yaml formatted file containing init information for '
+                             'neptune logging')
+    parser.add_argument('--seed',
+                        help='The random seed to be used in splitting data',
+                        type=int,
+                        default=42)
+    parser.add_argument('--num_splits',
+                        help='The number of splits to use in cross-validation (must be at least 3)',
+                        type=int,
+                        default=5)
+    parser.add_argument('--batch_correction_method',
+                        help='The method to use to correct for batch effects',
+                        default=None)
+    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
+                        default=False, action='store_true')
+    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
+                        default=False, action='store_true')
+    parser.add_argument('--weighted_loss',
+                        help='Weight classes based on the inverse of their prevalence',
+                        action='store_true')
+    parser.add_argument('--correction',
+                        help='This argument determines how signal correction will be run.'
+                             'If "signal", then all linear signal associated with the labels '
+                             'will be removed.'
+                             'If "study", all linear study signal will be removed'
+                             'If "split_signal", all linear signal will be removed separately '
+                             'for the train and val sets',
+                        choices=['uncorrected', 'signal', 'study', 'split_signal'],
+                        default='uncorrected')
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
+    parser.add_argument('--sample_split',
+                        help='If this flag is set, split cv folds at the sample level instead '
+                             'of the study level',
+                        action='store_true')
+    parser.add_argument('--disable_optuna',
+                        help="If this flag is set, don't to hyperparameter optimization",
+                        action='store_true')
+
+    args = parser.parse_args()
+
+    if args.num_splits < 3:
+        raise ValueError('The num_splits argument must be >= 3')
+
+    if args.dataset == 'recount':
+        all_data, labeled_data = prep_recount_data(args)
+    elif args.dataset == 'gtex':
+        all_data, labeled_data = prep_gtex_data(args)
 
     # Correct for batch effects
     if args.correction == 'study':
@@ -350,7 +385,8 @@ if __name__ == '__main__':
                     else:
                         extra_info = '{}-{}'.format(args.tissue1, args.tissue2)
 
-                    extra_info = '{}_{}_{}_{}'.format(extra_info, args.correction, i, args.seed)
+                    extra_info = '{}_{}_{}_{}_{}'.format(args.dataset, extra_info,
+                                                         args.correction, i, args.seed)
 
                     save_path = os.path.join(save_path + '_predict_{}.pt'.format(extra_info))
 
