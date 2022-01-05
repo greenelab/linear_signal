@@ -28,6 +28,10 @@ rule all:
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
         "data/no_scrna_tpm.pkl",
+        "data/gtex_tpm.gct",
+        "data/gtex_sample_attributes.txt",
+        "data/gtex_normalized.tsv",
+        "data/gtex_normalized.pkl",
         # Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -122,6 +126,11 @@ rule all:
                ),
         # tissue_split
         expand("results/tissue-split.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # Multi-tissue prediction
+        expand("results/gtex-all-tissue.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -525,3 +534,43 @@ rule tissue_split:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
+
+rule download_gtex:
+    output:
+        "data/gtex_tpm.gct",
+        "data/gtex_sample_attributes.txt"
+    shell:
+        "bash saged/download_gtex_data.sh"
+
+rule preprocess_gtex:
+    input:
+        "data/gtex_tpm.gct"
+    output:
+        "data/gtex_normalized.tsv"
+    shell:
+        "python saged/normalize_gtex.py data/gtex_tpm.gct data/gtex_normalized.tsv"
+
+rule pickle_gtex:
+    input:
+        "data/gtex_normalized.tsv"
+    output:
+        "data/gtex_normalized.pkl"
+    shell:
+        "python saged/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
+
+rule all_tissue_gtex:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex"
