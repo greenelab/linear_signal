@@ -34,8 +34,13 @@ rule all:
                seed=range(0,NUM_SEEDS),
                tissues=TISSUE_STRING,
                ),
-        # Binary classification study corrected
+        # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
+               ),
+        expand("results/{tissues}.{supervised}_{seed}-signal_removed_sample_level.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=TISSUE_STRING,
@@ -47,6 +52,11 @@ rule all:
                ),
         # Multi-tissue prediction
         expand("results/all-tissue.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # Multi-tissue prediction sample split
+        expand("results/all-tissue_sample-split.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -183,7 +193,7 @@ rule create_biobert_embeddings:
         "--keep_text_order "
 
 rule tissue_prediction:
-    threads: 8
+    threads: 4
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
@@ -215,8 +225,25 @@ rule all_tissue_prediction:
         "--all_tissue "
         "--weighted_loss "
 
-rule tissue_prediction_signal_removed:
+rule all_tissue_sample_split:
     threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/all-tissue_sample-split.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/all-tissue_sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--sample_split"
+
+rule tissue_prediction_signal_removed:
+    threads: 4
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
@@ -233,8 +260,27 @@ rule tissue_prediction_signal_removed:
         "--weighted_loss "
         "--signal_removal "
 
+rule tissue_prediction_signal_removed_sample_split:
+    threads: 4
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}-signal_removed_sample_level.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-signal_removed_sample_level.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--signal_removal "
+        "--sample_split "
+
 rule tissue_prediction_study_corrected:
-    threads: 8
+    threads: 4
     input:
         "dataset_configs/recount_dataset.yml",
         supervised_model = "model_configs/supervised/{supervised}.yml",
@@ -317,23 +363,23 @@ rule sample_level_control:
         "--sample_split "
         "--weighted_loss "
 
-rule sample_level_control_sex_prediction:
-    threads: 8
-    input:
-        "dataset_configs/recount_dataset.yml",
-        "data/combined_human_mouse_meta_v2.csv",
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    output:
-        "results/sample-split-sex-prediction.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
-        "results/sample-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--sample_split "
-        "--weighted_loss "
-        "--use_sex_labels "
+# rule sample_level_control_sex_prediction:
+#     threads: 8
+#     input:
+#         "dataset_configs/recount_dataset.yml",
+#         "data/combined_human_mouse_meta_v2.csv",
+#         supervised_model = "model_configs/supervised/{supervised}.yml",
+#         dataset_config = "dataset_configs/recount_dataset.yml",
+#     output:
+#         "results/sample-split-sex-prediction.{supervised}_{seed}.tsv"
+#     shell:
+#         "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+#         "results/sample-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
+#         "--neptune_config neptune.yml "
+#         "--seed {wildcards.seed} "
+#         "--sample_split "
+#         "--weighted_loss "
+#         "--use_sex_labels "
 
 rule sample_level_control_signal_removed:
     threads: 8
@@ -394,7 +440,7 @@ rule study_level_sex_prediction:
     output:
         "results/study-split-sex-prediction.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/study-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "

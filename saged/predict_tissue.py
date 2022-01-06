@@ -7,8 +7,10 @@ import json
 import os
 
 import numpy as np
+import optuna
 import pandas as pd
 import sklearn.metrics
+import torch
 import yaml
 from sklearn.preprocessing import MinMaxScaler
 
@@ -27,6 +29,70 @@ AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney'
                      'Appendix', 'Thyroid', 'Retina', 'Bowel_tissue', 'Foreskin', 'Sperm', 'Foot',
                      'Cerebellum', 'Cerebral_cortex', 'Salivary_Gland', 'Duodenum'
                      ]
+
+
+def objective(trial, train_list, supervised_config,
+              label_encoder, weighted_loss=False, device='cpu'):
+    losses = []
+
+    with open(supervised_config) as supervised_file:
+        supervised_config = yaml.safe_load(supervised_file)
+    supervised_model_type = supervised_config.pop('name')
+
+    # TODO there should be a better way to do this which allows future skl models
+    if supervised_model_type != 'LogisticRegression':
+        lr = trial.suggest_float('lr', 1e-6, 10, log=True)
+    l2_penalty = trial.suggest_float('l2_penalty', 1e-6, 10, log=True)
+
+    for i in range(len(train_list)):
+        inner_train_list = train_list[:i] + train_list[i+1:]
+        LabeledDatasetClass = type(labeled_data)
+
+        inner_train_data = LabeledDatasetClass.from_list(inner_train_list)
+        inner_val_data = train_list[i]
+        inner_train_data.set_label_encoder(label_encoder)
+        inner_val_data.set_label_encoder(label_encoder)
+
+        # Sklearn logistic regression doesn't allow manually specifying classes
+        # so we have to do this
+        if len(inner_train_data.get_classes()) < len(inner_val_data.get_classes()):
+            continue
+
+        input_size = len(inner_train_data.get_features())
+        output_size = len(label_encoder.classes_)
+
+        with open(args.supervised_config) as supervised_file:
+            supervised_config = yaml.safe_load(supervised_file)
+            supervised_config['input_size'] = input_size
+            supervised_config['output_size'] = output_size
+            supervised_config['log_progress'] = False
+            supervised_config['l2_penalty'] = l2_penalty
+            if supervised_model_type != 'LogisticRegression':
+                supervised_config['lr'] = lr
+            if weighted_loss:
+                loss_weights = utils.calculate_loss_weights(inner_train_data)
+                supervised_config['loss_weights'] = loss_weights
+
+        supervised_model_type = supervised_config.pop('name')
+        SupervisedClass = getattr(models, supervised_model_type)
+        supervised_model = SupervisedClass(**supervised_config)
+
+        supervised_model.fit(inner_train_data)
+
+        _, true_labels = supervised_model.evaluate(inner_val_data)
+        outputs = supervised_model.predict_proba(inner_val_data)
+
+        loss_fn = torch.nn.CrossEntropyLoss(weight=loss_weights)
+        out_tensor = torch.tensor(outputs, dtype=torch.float).to(device)
+        label_tensor = torch.tensor(true_labels, dtype=torch.long).to(device)
+        loss = loss_fn(out_tensor, label_tensor)
+
+        losses.append(loss)
+
+        supervised_model.free_memory()
+
+    return sum(losses) / len(losses)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -52,7 +118,7 @@ if __name__ == '__main__':
                         type=int,
                         default=42)
     parser.add_argument('--num_splits',
-                        help='The number of splits to use in cross-validation',
+                        help='The number of splits to use in cross-validation (must be at least 3)',
                         type=int,
                         default=5)
     parser.add_argument('--batch_correction_method',
@@ -73,12 +139,31 @@ if __name__ == '__main__':
                         help='If this flag is set, limma will be used to remove linear signals '
                              'associated with the studies',
                         action='store_true')
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
+    parser.add_argument('--sample_split',
+                        help='If this flag is set, split cv folds at the sample level instead '
+                             'of the study level',
+                        action='store_true')
+    parser.add_argument('--disable_optuna',
+                        help="If this flag is set, don't to hyperparameter optimization",
+                        action='store_true')
 
     args = parser.parse_args()
 
+    if args.num_splits < 3:
+        raise ValueError('The num_splits argument must be >= 3')
+
+    expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+
     with open(args.dataset_config) as in_file:
         dataset_config = yaml.safe_load(in_file)
-    expression_df, sample_to_label, sample_to_study = utils.load_recount_data(args.dataset_config)
+
+        if args.use_sex_labels:
+            label_path = dataset_config.pop('sex_label_path')
+            sample_to_label = utils.parse_flynn_labels(label_path)
+
     if args.biobert:
         embeddings = utils.load_biobert_embeddings(args.dataset_config)
 
@@ -89,8 +174,8 @@ if __name__ == '__main__':
             header = header.replace('"', '')
             header = header.strip().split('\t')
 
-            # Add one to the indices to account for the index column in metadata not present in the
-            # header
+            # Add one to the indices to account for the index column in metadata not present in
+            # the header
             sample_index = header.index('external_id') + 1
             for line_number, metadata_line in enumerate(in_file):
                 line = metadata_line.strip().split('\t')
@@ -128,7 +213,8 @@ if __name__ == '__main__':
         tissue_2 = args.tissue2.replace('_', ' ')
         labels_to_keep = [tissue_1, tissue_2]
 
-    labeled_data.subset_samples_to_labels(labels_to_keep)
+    if not args.use_sex_labels:
+        labeled_data.subset_samples_to_labels(labels_to_keep)
 
     # Correct for batch effects
     if args.study_correct:
@@ -142,12 +228,13 @@ if __name__ == '__main__':
 
     # Get fivefold cross-validation splits
     print('CV splitting')
-    labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits, seed=args.seed)
+    labeled_splits = labeled_data.get_cv_splits(num_splits=args.num_splits,
+                                                seed=args.seed,
+                                                split_by_sample=args.sample_split)
 
     # Train the model on each fold
     accuracies = []
     balanced_accuracies = []
-    f1_scores = []
     supervised_train_studies = []
     supervised_train_sample_names = []
     supervised_val_sample_names = []
@@ -156,7 +243,28 @@ if __name__ == '__main__':
     val_predictions = []
     val_true_labels = []
     val_encoders = []
+
+    tune_data = labeled_splits[0]
+
     for i in range(len(labeled_splits)):
+        # Select hyperparameters via nested CV
+        train_list = labeled_splits[:i] + labeled_splits[i+1:]
+
+        if not args.disable_optuna:
+            # optuna.logging.set_verbosity(optuna.logging.ERROR)
+            sampler = optuna.samplers.RandomSampler(seed=args.seed)
+            study = optuna.create_study()
+            print('Tuning hyperparameters...')
+
+            study.optimize(lambda trial: objective(trial,
+                                                   train_list,
+                                                   args.supervised_config,
+                                                   label_encoder,
+                                                   args.weighted_loss,
+                                                   ),
+                           n_trials=25,
+                           show_progress_bar=True)
+
         for subset_number in range(1, 11, 1):
             # The new neptune version doesn't have a create_experiment function so you have to
             # reinitialize per-model
@@ -181,9 +289,6 @@ if __name__ == '__main__':
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
-            if not args.all_tissue:
-                train_data = utils.subset_to_equal_ratio(train_data, val_data, tissue_1,
-                                                         tissue_2, args.seed)
             # Now that the ratio is correct, actually subset the samples
             train_data = train_data.subset_samples(subset_percent,
                                                    args.seed)
@@ -208,9 +313,16 @@ if __name__ == '__main__':
                 supervised_config = yaml.safe_load(supervised_file)
                 supervised_config['input_size'] = input_size
                 supervised_config['output_size'] = output_size
+
+                # Use optimized values for lr etc if available
+                if not args.disable_optuna:
+                    param_dict = study.best_params
+                    for param in param_dict.keys():
+                        supervised_config[param] = param_dict[param]
+
                 if args.weighted_loss:
                     loss_weights = utils.calculate_loss_weights(train_data)
-                supervised_config['loss_weights'] = loss_weights
+                    supervised_config['loss_weights'] = loss_weights
                 if 'save_path' in supervised_config:
                     # Append script-specific information to model save file
                     save_path = supervised_config['save_path']
@@ -219,6 +331,8 @@ if __name__ == '__main__':
 
                     if args.all_tissue and args.biobert:
                         extra_info = 'all_tissue_biobert'
+                    elif args.use_sex_labels:
+                        extra_info = 'sex_prediction'
                     elif args.all_tissue:
                         extra_info = 'all_tissue'
                     elif args.biobert:
@@ -244,13 +358,6 @@ if __name__ == '__main__':
 
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
-            if args.all_tissue:
-                f1_score = 'NA'
-            else:
-                positive_label_encoding = train_data.get_label_encoding(tissue_1)
-                f1_score = sklearn.metrics.f1_score(true_labels, predictions,
-                                                    pos_label=positive_label_encoding,
-                                                    average='binary')
 
             label_mapping = dict(zip(label_encoder.classes_,
                                      range(len(label_encoder.classes_))))
@@ -265,7 +372,6 @@ if __name__ == '__main__':
 
             accuracies.append(accuracy)
             balanced_accuracies.append(balanced_acc)
-            f1_scores.append(f1_score)
             supervised_train_studies.append(','.join(train_data.get_studies()))
             supervised_train_sample_names.append(','.join(train_data.get_samples()))
             supervised_val_sample_names.append(','.join(val_data.get_samples()))
@@ -280,13 +386,12 @@ if __name__ == '__main__':
 
     with open(args.out_file, 'w') as out_file:
         # Write header
-        out_file.write('accuracy\tbalanced_accuracy\tf1_score\ttrain studies\ttrain samples\t'
+        out_file.write('accuracy\tbalanced_accuracy\ttrain studies\ttrain samples\t'
                        'val samples\ttrain sample count\tfraction of data used\t'
                        'val_predictions\tval_true_labels\tval_encoders\n')
 
         result_iterator = zip(accuracies,
                               balanced_accuracies,
-                              f1_scores,
                               supervised_train_studies,
                               supervised_train_sample_names,
                               supervised_val_sample_names,

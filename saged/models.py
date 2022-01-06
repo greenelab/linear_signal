@@ -160,6 +160,21 @@ class ExpressionModel(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def predict_proba(self, dataset: LabeledDataset) -> np.ndarray:
+        """
+        Return the raw predictions for each item in an unlabeled dataset
+
+        Arguments
+        ---------
+        dataset: The data the model should be applied to
+
+        Returns
+        -------
+        outputs: The raw model probabilities for the input
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
         """
         Return the predicted and true labels for a dataset
@@ -198,6 +213,7 @@ class LogisticRegression(ExpressionModel):
 
     def __init__(self,
                  seed: int,
+                 l2_penalty: float,
                  **kwargs,
                  ) -> None:
         """
@@ -206,9 +222,12 @@ class LogisticRegression(ExpressionModel):
         Arguments
         ---------
         seed: The random seed to use in training
+        l2_penalty: The inverse of the degree to which the weights should be penalized
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
-                                                             class_weight='balanced')
+                                                             class_weight='balanced',
+                                                             penalty='l2',
+                                                             C=l2_penalty)
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
@@ -242,6 +261,21 @@ class LogisticRegression(ExpressionModel):
         """
         X = dataset.get_all_data()
         return self.model.predict(X)
+
+    def predict_proba(self, dataset: LabeledDataset) -> np.ndarray:
+        """
+        Return the raw predictions for each item in an unlabeled dataset
+
+        Arguments
+        ---------
+        dataset: The data the model should be applied to
+
+        Returns
+        -------
+        outputs: The raw model probabilities for the input
+        """
+        X, _ = dataset.get_all_data()
+        return self.model.predict_proba(X)
 
     def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -1023,6 +1057,25 @@ class PytorchImpute(ExpressionModel):
         predictions = utils.sigmoid_to_predictions(output)
         return predictions
 
+    def predict_proba(self, dataset: LabeledDataset) -> np.ndarray:
+        """
+        Return the raw predictions for each item in an unlabeled dataset
+
+        Arguments
+        ---------
+        dataset: The data the model should be applied to
+
+        Returns
+        -------
+        outputs: The raw model probabilities for the input
+        """
+        data, _ = dataset.get_all_data()
+        X = torch.Tensor(data).float().to(self.device)
+
+        self.model.eval()
+        output = self.model(X)
+        return output
+
     def evaluate(self, dataset: MixedDataset) -> float:
         """
         Return the loss for the validation dataset
@@ -1068,7 +1121,7 @@ class PytorchSupervised(ExpressionModel):
                  loss_name: str,
                  model_name: str,
                  lr: float,
-                 weight_decay: float,
+                 l2_penalty: float,
                  device: str,
                  seed: int,
                  epochs: int,
@@ -1094,7 +1147,7 @@ class PytorchSupervised(ExpressionModel):
         loss_name: The loss function class to use
         model_name: The type of classifier to use
         lr: The learning rate for the optimizer
-        weight_decay: The weight decay for the optimizer
+        l2_penalty: The weight decay for the optimizer
         device: The name of the device to train on (typically 'cpu', 'cuda', or 'tpu')
         seed: The random seed to use in stochastic operations
         epochs: The number of epochs to train the model
@@ -1153,7 +1206,7 @@ class PytorchSupervised(ExpressionModel):
 
         self.optimizer = optimizer_class(self.model.parameters(),
                                          lr=lr,
-                                         weight_decay=weight_decay)
+                                         weight_decay=l2_penalty)
 
         self.device = torch.device(device)
 
@@ -1397,6 +1450,25 @@ class PytorchSupervised(ExpressionModel):
         output = self.model(X)
         predictions = utils.sigmoid_to_predictions(output)
         return predictions
+
+    def predict_proba(self, dataset: LabeledDataset) -> np.ndarray:
+        """
+        Return the raw predictions for each item in an unlabeled dataset
+
+        Arguments
+        ---------
+        dataset: The data the model should be applied to
+
+        Returns
+        -------
+        outputs: The raw model probabilities for the input
+        """
+        data, _ = dataset.get_all_data()
+        X = torch.Tensor(data).float().to(self.device)
+
+        self.model.eval()
+        output = self.model(X)
+        return output
 
     def evaluate(self, dataset: LabeledDataset) -> Tuple[np.ndarray, np.ndarray]:
         """

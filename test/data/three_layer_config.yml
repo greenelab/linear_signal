@@ -3,7 +3,7 @@ optimizer_name: "Adam"
 loss_name: "CrossEntropyLoss"
 model_name: "ThreeLayerClassifier"
 lr: .001
-weight_decay: 0
+l2_penalty: 0
 device: "cpu"
 seed: 42
 epochs: 10
