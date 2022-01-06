@@ -222,7 +222,7 @@ class LogisticRegression(ExpressionModel):
         Arguments
         ---------
         seed: The random seed to use in training
-        lr: The learning rate to be used in training
+        l2_penalty: The inverse of the degree to which the weights should be penalized
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
                                                              class_weight='balanced',
