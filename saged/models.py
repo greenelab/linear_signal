@@ -224,7 +224,6 @@ class LogisticRegression(ExpressionModel):
         Arguments
         ---------
         seed: The random seed to use in training
-        lr: The learning rate to be used in training
         l2_penalty: The inverse of the degree to which weights should be penalized
         solver: The method to use to optimize the loss
         """
