@@ -176,8 +176,15 @@ def prep_gtex_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDat
     # Create MixedDataset
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
-    # TODO decide whether to use a subset of labels
     labeled_data = all_data.get_labeled()
+
+    if not args.all_tissue:
+        tissue_1 = args.tissue1.replace('_', ' ')
+        tissue_2 = args.tissue2.replace('_', ' ')
+        labels_to_keep = [tissue_1, tissue_2]
+
+        labeled_data.subset_samples_to_labels(labels_to_keep)
+        assert len(labeled_data) > 0
 
     return all_data, labeled_data
 
