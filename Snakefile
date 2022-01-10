@@ -28,6 +28,10 @@ rule all:
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
         "data/no_scrna_tpm.pkl",
+        "data/gtex_tpm.gct",
+        "data/gtex_sample_attributes.txt",
+        "data/gtex_normalized.tsv",
+        "data/gtex_normalized.pkl",
         # Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -36,6 +40,11 @@ rule all:
                ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=TISSUE_STRING,
+               ),
+        expand("results/{tissues}.{supervised}_{seed}-split_signal.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=TISSUE_STRING,
@@ -85,11 +94,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # sample_split sex prediction
-        expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
+        # # sample_split sex prediction
+        # expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
+        #        supervised=SUPERVISED,
+        #        seed=range(0,NUM_SEEDS),
+        #        ),
         # study_split sex prediction
         expand("results/study-split-sex-prediction.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -117,6 +126,11 @@ rule all:
                ),
         # tissue_split
         expand("results/tissue-split.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # Multi-tissue prediction
+        expand("results/gtex-all-tissue.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -208,6 +222,7 @@ rule tissue_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
+        "--disable_optuna "
 
 rule all_tissue_prediction:
     threads: 8
@@ -224,6 +239,7 @@ rule all_tissue_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
+        "--disable_optuna "
 
 rule all_tissue_sample_split:
     threads: 8
@@ -240,7 +256,8 @@ rule all_tissue_sample_split:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--sample_split"
+        "--sample_split "
+        "--disable_optuna "
 
 rule tissue_prediction_signal_removed:
     threads: 4
@@ -258,7 +275,27 @@ rule tissue_prediction_signal_removed:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
+        "--disable_optuna "
+
+rule tissue_prediction_split_signal_removal:
+    threads: 4
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/{tissue1}.{tissue2}.{supervised}_{seed}-split_signal.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-split_signal.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--correction split_signal "
+        "--disable_optuna "
 
 rule tissue_prediction_signal_removed_sample_split:
     threads: 4
@@ -276,8 +313,9 @@ rule tissue_prediction_signal_removed_sample_split:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
         "--sample_split "
+        "--disable_optuna "
 
 rule tissue_prediction_study_corrected:
     threads: 4
@@ -295,7 +333,8 @@ rule tissue_prediction_study_corrected:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--study_correct "
+        "--correction study "
+        "--disable_optuna "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
@@ -311,8 +350,9 @@ rule all_tissue_prediction_be_corrected:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
-        "--study_correct "
+        "--correction study "
         "--weighted_loss "
+        "--disable_optuna "
 
 rule transfer_tissue:
     input:
@@ -396,7 +436,7 @@ rule sample_level_control_signal_removed:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
 
 rule sample_level_be_corrected:
     threads: 8
@@ -413,7 +453,7 @@ rule sample_level_be_corrected:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-        "--study_correct  "
+        "--correction study  "
 
 rule study_level_control:
     threads: 8
@@ -446,6 +486,7 @@ rule study_level_sex_prediction:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
+        "--disable_optuna "
 
 rule study_level_signal_removed:
     threads: 8
@@ -461,7 +502,7 @@ rule study_level_signal_removed:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
-        "--signal_removal "
+        "--correction signal "
 
 rule study_level_be_corrected:
     threads: 8
@@ -477,7 +518,7 @@ rule study_level_be_corrected:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
-        "--study_correct  "
+        "--correction study  "
 
 rule tissue_split:
     threads: 8
@@ -493,3 +534,43 @@ rule tissue_split:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
+
+rule download_gtex:
+    output:
+        "data/gtex_tpm.gct",
+        "data/gtex_sample_attributes.txt"
+    shell:
+        "bash saged/download_gtex_data.sh"
+
+rule preprocess_gtex:
+    input:
+        "data/gtex_tpm.gct"
+    output:
+        "data/gtex_normalized.tsv"
+    shell:
+        "python saged/normalize_gtex.py data/gtex_tpm.gct data/gtex_normalized.tsv"
+
+rule pickle_gtex:
+    input:
+        "data/gtex_normalized.tsv"
+    output:
+        "data/gtex_normalized.pkl"
+    shell:
+        "python saged/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
+
+rule all_tissue_gtex:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex"

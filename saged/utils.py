@@ -55,6 +55,47 @@ BLOOD_KEYS = ['blood',
               ]
 
 
+def get_gtex_sample_to_study(metadata_path: str) -> Dict[str, str]:
+    """
+    Parse the GTEx metadata file to map samples to studies
+
+    Arguments
+    ---------
+    metadata_path: The path to the GTEx sample attributes file
+
+    Returns
+    -------
+    sample_to_study: A dict mapping each sample to its corresponding study
+    """
+    metadata_df = pd.read_csv(metadata_path, sep='\t', index_col=0)
+
+    samples = metadata_df.index
+    donors = [s.split('-')[1] for s in samples]
+
+    sample_to_study = dict(zip(samples, donors))
+
+    return sample_to_study
+
+
+def get_gtex_sample_to_label(metadata_path: str) -> Dict[str, str]:
+    """
+    Parse the GTEx metadata file to map samples to tissues
+
+    Arguments
+    ---------
+    metadata_path: The path to the GTEx sample attributes file
+
+    Returns
+    -------
+    sample_to_study: A dict mapping each sample to its corresponding tissue
+    """
+    metadata_df = pd.read_csv(metadata_path, sep='\t', index_col=0)
+
+    sample_to_label = dict(zip(metadata_df.index, metadata_df['SMTS']))
+
+    return sample_to_label
+
+
 def remove_study_samples(dataset: "datasets.ExpressionDataset",
                          studies_to_remove: Set[str]) -> "datasets.ExpressionDataset":
     """
@@ -499,6 +540,32 @@ def calculate_loss_weights(dataset: "datasets.RefineBioLabeledDataset") -> torch
     # Weight classes based on the inverse of their frequencies
     weights = 1 / (counts + 1)
     return weights
+
+
+def calculate_skl_class_weights(dataset: "datasets.RefineBioLabeledDataset") -> Dict[int, float]:
+    """
+    Calculate the weights to use in training based on the inverse of their class frequency
+    and return a dict for use by skl models
+
+    Arguments
+    ---------
+    dataset: The object containing data to calculate the class frequencies from
+
+    Returns
+    -------
+    class_weights: A mapping between encoded class labels and their inverse frequencies
+    """
+    classes = dataset.get_label_encoder().classes_
+    counts = torch.zeros(len(classes))
+
+    for _, label in dataset:
+        counts[label] += 1
+
+    class_weights = {}
+    for i, count in enumerate(counts):
+        class_weights[i] = 1 / (count + 1)
+
+    return class_weights
 
 
 def parse_flynn_labels(label_path: str) -> Dict[str, str]:

@@ -2,3 +2,4 @@ name: LogisticRegression
 seed: 42
 save_path: "logs/models/sklearn_lr.pkl"
 l2_penalty: 1
+solver: 'lbfgs'

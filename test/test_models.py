@@ -14,7 +14,7 @@ N_COMPONENTS = 2
 @pytest.fixture(scope="module")
 def sklearn_models():
     model_list = []
-    model_list.append(models.LogisticRegression(seed=42, l2_penalty=1))
+    model_list.append(models.LogisticRegression(seed=42, l2_penalty=1, solver='lbfgs'))
 
     return model_list
 

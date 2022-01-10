@@ -12,6 +12,7 @@ import neptune.new as neptune
 import numpy as np
 import sklearn.linear_model
 import sklearn.decomposition
+import sklearn.metrics
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -207,13 +208,14 @@ class ExpressionModel(ABC):
 
 
 class LogisticRegression(ExpressionModel):
-    """ A model API similar to the scikit-learn API that will specify the
-    base acceptable functions for models in this module's benchmarking code
+    """
+    A logistic regression implementation designed to hew closely to the skl defaults
     """
 
     def __init__(self,
                  seed: int,
                  l2_penalty: float,
+                 solver: str,
                  **kwargs,
                  ) -> None:
         """
@@ -222,12 +224,14 @@ class LogisticRegression(ExpressionModel):
         Arguments
         ---------
         seed: The random seed to use in training
-        l2_penalty: The inverse of the degree to which the weights should be penalized
+        l2_penalty: The inverse of the degree to which weights should be penalized
+        solver: The method to use to optimize the loss
         """
         self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
                                                              class_weight='balanced',
                                                              penalty='l2',
-                                                             C=l2_penalty)
+                                                             C=l2_penalty,
+                                                             solver=solver)
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
@@ -1136,6 +1140,7 @@ class PytorchSupervised(ExpressionModel):
                  pretrained_model: nn.Module = None,
                  final_layer_name: str = None,
                  loss_weights: torch.Tensor = None,
+                 full_batch_training: bool = False,
                  **kwargs,
                  ) -> None:
         """
@@ -1165,6 +1170,8 @@ class PytorchSupervised(ExpressionModel):
                           a new model
         final_layer_name: The name of the attribute in the model that stores the final layer
         loss_weights: Per-class weights for handling class imbalance
+        full_batch_training: If this flag is True, ignore batch_size and train on full dataset in
+                             each epoch
         **kwargs: Arguments for use in the underlying classifier
 
         Notes
@@ -1192,6 +1199,7 @@ class PytorchSupervised(ExpressionModel):
         self.early_stopping_patience = early_stopping_patience
         self.final_layer_name = final_layer_name
         self.loss_weights = loss_weights
+        self.full_batch_training = full_batch_training
 
         torch.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
@@ -1304,6 +1312,9 @@ class PytorchSupervised(ExpressionModel):
         if len(tune_dataset) == 0:
             sys.stderr.write('Warning: Tune dataset is empty')
             tune_is_empty = True
+
+        if self.full_batch_training:
+            batch_size = len(train_dataset)
 
         train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
         tune_loader = DataLoader(tune_dataset, batch_size=1)
