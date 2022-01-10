@@ -81,7 +81,7 @@ def subset_data(expression_df: pd.DataFrame, n_genes) -> pd.DataFrame:
     Arguments
     ---------
     expression_df: A samples x genes dataframe containing the expression data
-
+    n_genes: The number of genes to subset to
     Returns
     -------
     subset_df: The dataframe passed in with all but the most variable columns removed
