@@ -13,8 +13,7 @@ recount_top_five_tissues = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain']
 combo_iterator = itertools.combinations(recount_top_five_tissues, 2)
 RECOUNT_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
-#gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
-gtex_top_five_tissues = ['Blood', 'Brain', 'Skin']
+gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
 combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
 GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
