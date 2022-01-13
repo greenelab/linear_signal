@@ -9,11 +9,13 @@ SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}
 
 NUM_SEEDS = 3
 
-top_five_tissues = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain']
+recount_top_five_tissues = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain']
+combo_iterator = itertools.combinations(recount_top_five_tissues, 2)
+RECOUNT_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
-combo_iterator = itertools.combinations(top_five_tissues, 2)
-TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
-
+gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
+combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
+GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
 wildcard_constraints:
     # Random seeds should be numbers
@@ -32,32 +34,38 @@ rule all:
         "data/gtex_sample_attributes.txt",
         "data/gtex_normalized.tsv",
         "data/gtex_normalized.pkl",
-        # Binary classification
+        # Recount Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
-               tissues=TISSUE_STRING,
+               tissues=RECOUNT_TISSUE_STRING,
+               ),
+        # GTEx Binary classification
+        expand("results/gtex.{tissues}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=GTEX_TISSUE_STRING,
                ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
-               tissues=TISSUE_STRING,
+               tissues=RECOUNT_TISSUE_STRING,
                ),
         expand("results/{tissues}.{supervised}_{seed}-split_signal.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
-               tissues=TISSUE_STRING,
+               tissues=RECOUNT_TISSUE_STRING,
                ),
         expand("results/{tissues}.{supervised}_{seed}-signal_removed_sample_level.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
-               tissues=TISSUE_STRING,
+               tissues=RECOUNT_TISSUE_STRING,
                ),
         expand("results/{tissues}.{supervised}_{seed}-study_corrected.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
-               tissues=TISSUE_STRING,
+               tissues=RECOUNT_TISSUE_STRING,
                ),
         # Multi-tissue prediction
         expand("results/all-tissue.{supervised}_{seed}.tsv",
@@ -214,6 +222,8 @@ rule tissue_prediction:
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*$'
     shell:
         "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
@@ -574,3 +584,21 @@ rule all_tissue_gtex:
         "--weighted_loss "
         "--disable_optuna "
         "--dataset gtex"
+
+rule gtex_binary_prediction:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
