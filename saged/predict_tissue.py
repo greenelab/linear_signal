@@ -189,6 +189,26 @@ def prep_gtex_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDat
     return all_data, labeled_data
 
 
+def prep_sim_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDataset,
+                                                     datasets.RefineBioLabeledDataset]:
+    with open(args.dataset_config) as in_file:
+        dataset_config = yaml.safe_load(in_file)
+
+    data_df = pd.read_csv(dataset_config['compendium_path'], sep='\t', index_col=0)
+    sample_to_label = dict(zip(data_df.index, data_df['label']))
+
+    sample_to_study = {sample: sample + '_study' for sample in data_df.index}
+
+    data_df = data_df.drop(['label'], axis='columns')
+    data_df = data_df.T
+
+    all_data = datasets.RefineBioMixedDataset(data_df, sample_to_label, sample_to_study)
+
+    labeled_data = all_data.get_labeled()
+
+    return all_data, labeled_data
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_config',
@@ -201,7 +221,7 @@ if __name__ == '__main__':
                         help='The file to save the results to')
     parser.add_argument('--dataset',
                         help='The dataset to be used',
-                        choices=['gtex', 'recount'],
+                        choices=['gtex', 'recount', 'sim'],
                         default='recount')
     parser.add_argument('--tissue1',
                         help='The first tissue to be predicted from the data',
@@ -259,6 +279,8 @@ if __name__ == '__main__':
         all_data, labeled_data = prep_recount_data(args)
     elif args.dataset == 'gtex':
         all_data, labeled_data = prep_gtex_data(args)
+    elif args.dataset == 'sim':
+        all_data, labeled_data = prep_sim_data(args)
 
     # Correct for batch effects
     if args.correction == 'study':
@@ -332,7 +354,7 @@ if __name__ == '__main__':
             train_data.set_label_encoder(label_encoder)
             val_data.set_label_encoder(label_encoder)
 
-            if args.correction == 'signal_split':
+            if args.correction == 'split_signal':
                 # Using deep copies to make sure data resets to its original state each iteration
                 train_data = datasets.correct_batch_effects(copy.deepcopy(train_data),
                                                             'limma', 'labels')
