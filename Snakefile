@@ -46,6 +46,11 @@ rule all:
                seed=range(0,NUM_SEEDS),
                tissues=GTEX_TISSUE_STRING,
                ),
+        expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               tissues=GTEX_TISSUE_STRING,
+               ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
                supervised=SUPERVISED,
@@ -139,6 +144,11 @@ rule all:
                ),
         # Multi-tissue prediction
         expand("results/gtex-all-tissue.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # Multi-tissue prediction
+        expand("results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -609,6 +619,24 @@ rule all_tissue_gtex:
         "--disable_optuna "
         "--dataset gtex"
 
+rule all_tissue_signal_removed_gtex:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
+        "--correction signal "
+
 rule gtex_binary_prediction:
     threads: 4
     input:
@@ -626,6 +654,25 @@ rule gtex_binary_prediction:
         "--weighted_loss "
         "--disable_optuna "
         "--dataset gtex "
+
+rule gtex_binary_prediction_signal_removed:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-signal-removed.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-signal-removed.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
+        "--correction signal "
 
 rule simulate_data:
     threads: 8
