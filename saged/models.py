@@ -214,8 +214,9 @@ class LogisticRegression(ExpressionModel):
 
     def __init__(self,
                  seed: int,
-                 l2_penalty: float,
                  solver: str,
+                 l2_penalty: float = None,
+                 penalty_type: str = 'none',
                  **kwargs,
                  ) -> None:
         """
@@ -227,11 +228,16 @@ class LogisticRegression(ExpressionModel):
         l2_penalty: The inverse of the degree to which weights should be penalized
         solver: The method to use to optimize the loss
         """
-        self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
-                                                             class_weight='balanced',
-                                                             penalty='l2',
-                                                             C=l2_penalty,
-                                                             solver=solver)
+        if penalty_type == 'none':
+            self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
+                                                                 class_weight='balanced',
+                                                                 penalty='none')
+        else:
+            self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
+                                                                 class_weight='balanced',
+                                                                 penalty=penalty_type,
+                                                                 C=l2_penalty,
+                                                                 solver=solver)
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
