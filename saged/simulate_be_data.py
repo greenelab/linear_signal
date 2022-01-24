@@ -17,12 +17,12 @@ if __name__ == '__main__':
                         'relationship with the label', default=2500, type=int)
     parser.add_argument('--n_nonlinear', help='The number of variables to include that have a '
                         'nonlinear relationship with the label', default=2500, type=int)
+    parser.add_argument('--n_random', help="The number of features that have no signal",
+                        default=0, type=int)
 
     args = parser.parse_args()
 
     N_SAMPLES = 1000
-    N_LINEAR_VARIABLES = args.n_linear
-    N_NONLINEAR_VARIABLES = args.n_nonlinear
     MEAN_DIFFERENCE = 6
 
     np.random.seed(42)
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     vars = {}
 
     # Linear variables
-    for i in range(N_LINEAR_VARIABLES):
+    for i in range(args.n_linear):
         current_var = []
         for j in range(N_SAMPLES):
             if labels[j] == 'red':
@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
         vars['linear_{}'.format(i)] = current_var
 
-    for i in range(N_NONLINEAR_VARIABLES):
+    for i in range(args.n_nonlinear):
         current_var = []
         for j in range(N_SAMPLES):
             if labels[j] == 'red':
@@ -55,6 +55,12 @@ if __name__ == '__main__':
             else:
                 current_var.append(np.random.normal(0))
         vars['nonlinear_{}'.format(i)] = current_var
+
+    for i in range(args.n_random):
+        current_var = []
+        for j in range(N_SAMPLES):
+            current_var.append(np.random.normal(0))
+        vars['random_{}'.format(i)] = current_var
 
     rownames = ['sample_{}'.format(i) for i in range(N_SAMPLES)]
     data = pd.DataFrame(vars, index=rownames)

@@ -34,6 +34,9 @@ rule all:
         "data/gtex_sample_attributes.txt",
         "data/gtex_normalized.tsv",
         "data/gtex_normalized.pkl",
+        "data/batch_sim_data.tsv",
+        "data/linear_batch_sim_data.tsv",
+        "data/no_signal_batch_sim_data.tsv",
         # Recount Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -168,6 +171,23 @@ rule all:
                seed=range(0,NUM_SEEDS),
                ),
         expand("results/linear-sim-data-signal-removed.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        expand("results/linear-sim-data-split-signal.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # No signal sim
+        expand("results/no-signal-sim-data.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        expand("results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        expand("results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -688,6 +708,13 @@ rule simulate_linear_data:
     shell:
         "python saged/simulate_be_data.py {output} --n_nonlinear 0"
 
+rule simulate_no_signal_data:
+    threads: 8
+    output:
+        "data/no_signal_batch_sim_data.tsv"
+    shell:
+        "python saged/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 2500"
+
 rule sim_prediction:
     threads: 8
     input:
@@ -761,6 +788,81 @@ rule linear_sim_prediction_signal_removed:
         "--disable_optuna "
         "--correction signal "
         "--dataset sim"
+
+rule linear_sim_prediction_split_signal:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/linear_sim_dataset.yml",
+        data="data/linear_batch_sim_data.tsv"
+    output:
+        "results/linear-sim-data-split-signal.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/linear-sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--correction split_signal "
+        "--dataset sim"
+
+rule no_signal_sim_prediction:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/no_signal_sim_dataset.yml",
+        data="data/no_signal_batch_sim_data.tsv"
+    output:
+        "results/no-signal-sim-data.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/no-signal-sim-data.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset sim "
+
+rule no_signal_sim_prediction_signal_removed:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/no_signal_sim_dataset.yml",
+        data="data/no_signal_batch_sim_data.tsv"
+    output:
+        "results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/no-signal-sim-data-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--correction signal "
+        "--dataset sim "
+
+rule no_signal_sim_prediction_split:
+    threads: 8
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/no_signal_sim_dataset.yml",
+        data="data/no_signal_batch_sim_data.tsv"
+    output:
+        "results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/no-signal-sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--correction split_signal "
+        "--dataset sim "
 
 rule sim_split_signal:
     threads: 8
