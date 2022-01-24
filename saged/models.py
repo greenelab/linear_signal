@@ -1221,7 +1221,8 @@ class PytorchSupervised(ExpressionModel):
             self.model = pretrained_model
 
         if optimizer_class == torch.optim.LBFGS:
-            self.optimizer = optimizer_class(self.model.parameters())
+            self.optimizer = optimizer_class(self.model.parameters(),
+                                             max_iter=100)
         else:
             self.optimizer = optimizer_class(self.model.parameters(),
                                              lr=lr,
@@ -1281,22 +1282,6 @@ class PytorchSupervised(ExpressionModel):
                     },
                    out_path
                    )
-
-    def closure(self, X: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """
-        A function for calculating the model's loss given data and labels
-        (see https://pytorch.org/docs/stable/optim.html#optimizer-step-closure)
-
-        Arguments
-        ---------
-        X: The data to make predictions on
-        y: The true labels
-
-        Returns
-        -------
-        loss: The loss of the model trained on the data
-        """
-
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "PytorchSupervised":
         """
