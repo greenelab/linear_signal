@@ -232,6 +232,7 @@ class LogisticRegression(ExpressionModel):
             self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
                                                                  class_weight='balanced',
                                                                  penalty='none',
+                                                                 solver=solver,
                                                                  multi_class='multinomial')
         else:
             self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
