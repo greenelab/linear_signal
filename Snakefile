@@ -277,7 +277,8 @@ rule tissue_prediction:
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
     wildcard_constraints:
-        tissue1='[a-zA-Z]+_?[a-zA-Z]*$'
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
     shell:
         "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "

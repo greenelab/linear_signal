@@ -214,8 +214,9 @@ class LogisticRegression(ExpressionModel):
 
     def __init__(self,
                  seed: int,
-                 l2_penalty: float,
                  solver: str,
+                 l2_penalty: float = None,
+                 penalty_type: str = 'none',
                  **kwargs,
                  ) -> None:
         """
@@ -227,11 +228,19 @@ class LogisticRegression(ExpressionModel):
         l2_penalty: The inverse of the degree to which weights should be penalized
         solver: The method to use to optimize the loss
         """
-        self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
-                                                             class_weight='balanced',
-                                                             penalty='l2',
-                                                             C=l2_penalty,
-                                                             solver=solver)
+        if penalty_type == 'none':
+            self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
+                                                                 class_weight='balanced',
+                                                                 penalty='none',
+                                                                 solver=solver,
+                                                                 multi_class='multinomial')
+        else:
+            self.model = sklearn.linear_model.LogisticRegression(random_state=seed,
+                                                                 class_weight='balanced',
+                                                                 penalty=penalty_type,
+                                                                 C=l2_penalty,
+                                                                 solver=solver,
+                                                                 multi_class='multinomial')
 
     def fit(self, dataset: LabeledDataset, run: neptune.Run = None) -> "LogisticRegression":
         """
@@ -1212,9 +1221,13 @@ class PytorchSupervised(ExpressionModel):
         else:
             self.model = pretrained_model
 
-        self.optimizer = optimizer_class(self.model.parameters(),
-                                         lr=lr,
-                                         weight_decay=l2_penalty)
+        if optimizer_class == torch.optim.LBFGS:
+            self.optimizer = optimizer_class(self.model.parameters(),
+                                             max_iter=100)
+        else:
+            self.optimizer = optimizer_class(self.model.parameters(),
+                                             lr=lr,
+                                             weight_decay=l2_penalty)
 
         self.device = torch.device(device)
 
@@ -1364,17 +1377,32 @@ class PytorchSupervised(ExpressionModel):
 
                 labels = labels.to(device)
 
-                self.optimizer.zero_grad()
-                output = self.model(expression)
+                if type(self.optimizer) == torch.optim.LBFGS:
+                    def closure():
+                        # https://pytorch.org/docs/stable/optim.html#optimizer-step-closure
+                        self.optimizer.zero_grad()
+                        output = self.model(expression)
 
-                loss = self.loss_fn(output, labels)
+                        loss = self.loss_fn(output, labels)
 
-                loss.backward()
+                        loss.backward()
+                        return loss
 
-                if getattr(self, 'clip_grads', False):
-                    nn.utils.clip_grad_norm_(self.model.parameters(), .01)
+                    loss = closure()
+                    self.optimizer.step(closure)
+                    output = self.model(expression)
+                else:
+                    self.optimizer.zero_grad()
+                    output = self.model(expression)
 
-                self.optimizer.step()
+                    loss = self.loss_fn(output, labels)
+
+                    loss.backward()
+
+                    if getattr(self, 'clip_grads', False):
+                        nn.utils.clip_grad_norm_(self.model.parameters(), .01)
+
+                    self.optimizer.step()
 
                 train_loss += loss.item()
                 train_correct += utils.count_correct(output, labels)
