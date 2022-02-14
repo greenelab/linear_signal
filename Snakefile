@@ -90,6 +90,10 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
+        expand("results/all-tissue.{supervised}_{seed}_signal_removed.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
         # Tissue prediction with imputation pretraining
         expand("results/tissue_impute.{impute}_{seed}.tsv",
                impute=IMPUTE,
@@ -110,11 +114,11 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # # sample_split sex prediction
-        # expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
-        #        supervised=SUPERVISED,
-        #        seed=range(0,NUM_SEEDS),
-        #        ),
+        # sample_split sex prediction
+        expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
         # study_split sex prediction
         expand("results/study-split-sex-prediction.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -419,6 +423,24 @@ rule all_tissue_prediction_be_corrected:
         "--weighted_loss "
         "--disable_optuna "
 
+rule all_tissue_prediction_signal_removed:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/all-tissue.{supervised}_{seed}_signal_removed.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/all-tissue.{wildcards.supervised}_{wildcards.seed}_signal_removed.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--correction signal "
+        "--weighted_loss "
+        "--disable_optuna "
+
 rule transfer_tissue:
     input:
         "data/recount_tpm.pkl",
@@ -467,24 +489,6 @@ rule sample_level_control:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-
-# rule sample_level_control_sex_prediction:
-#     threads: 8
-#     input:
-#         "dataset_configs/recount_dataset.yml",
-#         "data/combined_human_mouse_meta_v2.csv",
-#         supervised_model = "model_configs/supervised/{supervised}.yml",
-#         dataset_config = "dataset_configs/recount_dataset.yml",
-#     output:
-#         "results/sample-split-sex-prediction.{supervised}_{seed}.tsv"
-#     shell:
-#         "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
-#         "results/sample-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
-#         "--neptune_config neptune.yml "
-#         "--seed {wildcards.seed} "
-#         "--sample_split "
-#         "--weighted_loss "
-#         "--use_sex_labels "
 
 rule sample_level_control_signal_removed:
     threads: 8
@@ -549,6 +553,25 @@ rule study_level_sex_prediction:
         "results/study-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
+        "--weighted_loss "
+        "--use_sex_labels "
+        "--disable_optuna "
+
+rule sample_level_control_sex_prediction:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        "data/combined_human_mouse_meta_v2.csv",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/sample-split-sex-prediction.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/sample-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--sample_split "
         "--weighted_loss "
         "--use_sex_labels "
         "--disable_optuna "
