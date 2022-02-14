@@ -26,6 +26,7 @@ rule all:
         "data/recount_text.txt",
         "data/recount_embeddings.hdf5",
         "data/recount_metadata.tsv",
+        "data/manifest.tsv",
         "data/no_scrna_counts.tsv",
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
@@ -208,6 +209,12 @@ rule metadata_to_tsv:
         "data/recount_metadata.tsv"
     shell:
         "Rscript saged/metadata_to_tsv.R"
+
+rule download_manifest:
+    output:
+        "data/manifest.tsv"
+    shell:
+        "bash saged/download_manifest.sh"
 
 rule remove_scrna:
     input:
