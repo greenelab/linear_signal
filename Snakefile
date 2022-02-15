@@ -672,7 +672,7 @@ rule preprocess_tcga:
     shell:
         "python saged/normalize_gtex.py data/tcga_expression.tsv data/tcga_tpm.tsv"
 
-rule pickle_gtex:
+rule pickle_tcga:
     input:
         "data/tcga_tpm.tsv"
     output:
