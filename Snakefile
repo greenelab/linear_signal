@@ -26,7 +26,6 @@ rule all:
         "data/recount_text.txt",
         "data/recount_embeddings.hdf5",
         "data/recount_metadata.tsv",
-        "data/manifest.tsv",
         "data/no_scrna_counts.tsv",
         "data/gene_lengths.tsv",
         "data/no_scrna_tpm.tsv",
@@ -38,6 +37,10 @@ rule all:
         "data/batch_sim_data.tsv",
         "data/linear_batch_sim_data.tsv",
         "data/no_signal_batch_sim_data.tsv",
+        "data/manifest.tsv",
+        "data/tcga_expression.tsv",
+        "data/tcga_tpm.tsv",
+        "data/tcga_tpm.pkl",
         # Recount Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -215,6 +218,14 @@ rule download_manifest:
         "data/manifest.tsv"
     shell:
         "bash saged/download_manifest.sh"
+
+rule download_tcga:
+    input:
+        "data/manifest.tsv"
+    output:
+        "data/tcga_expression.tsv"
+    shell:
+        "jupyter nbconvert --to notebook --execute saged/download_tcga.ipynb"
 
 rule remove_scrna:
     input:
@@ -652,6 +663,23 @@ rule pickle_gtex:
         "data/gtex_normalized.pkl"
     shell:
         "python saged/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
+
+rule preprocess_tcga:
+    input:
+        "data/tcga_expression.tsv"
+    output:
+        "data/tcga_tpm.tsv"
+    shell:
+        "python saged/normalize_gtex.py data/tcga_expression.tsv data/tcga_tpm.tsv"
+
+rule pickle_gtex:
+    input:
+        "data/tcga_tpm.tsv"
+    output:
+        "data/tcga_tpm.pkl"
+    shell:
+        "python saged/pickle_tsv.py data/tcga_tpm.tsv data/tcga_tpm.pkl"
+
 
 rule all_tissue_gtex:
     threads: 8
