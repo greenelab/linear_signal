@@ -17,6 +17,8 @@ gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
 combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
 GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
+TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
+
 wildcard_constraints:
     # Random seeds should be numbers
     seed="\d+"
@@ -57,6 +59,17 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=GTEX_TISSUE_STRING,
+               ),
+        # TCGA Binary classification
+        expand("results/tcga-binary.{genes}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               genes=TCGA_GENES,
+               ),
+        expand("results/tcga-binary-signal-removed.{genes}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               genes=TCGA_GENES,
                ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
@@ -670,7 +683,7 @@ rule preprocess_tcga:
     output:
         "data/tcga_tpm.tsv"
     shell:
-        "python saged/normalize_gtex.py data/tcga_expression.tsv data/tcga_tpm.tsv"
+        "python saged/preprocess_tcga.py data/tcga_expression.tsv data/tcga_tpm.tsv"
 
 rule pickle_tcga:
     input:
@@ -752,6 +765,41 @@ rule gtex_binary_prediction_signal_removed:
         "--disable_optuna "
         "--dataset gtex "
         "--correction signal "
+
+rule tcga_binary_prediction:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/tcga.yml",
+    output:
+        "results/tcga-binary.{gene}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/tcga-binary.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--mutation_gene {wildcards.gene} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset tcga "
+
+rule tcga_binary_prediction_signal_removed:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/tcga.yml",
+    output:
+        "results/tcga-binary-signal-removed.{gene}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/tcga-binary-signal-removed.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--mutation_gene {wildcards.gene} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset tcga "
+        "--correction signal"
 
 rule simulate_data:
     threads: 8
