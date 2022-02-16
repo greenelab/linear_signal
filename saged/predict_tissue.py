@@ -211,6 +211,34 @@ def prep_sim_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedData
     return all_data, labeled_data
 
 
+def prep_tcga_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDataset,
+                                                      datasets.RefineBioLabeledDataset]:
+    with open(args.dataset_config) as in_file:
+        dataset_config = yaml.safe_load(in_file)
+
+    data_df = utils.load_compendium_file(dataset_config['compendium_path']).T
+    sample_to_label = utils.get_mutation_labels(dataset_config['mutation_file_path'],
+                                                args.mutation_gene)
+
+    # Throw out extra info to match expression ids and mutation ids
+
+    data_df.columns = [c[:15] for c in data_df.columns]
+
+    # There are 8 samples that come from the same participant+project.
+    # These could probably be kept given that they're ~.01% of the data, but
+    # we might as well remove them to be safe
+    data_df = data_df.loc[:, ~data_df.columns.duplicated()]
+
+    # Split by donor
+    sample_to_study = {sample: sample.split('-')[2] for sample in data_df.columns}
+
+    all_data = datasets.RefineBioMixedDataset(data_df, sample_to_label, sample_to_study)
+
+    labeled_data = all_data.get_labeled()
+
+    return all_data, labeled_data
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_config',
@@ -271,7 +299,7 @@ if __name__ == '__main__':
                         help='If this flag is set, use Flynn sex labels instead of tissue labels',
                         action='store_true')
     # TCGA args
-    parser.add_argument('--mutation', help='Which mutation to predict if using TCGA data',
+    parser.add_argument('--mutation_gene', help='Which gene to call mutations for in TCGA data',
                         default=None, choices=TCGA_GENES)
 
     args = parser.parse_args()
@@ -285,6 +313,8 @@ if __name__ == '__main__':
         all_data, labeled_data = prep_gtex_data(args)
     elif args.dataset == 'sim':
         all_data, labeled_data = prep_sim_data(args)
+    elif args.dataset == 'tcga':
+        all_data, labeled_data = prep_tcga_data(args)
 
     # Correct for batch effects
     if args.correction == 'study':
@@ -435,12 +465,11 @@ if __name__ == '__main__':
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
 
-            label_mapping = dict(zip(label_encoder.classes_,
+            # The downstream json conversion hates number keys, so we'll make sure
+            # everything is a string instead
+            str_classes = [str(id) for id in label_encoder.classes_]
+            label_mapping = dict(zip(str_classes,
                                      range(len(label_encoder.classes_))))
-
-            # Ensure this mapping is correct
-            for label in label_mapping.keys():
-                assert label_encoder.transform([label]) == label_mapping[label]
 
             encoder_string = json.dumps(label_mapping)
             prediction_string = ','.join(list(predictions.astype('str')))
