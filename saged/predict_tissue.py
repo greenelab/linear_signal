@@ -32,6 +32,8 @@ AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney'
                      'Cerebellum', 'Cerebral_cortex', 'Salivary_Gland', 'Duodenum'
                      ]
 
+TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
+
 
 def objective(trial, train_list, supervised_config,
               label_encoder, weighted_loss=False, device='cpu'):
@@ -221,14 +223,8 @@ if __name__ == '__main__':
                         help='The file to save the results to')
     parser.add_argument('--dataset',
                         help='The dataset to be used',
-                        choices=['gtex', 'recount', 'sim'],
+                        choices=['gtex', 'recount', 'sim', 'tcga'],
                         default='recount')
-    parser.add_argument('--tissue1',
-                        help='The first tissue to be predicted from the data',
-                        default='Blood', choices=AVAILABLE_TISSUES)
-    parser.add_argument('--tissue2',
-                        help='The second tissue to be predicted from the data',
-                        default='Breast', choices=AVAILABLE_TISSUES)
     parser.add_argument('--neptune_config',
                         help='A yaml formatted file containing init information for '
                              'neptune logging')
@@ -240,13 +236,6 @@ if __name__ == '__main__':
                         help='The number of splits to use in cross-validation (must be at least 3)',
                         type=int,
                         default=5)
-    parser.add_argument('--batch_correction_method',
-                        help='The method to use to correct for batch effects',
-                        default=None)
-    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
-                        default=False, action='store_true')
-    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
-                        default=False, action='store_true')
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
                         action='store_true')
@@ -259,9 +248,6 @@ if __name__ == '__main__':
                              'for the train and val sets',
                         choices=['uncorrected', 'signal', 'study', 'split_signal'],
                         default='uncorrected')
-    parser.add_argument('--use_sex_labels',
-                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
-                        action='store_true')
     parser.add_argument('--sample_split',
                         help='If this flag is set, split cv folds at the sample level instead '
                              'of the study level',
@@ -269,6 +255,24 @@ if __name__ == '__main__':
     parser.add_argument('--disable_optuna',
                         help="If this flag is set, don't to hyperparameter optimization",
                         action='store_true')
+    # Recount/GTEX args
+    parser.add_argument('--tissue1',
+                        help='The first tissue to be predicted from the data',
+                        default='Blood', choices=AVAILABLE_TISSUES)
+    parser.add_argument('--tissue2',
+                        help='The second tissue to be predicted from the data',
+                        default='Breast', choices=AVAILABLE_TISSUES)
+    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
+                        default=False, action='store_true')
+    # Recount only args
+    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
+                        default=False, action='store_true')
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
+    # TCGA args
+    parser.add_argument('--mutation', help='Which mutation to predict if using TCGA data',
+                        default=None, choices=TCGA_GENES)
 
     args = parser.parse_args()
 
