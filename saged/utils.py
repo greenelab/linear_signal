@@ -55,6 +55,26 @@ BLOOD_KEYS = ['blood',
               ]
 
 
+def get_mutation_labels(mutation_file_path: str, gene: str) -> Dict[str, str]:
+    """
+    Get the mutation status of a gene in all tcga samples
+
+    Arguments
+    ---------
+    mutation_file_path: The path to the tcga mutation file (usually called data/mutations.tsv)
+    gene: The id of gene whose mutations should be parsed
+
+    Returns
+    -------
+    sample_to_label: The mapping between sample id and binary mutation status
+    """
+    mutation_df = pd.read_csv(mutation_file_path, sep='\t', index_col=0)
+
+    sample_to_label = dict(mutation_df[gene])
+
+    return sample_to_label
+
+
 def get_gtex_sample_to_study(metadata_path: str) -> Dict[str, str]:
     """
     Parse the GTEx metadata file to map samples to studies

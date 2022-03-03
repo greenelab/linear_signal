@@ -17,6 +17,8 @@ gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
 combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
 GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
+TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
+
 wildcard_constraints:
     # Random seeds should be numbers
     seed="\d+"
@@ -37,6 +39,10 @@ rule all:
         "data/batch_sim_data.tsv",
         "data/linear_batch_sim_data.tsv",
         "data/no_signal_batch_sim_data.tsv",
+        "data/manifest.tsv",
+        "data/tcga_expression.tsv",
+        "data/tcga_tpm.tsv",
+        "data/tcga_tpm.pkl",
         # Recount Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -53,6 +59,22 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=GTEX_TISSUE_STRING,
+               ),
+        # TCGA Binary classification
+        expand("results/tcga-binary.{genes}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               genes=TCGA_GENES,
+               ),
+        expand("results/tcga-binary-signal-removed.{genes}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               genes=TCGA_GENES,
+               ),
+        expand("results/tcga-binary-split-signal.{genes}.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               genes=TCGA_GENES,
                ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
@@ -121,6 +143,16 @@ rule all:
                ),
         # study_split sex prediction
         expand("results/study-split-sex-prediction.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # sex prediction split-signal
+        expand("results/sex-prediction-split-signal.{supervised}_{seed}.tsv",
+               supervised=SUPERVISED,
+               seed=range(0,NUM_SEEDS),
+               ),
+        # sex prediction split-signal
+        expand("results/sex-prediction-signal-removed.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -208,6 +240,20 @@ rule metadata_to_tsv:
         "data/recount_metadata.tsv"
     shell:
         "Rscript saged/metadata_to_tsv.R"
+
+rule download_manifest:
+    output:
+        "data/manifest.tsv"
+    shell:
+        "bash saged/download_manifest.sh"
+
+rule download_tcga:
+    input:
+        "data/manifest.tsv"
+    output:
+        "data/tcga_expression.tsv"
+    shell:
+        "jupyter nbconvert --to notebook --execute saged/download_tcga.ipynb"
 
 rule remove_scrna:
     input:
@@ -557,6 +603,44 @@ rule study_level_sex_prediction:
         "--use_sex_labels "
         "--disable_optuna "
 
+rule sex_prediction_split_signal:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        "data/combined_human_mouse_meta_v2.csv",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/sex-prediction-split-signal.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/sex-prediction-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--weighted_loss "
+        "--use_sex_labels "
+        "--disable_optuna "
+        "--correction split_signal"
+
+rule sex_prediction_signal_removed:
+    threads: 8
+    input:
+        "dataset_configs/recount_dataset.yml",
+        "data/combined_human_mouse_meta_v2.csv",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_dataset.yml",
+    output:
+        "results/sex-prediction-signal-removed.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/sex-prediction-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--weighted_loss "
+        "--use_sex_labels "
+        "--disable_optuna "
+        "--correction signal "
+
 rule sample_level_control_sex_prediction:
     threads: 8
     input:
@@ -646,6 +730,23 @@ rule pickle_gtex:
     shell:
         "python saged/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
 
+rule preprocess_tcga:
+    input:
+        "data/tcga_expression.tsv"
+    output:
+        "data/tcga_tpm.tsv"
+    shell:
+        "python saged/preprocess_tcga.py data/tcga_expression.tsv data/tcga_tpm.tsv"
+
+rule pickle_tcga:
+    input:
+        "data/tcga_tpm.tsv"
+    output:
+        "data/tcga_tpm.pkl"
+    shell:
+        "python saged/pickle_tsv.py data/tcga_tpm.tsv data/tcga_tpm.pkl"
+
+
 rule all_tissue_gtex:
     threads: 8
     input:
@@ -717,6 +818,59 @@ rule gtex_binary_prediction_signal_removed:
         "--disable_optuna "
         "--dataset gtex "
         "--correction signal "
+
+rule tcga_binary_prediction:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/tcga.yml",
+    output:
+        "results/tcga-binary.{gene}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/tcga-binary.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--mutation_gene {wildcards.gene} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset tcga "
+
+rule tcga_binary_prediction_signal_removed:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/tcga.yml",
+    output:
+        "results/tcga-binary-signal-removed.{gene}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/tcga-binary-signal-removed.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--mutation_gene {wildcards.gene} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset tcga "
+        "--correction signal "
+
+rule tcga_binary_prediction_split_signal:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/tcga.yml",
+    output:
+        "results/tcga-binary-split-signal.{gene}.{supervised}_{seed}.tsv"
+    shell:
+        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/tcga-binary-split-signal.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--mutation_gene {wildcards.gene} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset tcga "
+        "--correction split_signal "
 
 rule simulate_data:
     threads: 8

@@ -32,6 +32,8 @@ AVAILABLE_TISSUES = ['Blood', 'Breast', 'Stem_Cell', 'Cervix', 'Brain', 'Kidney'
                      'Cerebellum', 'Cerebral_cortex', 'Salivary_Gland', 'Duodenum'
                      ]
 
+TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
+
 
 def objective(trial, train_list, supervised_config,
               label_encoder, weighted_loss=False, device='cpu'):
@@ -209,6 +211,34 @@ def prep_sim_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedData
     return all_data, labeled_data
 
 
+def prep_tcga_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDataset,
+                                                      datasets.RefineBioLabeledDataset]:
+    with open(args.dataset_config) as in_file:
+        dataset_config = yaml.safe_load(in_file)
+
+    data_df = utils.load_compendium_file(dataset_config['compendium_path']).T
+    sample_to_label = utils.get_mutation_labels(dataset_config['mutation_file_path'],
+                                                args.mutation_gene)
+
+    # Throw out extra info to match expression ids and mutation ids
+
+    data_df.columns = [c[:15] for c in data_df.columns]
+
+    # There are 8 samples that come from the same participant+project.
+    # These could probably be kept given that they're ~.01% of the data, but
+    # we might as well remove them to be safe
+    data_df = data_df.loc[:, ~data_df.columns.duplicated()]
+
+    # Split by donor
+    sample_to_study = {sample: sample.split('-')[2] for sample in data_df.columns}
+
+    all_data = datasets.RefineBioMixedDataset(data_df, sample_to_label, sample_to_study)
+
+    labeled_data = all_data.get_labeled()
+
+    return all_data, labeled_data
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset_config',
@@ -221,14 +251,8 @@ if __name__ == '__main__':
                         help='The file to save the results to')
     parser.add_argument('--dataset',
                         help='The dataset to be used',
-                        choices=['gtex', 'recount', 'sim'],
+                        choices=['gtex', 'recount', 'sim', 'tcga'],
                         default='recount')
-    parser.add_argument('--tissue1',
-                        help='The first tissue to be predicted from the data',
-                        default='Blood', choices=AVAILABLE_TISSUES)
-    parser.add_argument('--tissue2',
-                        help='The second tissue to be predicted from the data',
-                        default='Breast', choices=AVAILABLE_TISSUES)
     parser.add_argument('--neptune_config',
                         help='A yaml formatted file containing init information for '
                              'neptune logging')
@@ -240,13 +264,6 @@ if __name__ == '__main__':
                         help='The number of splits to use in cross-validation (must be at least 3)',
                         type=int,
                         default=5)
-    parser.add_argument('--batch_correction_method',
-                        help='The method to use to correct for batch effects',
-                        default=None)
-    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
-                        default=False, action='store_true')
-    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
-                        default=False, action='store_true')
     parser.add_argument('--weighted_loss',
                         help='Weight classes based on the inverse of their prevalence',
                         action='store_true')
@@ -259,9 +276,6 @@ if __name__ == '__main__':
                              'for the train and val sets',
                         choices=['uncorrected', 'signal', 'study', 'split_signal'],
                         default='uncorrected')
-    parser.add_argument('--use_sex_labels',
-                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
-                        action='store_true')
     parser.add_argument('--sample_split',
                         help='If this flag is set, split cv folds at the sample level instead '
                              'of the study level',
@@ -269,6 +283,24 @@ if __name__ == '__main__':
     parser.add_argument('--disable_optuna',
                         help="If this flag is set, don't to hyperparameter optimization",
                         action='store_true')
+    # Recount/GTEX args
+    parser.add_argument('--tissue1',
+                        help='The first tissue to be predicted from the data',
+                        default='Blood', choices=AVAILABLE_TISSUES)
+    parser.add_argument('--tissue2',
+                        help='The second tissue to be predicted from the data',
+                        default='Breast', choices=AVAILABLE_TISSUES)
+    parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
+                        default=False, action='store_true')
+    # Recount only args
+    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
+                        default=False, action='store_true')
+    parser.add_argument('--use_sex_labels',
+                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
+                        action='store_true')
+    # TCGA args
+    parser.add_argument('--mutation_gene', help='Which gene to call mutations for in TCGA data',
+                        default=None, choices=TCGA_GENES)
 
     args = parser.parse_args()
 
@@ -281,6 +313,8 @@ if __name__ == '__main__':
         all_data, labeled_data = prep_gtex_data(args)
     elif args.dataset == 'sim':
         all_data, labeled_data = prep_sim_data(args)
+    elif args.dataset == 'tcga':
+        all_data, labeled_data = prep_tcga_data(args)
 
     # Correct for batch effects
     if args.correction == 'study':
@@ -431,12 +465,11 @@ if __name__ == '__main__':
             accuracy = sklearn.metrics.accuracy_score(true_labels, predictions)
             balanced_acc = sklearn.metrics.balanced_accuracy_score(true_labels, predictions)
 
-            label_mapping = dict(zip(label_encoder.classes_,
+            # The downstream json conversion hates number keys, so we'll make sure
+            # everything is a string instead
+            str_classes = [str(id) for id in label_encoder.classes_]
+            label_mapping = dict(zip(str_classes,
                                      range(len(label_encoder.classes_))))
-
-            # Ensure this mapping is correct
-            for label in label_mapping.keys():
-                assert label_encoder.transform([label]) == label_mapping[label]
 
             encoder_string = json.dumps(label_mapping)
             prediction_string = ','.join(list(predictions.astype('str')))
