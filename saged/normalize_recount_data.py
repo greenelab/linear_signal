@@ -53,7 +53,7 @@ def calculate_tpm(counts: np.ndarray, gene_length_arr: np.ndarray) -> np.ndarray
 
     reads_per_kb = counts / gene_length_arr
 
-    sample_total_counts = np.sum(counts)
+    sample_total_counts = np.sum(reads_per_kb)
     per_million_transcripts = sample_total_counts / 1e6
 
     tpm = reads_per_kb / per_million_transcripts
