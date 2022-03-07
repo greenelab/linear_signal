@@ -25,6 +25,8 @@ wildcard_constraints:
 
 rule all:
     input:
+        "data/sra_counts.tsv",
+        "data/metadata_df.rda",
         "data/recount_text.txt",
         "data/recount_embeddings.hdf5",
         "data/recount_metadata.tsv",
@@ -39,10 +41,6 @@ rule all:
         "data/batch_sim_data.tsv",
         "data/linear_batch_sim_data.tsv",
         "data/no_signal_batch_sim_data.tsv",
-        "data/manifest.tsv",
-        "data/tcga_expression.tsv",
-        "data/tcga_tpm.tsv",
-        "data/tcga_tpm.pkl",
         # Recount Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -60,39 +58,8 @@ rule all:
                seed=range(0,NUM_SEEDS),
                tissues=GTEX_TISSUE_STRING,
                ),
-        # TCGA Binary classification
-        expand("results/tcga-binary.{genes}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               genes=TCGA_GENES,
-               ),
-        expand("results/tcga-binary-signal-removed.{genes}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               genes=TCGA_GENES,
-               ),
-        expand("results/tcga-binary-split-signal.{genes}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               genes=TCGA_GENES,
-               ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        expand("results/{tissues}.{supervised}_{seed}-split_signal.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        expand("results/{tissues}.{supervised}_{seed}-signal_removed_sample_level.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        expand("results/{tissues}.{supervised}_{seed}-study_corrected.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=RECOUNT_TISSUE_STRING,
@@ -107,37 +74,12 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # Multi-tissue prediction be_corrected
-        expand("results/all-tissue.{supervised}_{seed}_be_corrected.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
         expand("results/all-tissue.{supervised}_{seed}_signal_removed.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # Tissue prediction with imputation pretraining
-        expand("results/tissue_impute.{impute}_{seed}.tsv",
-               impute=IMPUTE,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # biobert_multitissue
-        expand("results/all-tissue-biobert.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split
-        expand("results/sample-split.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split
+        # pretraining
         expand("results/study-split.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split sex prediction
-        expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -153,31 +95,6 @@ rule all:
                ),
         # sex prediction split-signal
         expand("results/sex-prediction-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split signal removed
-        expand("results/sample-split-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split signal removed
-        expand("results/study-split-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split be_corrected
-        expand("results/sample-split-study-corrected.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split be_corrected
-        expand("results/study-split-study-corrected.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # tissue_split
-        expand("results/tissue-split.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -210,25 +127,12 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        expand("results/linear-sim-data-split-signal.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
         # No signal sim
         expand("results/no-signal-sim-data.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
         expand("results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        expand("results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Split-signal sim
-        expand("results/sim-data-split-signal.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -240,6 +144,11 @@ rule metadata_to_tsv:
         "data/recount_metadata.tsv"
     shell:
         "Rscript saged/metadata_to_tsv.R"
+
+rule download_recount:
+    output:
+        "data/metadata_df.rda",
+        "data/sra_counts.tsv"
 
 rule download_manifest:
     output:
