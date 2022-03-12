@@ -7,10 +7,6 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - bioconductor-genefilter
-  - bioconductor-limma
-  - bioconductor-recount3
-  - bioconductor-sva
   - cudatoolkit=11.1.74
   - curl=7.76.1
   - flake8=3.9.2
@@ -21,6 +17,7 @@ dependencies:
   - neptune-client=0.9.16
   - notebook=6.4.0
   - numpy=1.20.3
+  - optuna=2.1.0
   - pandas=1.0.5
   - pip=20.1.1
   - pyflakes=2.3.1
