@@ -16,7 +16,9 @@ import torch
 import yaml
 from sklearn.preprocessing import MinMaxScaler
 
-import utils, datasets, models
+import utils
+import datasets
+import models
 
 # Note, the arguments will have underscores, but the labels in the encoder
 # will use spaces
