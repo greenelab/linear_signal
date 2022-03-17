@@ -20,8 +20,8 @@ from performer_pytorch import SelfAttention
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-import saged.utils as utils
-from saged.datasets import LabeledDataset, UnlabeledDataset, MixedDataset, ExpressionDataset
+import utils
+from datasets import LabeledDataset, UnlabeledDataset, MixedDataset, ExpressionDataset
 
 
 def get_model_by_name(model_name: str) -> Any:

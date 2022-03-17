@@ -19,7 +19,7 @@ from rpy2.robjects import pandas2ri
 from rpy2.robjects.packages import importr
 from sklearn.metrics import accuracy_score
 
-from saged import datasets
+import datasets
 
 
 BLOOD_KEYS = ['blood',

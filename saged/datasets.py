@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 from sklearn import preprocessing
 
-from saged import utils
+import utils
 
 
 def correct_batch_effects(data: "RefineBioDataset",
