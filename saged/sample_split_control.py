@@ -14,9 +14,11 @@ import torch
 
 import yaml
 
-from saged import utils, datasets, models
-from saged.models import LogisticRegression
-from saged.utils import calculate_loss_weights
+import utils
+import datasets
+import models
+from models import LogisticRegression
+from utils import calculate_loss_weights
 
 
 PREDICT_TISSUES = ['Blood', 'Breast', 'Stem Cell', 'Cervix', 'Brain', 'Kidney',
