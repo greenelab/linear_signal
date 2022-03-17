@@ -149,6 +149,8 @@ rule download_recount:
     output:
         "data/metadata_df.rda",
         "data/sra_counts.tsv"
+    shell:
+        "Rscript saged/download_recount3.R "
 
 rule download_manifest:
     output:
@@ -195,6 +197,17 @@ rule get_gene_lengths:
     shell:
         "Rscript saged/get_gene_lengths.R "
 
+rule get_tissue_labels:
+    input:
+        "data/recount_metadata.tsv",
+        "data/no_scrna_tpm.pkl"
+    output:
+        "data/recount_sample_to_label.pkl",
+        "data/no_scrna_tissue_subset.pkl",
+    shell:
+        "python saged/get_tissue_data.py data/no_scrna_tpm.pkl data/recount_metadata.tsv "
+        "data/no_scrna_tissue_subset.pkl data/recount_sample_to_label.pkl"
+
 rule pickle_counts:
     input:
         "data/no_scrna_tpm.tsv"
@@ -213,7 +226,6 @@ rule create_biobert_metadata_file:
         "data/recount_metadata.tsv "
         "data/recount_text.txt "
 
-
 rule create_biobert_embeddings:
     input:
         "data/recount_text.txt"
@@ -230,7 +242,9 @@ rule create_biobert_embeddings:
 rule tissue_prediction:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -251,7 +265,9 @@ rule tissue_prediction:
 rule all_tissue_prediction:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -268,7 +284,9 @@ rule all_tissue_prediction:
 rule all_tissue_sample_split:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -286,7 +304,9 @@ rule all_tissue_sample_split:
 rule tissue_prediction_signal_removed:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -305,7 +325,9 @@ rule tissue_prediction_signal_removed:
 rule tissue_prediction_split_signal_removal:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -324,7 +346,9 @@ rule tissue_prediction_split_signal_removal:
 rule tissue_prediction_signal_removed_sample_split:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -344,7 +368,9 @@ rule tissue_prediction_signal_removed_sample_split:
 rule tissue_prediction_study_corrected:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -363,7 +389,9 @@ rule tissue_prediction_study_corrected:
 rule all_tissue_prediction_be_corrected:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -381,7 +409,9 @@ rule all_tissue_prediction_be_corrected:
 rule all_tissue_prediction_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -396,43 +426,12 @@ rule all_tissue_prediction_signal_removed:
         "--weighted_loss "
         # "--disable_optuna "
 
-rule transfer_tissue:
-    input:
-        "data/recount_tpm.pkl",
-        imputation_model = "model_configs/imputation/{impute}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    threads: 8
-    output:
-        "results/tissue_impute.{impute}_{seed}.tsv"
-    shell:
-        "python saged/imputation_pretraining.py {input.dataset_config} {input.imputation_model} "
-        "results/tissue_impute.{wildcards.impute}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--weighted_loss "
-
-rule all_tissue_biobert:
-    threads: 16
-    input:
-        "dataset_configs/recount_dataset.yml",
-        "data/recount_embeddings.hdf5",
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    output:
-        "results/all-tissue-biobert.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/all-tissue-biobert.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--all_tissue "
-        "--biobert "
-        "--weighted_loss "
-
 rule sample_level_control:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -448,7 +447,9 @@ rule sample_level_control:
 rule sample_level_control_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -465,7 +466,9 @@ rule sample_level_control_signal_removed:
 rule sample_level_be_corrected:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -482,7 +485,9 @@ rule sample_level_be_corrected:
 rule study_level_control:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -497,8 +502,10 @@ rule study_level_control:
 rule study_level_sex_prediction:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -515,8 +522,10 @@ rule study_level_sex_prediction:
 rule sex_prediction_split_signal:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -534,8 +543,10 @@ rule sex_prediction_split_signal:
 rule sex_prediction_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -553,8 +564,10 @@ rule sex_prediction_signal_removed:
 rule sample_level_control_sex_prediction:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -572,7 +585,9 @@ rule sample_level_control_sex_prediction:
 rule study_level_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -588,7 +603,9 @@ rule study_level_signal_removed:
 rule study_level_be_corrected:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -604,7 +621,9 @@ rule study_level_be_corrected:
 rule tissue_split:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
