@@ -1,12 +1,17 @@
 """ Test the functions implemented in models.py """
 import os
+import sys
 
 import numpy as np
 import pytest
 import yaml
 
+test_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(test_dir + '/../saged')
+sys.path.append(test_dir)
+import models
+import datasets
 import test_datasets
-from saged import models, datasets
 
 N_COMPONENTS = 2
 
