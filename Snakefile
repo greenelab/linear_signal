@@ -678,6 +678,8 @@ rule pickle_tcga:
 rule all_tissue_gtex:
     threads: 8
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -695,6 +697,8 @@ rule all_tissue_gtex:
 rule all_tissue_signal_removed_gtex:
     threads: 8
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -713,6 +717,8 @@ rule all_tissue_signal_removed_gtex:
 rule gtex_binary_prediction:
     threads: 4
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -731,6 +737,8 @@ rule gtex_binary_prediction:
 rule gtex_binary_prediction_signal_removed:
     threads: 4
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
