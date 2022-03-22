@@ -430,6 +430,7 @@ if __name__ == '__main__':
                 if args.weighted_loss:
                     loss_weights = utils.calculate_loss_weights(train_data)
                     supervised_config['loss_weights'] = loss_weights
+                # Only save one model per run to avoid running out of disk space
                 if 'save_path' in supervised_config and i == 0 and args.seed == 0:
                     # Append script-specific information to model save file
                     save_path = supervised_config['save_path']
