@@ -6,8 +6,9 @@
 Before running scripts involving sex prediction, you need to download the Flynn et al. labels from [this link](https://figshare.com/s/985621c1705043421962) and put the results in the `saged/data` directory.
 Because of the settings on the figshare repo it isn't possible to incorporate that part of the data download into the Snakefile, otherwise I would.
 
+### Conda setup
 
-
+### Renv setup
 
 
 ### Neptune setup instructions
