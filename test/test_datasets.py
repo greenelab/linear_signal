@@ -7,12 +7,17 @@ base class it inherited from
 
 import os
 import random
+import sys
 
 import numpy as np
 import pytest
 import yaml
 
-from saged import datasets, generate_test_data
+test_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(test_dir + '/../saged')
+
+import datasets
+import generate_test_data
 
 
 @pytest.fixture(scope="function")

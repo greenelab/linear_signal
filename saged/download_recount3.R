@@ -10,12 +10,6 @@
 # recount3 from being installed. I recommend running this script from a base r installation 
 # rather than a conda env
 
-#install.packages("BiocManager", repos = "https://cran.r-project.org", dependencies=TRUE)
-#install.packages("dplyr", repos = "https://cran.r-project.org", dependencies=TRUE)
-#install.packages("tibble", repos = "https://cran.r-project.org", dependencies=TRUE)
-#install.packages("tidyr", repos = "https://cran.r-project.org", dependencies=TRUE)
-#BiocManager::install()
-#BiocManager::install("recount3")
 
 library(recount3)
 library(dplyr)
@@ -53,16 +47,15 @@ getMetadata <- function(project, project_home, metadata_df) {
         
         metadata_files <- recount3::file_retrieve(url)
         metadata <- recount3::read_metadata(metadata_files)
-        
         if (is.null(metadata_df)) {
           result <- metadata
         } else if (nrow(metadata) == 0){
           # This keeps the script from looking at the cache repeatedly for studies without metadata
           metadata[nrow(metadata)+1,] <- NA
           metadata$study <- project
-          result <- rbind(metadata_df, metadata)
+          result <- plyr::rbind.fill(metadata_df, metadata)
         } else {
-          result <- rbind(metadata_df, metadata)
+          result <- plyr::rbind.fill(metadata_df, metadata)
         }
         
         read_successful <- TRUE

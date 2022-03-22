@@ -25,6 +25,8 @@ wildcard_constraints:
 
 rule all:
     input:
+        "data/sra_counts.tsv",
+        "data/metadata_df.rda",
         "data/recount_text.txt",
         "data/recount_embeddings.hdf5",
         "data/recount_metadata.tsv",
@@ -39,10 +41,6 @@ rule all:
         "data/batch_sim_data.tsv",
         "data/linear_batch_sim_data.tsv",
         "data/no_signal_batch_sim_data.tsv",
-        "data/manifest.tsv",
-        "data/tcga_expression.tsv",
-        "data/tcga_tpm.tsv",
-        "data/tcga_tpm.pkl",
         # Recount Binary classification
         expand("results/{tissues}.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
@@ -60,39 +58,8 @@ rule all:
                seed=range(0,NUM_SEEDS),
                tissues=GTEX_TISSUE_STRING,
                ),
-        # TCGA Binary classification
-        expand("results/tcga-binary.{genes}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               genes=TCGA_GENES,
-               ),
-        expand("results/tcga-binary-signal-removed.{genes}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               genes=TCGA_GENES,
-               ),
-        expand("results/tcga-binary-split-signal.{genes}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               genes=TCGA_GENES,
-               ),
         # Binary classification w/ corrections
         expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        expand("results/{tissues}.{supervised}_{seed}-split_signal.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        expand("results/{tissues}.{supervised}_{seed}-signal_removed_sample_level.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        expand("results/{tissues}.{supervised}_{seed}-study_corrected.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                tissues=RECOUNT_TISSUE_STRING,
@@ -107,37 +74,12 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # Multi-tissue prediction be_corrected
-        expand("results/all-tissue.{supervised}_{seed}_be_corrected.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
         expand("results/all-tissue.{supervised}_{seed}_signal_removed.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        # Tissue prediction with imputation pretraining
-        expand("results/tissue_impute.{impute}_{seed}.tsv",
-               impute=IMPUTE,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # biobert_multitissue
-        expand("results/all-tissue-biobert.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split
-        expand("results/sample-split.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split
+        # pretraining
         expand("results/study-split.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split sex prediction
-        expand("results/sample-split-sex-prediction.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -153,31 +95,6 @@ rule all:
                ),
         # sex prediction split-signal
         expand("results/sex-prediction-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split signal removed
-        expand("results/sample-split-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split signal removed
-        expand("results/study-split-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sample_split be_corrected
-        expand("results/sample-split-study-corrected.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split be_corrected
-        expand("results/study-split-study-corrected.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # tissue_split
-        expand("results/tissue-split.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -210,25 +127,12 @@ rule all:
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
-        expand("results/linear-sim-data-split-signal.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
         # No signal sim
         expand("results/no-signal-sim-data.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
         expand("results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        expand("results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Split-signal sim
-        expand("results/sim-data-split-signal.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
                ),
@@ -240,6 +144,13 @@ rule metadata_to_tsv:
         "data/recount_metadata.tsv"
     shell:
         "Rscript saged/metadata_to_tsv.R"
+
+rule download_recount:
+    output:
+        "data/metadata_df.rda",
+        "data/sra_counts.tsv"
+    shell:
+        "Rscript saged/download_recount3.R "
 
 rule download_manifest:
     output:
@@ -286,6 +197,17 @@ rule get_gene_lengths:
     shell:
         "Rscript saged/get_gene_lengths.R "
 
+rule get_tissue_labels:
+    input:
+        "data/recount_metadata.tsv",
+        "data/no_scrna_tpm.pkl"
+    output:
+        "data/recount_sample_to_label.pkl",
+        "data/no_scrna_tissue_subset.pkl",
+    shell:
+        "python saged/get_tissue_data.py data/no_scrna_tpm.pkl data/recount_metadata.tsv "
+        "data/no_scrna_tissue_subset.pkl data/recount_sample_to_label.pkl"
+
 rule pickle_counts:
     input:
         "data/no_scrna_tpm.tsv"
@@ -304,7 +226,6 @@ rule create_biobert_metadata_file:
         "data/recount_metadata.tsv "
         "data/recount_text.txt "
 
-
 rule create_biobert_embeddings:
     input:
         "data/recount_text.txt"
@@ -321,7 +242,9 @@ rule create_biobert_embeddings:
 rule tissue_prediction:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -337,12 +260,14 @@ rule tissue_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule all_tissue_prediction:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -354,12 +279,14 @@ rule all_tissue_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule all_tissue_sample_split:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -372,12 +299,14 @@ rule all_tissue_sample_split:
         "--all_tissue "
         "--weighted_loss "
         "--sample_split "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule tissue_prediction_signal_removed:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -391,12 +320,14 @@ rule tissue_prediction_signal_removed:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction signal "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule tissue_prediction_split_signal_removal:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -410,12 +341,14 @@ rule tissue_prediction_split_signal_removal:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction split_signal "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule tissue_prediction_signal_removed_sample_split:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -430,12 +363,14 @@ rule tissue_prediction_signal_removed_sample_split:
         "--weighted_loss "
         "--correction signal "
         "--sample_split "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule tissue_prediction_study_corrected:
     threads: 4
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -449,12 +384,14 @@ rule tissue_prediction_study_corrected:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction study "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -467,12 +404,14 @@ rule all_tissue_prediction_be_corrected:
         "--all_tissue "
         "--correction study "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule all_tissue_prediction_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -485,45 +424,14 @@ rule all_tissue_prediction_signal_removed:
         "--all_tissue "
         "--correction signal "
         "--weighted_loss "
-        "--disable_optuna "
-
-rule transfer_tissue:
-    input:
-        "data/recount_tpm.pkl",
-        imputation_model = "model_configs/imputation/{impute}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    threads: 8
-    output:
-        "results/tissue_impute.{impute}_{seed}.tsv"
-    shell:
-        "python saged/imputation_pretraining.py {input.dataset_config} {input.imputation_model} "
-        "results/tissue_impute.{wildcards.impute}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--weighted_loss "
-
-rule all_tissue_biobert:
-    threads: 16
-    input:
-        "dataset_configs/recount_dataset.yml",
-        "data/recount_embeddings.hdf5",
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    output:
-        "results/all-tissue-biobert.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/all-tissue-biobert.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--all_tissue "
-        "--biobert "
-        "--weighted_loss "
+        # "--disable_optuna "
 
 rule sample_level_control:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -539,7 +447,9 @@ rule sample_level_control:
 rule sample_level_control_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -556,7 +466,9 @@ rule sample_level_control_signal_removed:
 rule sample_level_be_corrected:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -573,7 +485,9 @@ rule sample_level_be_corrected:
 rule study_level_control:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -588,8 +502,10 @@ rule study_level_control:
 rule study_level_sex_prediction:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -601,13 +517,15 @@ rule study_level_sex_prediction:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule sex_prediction_split_signal:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -619,14 +537,16 @@ rule sex_prediction_split_signal:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--correction split_signal"
 
 rule sex_prediction_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -638,14 +558,16 @@ rule sex_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--correction signal "
 
 rule sample_level_control_sex_prediction:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
         "data/combined_human_mouse_meta_v2.csv",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -658,12 +580,14 @@ rule sample_level_control_sex_prediction:
         "--sample_split "
         "--weighted_loss "
         "--use_sex_labels "
-        "--disable_optuna "
+        # "--disable_optuna "
 
 rule study_level_signal_removed:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -679,7 +603,9 @@ rule study_level_signal_removed:
 rule study_level_be_corrected:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -695,7 +621,9 @@ rule study_level_be_corrected:
 rule tissue_split:
     threads: 8
     input:
-        "dataset_configs/recount_dataset.yml",
+        "data/no_scrna_tpm.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/recount_dataset.yml",
     output:
@@ -750,6 +678,8 @@ rule pickle_tcga:
 rule all_tissue_gtex:
     threads: 8
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -761,12 +691,14 @@ rule all_tissue_gtex:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset gtex"
 
 rule all_tissue_signal_removed_gtex:
     threads: 8
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -778,13 +710,15 @@ rule all_tissue_signal_removed_gtex:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset gtex "
         "--correction signal "
 
 rule gtex_binary_prediction:
     threads: 4
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -797,12 +731,14 @@ rule gtex_binary_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset gtex "
 
 rule gtex_binary_prediction_signal_removed:
     threads: 4
     input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
         supervised_model = "model_configs/supervised/{supervised}.yml",
         dataset_config = "dataset_configs/gtex_dataset.yml",
     output:
@@ -815,7 +751,7 @@ rule gtex_binary_prediction_signal_removed:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset gtex "
         "--correction signal "
 
@@ -833,7 +769,7 @@ rule tcga_binary_prediction:
         "--seed {wildcards.seed} "
         "--mutation_gene {wildcards.gene} "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset tcga "
 
 rule tcga_binary_prediction_signal_removed:
@@ -850,7 +786,7 @@ rule tcga_binary_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--mutation_gene {wildcards.gene} "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset tcga "
         "--correction signal "
 
@@ -868,7 +804,7 @@ rule tcga_binary_prediction_split_signal:
         "--seed {wildcards.seed} "
         "--mutation_gene {wildcards.gene} "
         "--weighted_loss "
-        "--disable_optuna "
+        # "--disable_optuna "
         "--dataset tcga "
         "--correction split_signal "
 

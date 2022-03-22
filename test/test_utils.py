@@ -1,10 +1,14 @@
 """ Test utility functions """
+import os
+import sys
 
 import numpy as np
 import pytest
 import torch
 
-from saged import utils
+test_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(test_dir + '/../saged')
+import utils
 
 
 @pytest.mark.parametrize('labels, true_correct',
