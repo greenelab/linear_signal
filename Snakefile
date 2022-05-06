@@ -319,27 +319,6 @@ rule tissue_prediction_signal_removed:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--correction signal "
-        # "--disable_optuna "
-
-rule tissue_prediction_split_signal_removal:
-    threads: 4
-    input:
-        "data/no_scrna_tpm.pkl",
-        "data/recount_metadata.tsv",
-        "data/recount_sample_to_label.pkl",
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    output:
-        "results/{tissue1}.{tissue2}.{supervised}_{seed}-split_signal.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-split_signal.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--tissue1 {wildcards.tissue1} "
-        "--tissue2 {wildcards.tissue2} "
-        "--weighted_loss "
         "--correction split_signal "
         # "--disable_optuna "
 
@@ -361,7 +340,7 @@ rule tissue_prediction_signal_removed_sample_split:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        "--correction signal "
+        "--correction split_signal "
         "--sample_split "
         # "--disable_optuna "
 
@@ -422,7 +401,7 @@ rule all_tissue_prediction_signal_removed:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--all_tissue "
-        "--correction signal "
+        "--correction split_signal "
         "--weighted_loss "
         # "--disable_optuna "
 
@@ -461,7 +440,7 @@ rule sample_level_control_signal_removed:
         "--seed {wildcards.seed} "
         "--sample_split "
         "--weighted_loss "
-        "--correction signal "
+        "--correction split_signal "
 
 rule sample_level_be_corrected:
     threads: 8
@@ -500,7 +479,7 @@ rule study_level_control:
         "--weighted_loss "
 
 rule study_level_sex_prediction:
-    threads: 8
+    threads: 5
     input:
         "data/combined_human_mouse_meta_v2.csv",
         "data/no_scrna_tpm.pkl",
@@ -520,7 +499,7 @@ rule study_level_sex_prediction:
         # "--disable_optuna "
 
 rule sex_prediction_split_signal:
-    threads: 8
+    threads: 5
     input:
         "data/combined_human_mouse_meta_v2.csv",
         "data/no_scrna_tpm.pkl",
@@ -541,7 +520,7 @@ rule sex_prediction_split_signal:
         "--correction split_signal"
 
 rule sex_prediction_signal_removed:
-    threads: 8
+    threads: 5
     input:
         "data/combined_human_mouse_meta_v2.csv",
         "data/no_scrna_tpm.pkl",
@@ -559,7 +538,7 @@ rule sex_prediction_signal_removed:
         "--weighted_loss "
         "--use_sex_labels "
         # "--disable_optuna "
-        "--correction signal "
+        "--correction split_signal "
 
 rule sample_level_control_sex_prediction:
     threads: 8
@@ -598,7 +577,7 @@ rule study_level_signal_removed:
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
         "--weighted_loss "
-        "--correction signal "
+        "--correction split_signal "
 
 rule study_level_be_corrected:
     threads: 8
@@ -676,7 +655,7 @@ rule pickle_tcga:
 
 
 rule all_tissue_gtex:
-    threads: 8
+    threads: 5
     input:
         "data/gtex_normalized.pkl",
         "data/gtex_sample_attributes.txt",
@@ -712,7 +691,7 @@ rule all_tissue_signal_removed_gtex:
         "--weighted_loss "
         # "--disable_optuna "
         "--dataset gtex "
-        "--correction signal "
+        "--correction split_signal "
 
 rule gtex_binary_prediction:
     threads: 4
@@ -753,7 +732,7 @@ rule gtex_binary_prediction_signal_removed:
         "--weighted_loss "
         # "--disable_optuna "
         "--dataset gtex "
-        "--correction signal "
+        "--correction split_signal "
 
 rule tcga_binary_prediction:
     threads: 4
@@ -788,7 +767,7 @@ rule tcga_binary_prediction_signal_removed:
         "--weighted_loss "
         # "--disable_optuna "
         "--dataset tcga "
-        "--correction signal "
+        "--correction split_signal "
 
 rule tcga_binary_prediction_split_signal:
     threads: 4
@@ -863,7 +842,7 @@ rule sim_prediction_signal_removed:
         "--all_tissue "
         "--weighted_loss "
         "--disable_optuna "
-        "--correction signal "
+        "--correction split_signal "
         "--dataset sim "
 
 rule linear_sim_prediction:
@@ -900,27 +879,27 @@ rule linear_sim_prediction_signal_removed:
         "--all_tissue "
         "--weighted_loss "
         "--disable_optuna "
-        "--correction signal "
-        "--dataset sim"
-
-rule linear_sim_prediction_split_signal:
-    threads: 8
-    input:
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/linear_sim_dataset.yml",
-        data="data/linear_batch_sim_data.tsv"
-    output:
-        "results/linear-sim-data-split-signal.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/linear-sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--all_tissue "
-        "--weighted_loss "
-        "--disable_optuna "
         "--correction split_signal "
         "--dataset sim"
+
+# rule linear_sim_prediction_split_signal:
+#     threads: 8
+#     input:
+#         supervised_model = "model_configs/supervised/{supervised}.yml",
+#         dataset_config = "dataset_configs/linear_sim_dataset.yml",
+#         data="data/linear_batch_sim_data.tsv"
+#     output:
+#         "results/linear-sim-data-split-signal.{supervised}_{seed}.tsv"
+#     shell:
+#         "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+#         "results/linear-sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
+#         "--neptune_config neptune.yml "
+#         "--seed {wildcards.seed} "
+#         "--all_tissue "
+#         "--weighted_loss "
+#         "--disable_optuna "
+#         "--correction split_signal "
+#         "--dataset sim"
 
 rule no_signal_sim_prediction:
     threads: 8
