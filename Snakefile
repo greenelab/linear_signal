@@ -87,11 +87,6 @@ rule all:
                seed=range(0,NUM_SEEDS),
                ),
         # sex prediction split-signal
-        expand("results/sex-prediction-split-signal.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sex prediction split-signal
         expand("results/sex-prediction-signal-removed.{supervised}_{seed}.tsv",
                supervised=SUPERVISED,
                seed=range(0,NUM_SEEDS),
@@ -465,27 +460,6 @@ rule study_level_sex_prediction:
         "--use_sex_labels "
         # "--disable_optuna "
 
-rule sex_prediction_split_signal:
-    threads: 5
-    input:
-        "data/combined_human_mouse_meta_v2.csv",
-        "data/no_scrna_tpm.pkl",
-        "data/recount_metadata.tsv",
-        "data/recount_sample_to_label.pkl",
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/recount_dataset.yml",
-    output:
-        "results/sex-prediction-split-signal.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/sex-prediction-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--weighted_loss "
-        "--use_sex_labels "
-        # "--disable_optuna "
-        "--correction split_signal"
-
 rule sex_prediction_signal_removed:
     threads: 5
     input:
@@ -778,25 +752,6 @@ rule linear_sim_prediction_signal_removed:
         "--disable_optuna "
         "--correction split_signal "
         "--dataset sim"
-
-# rule linear_sim_prediction_split_signal:
-#     threads: 8
-#     input:
-#         supervised_model = "model_configs/supervised/{supervised}.yml",
-#         dataset_config = "dataset_configs/linear_sim_dataset.yml",
-#         data="data/linear_batch_sim_data.tsv"
-#     output:
-#         "results/linear-sim-data-split-signal.{supervised}_{seed}.tsv"
-#     shell:
-#         "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-#         "results/linear-sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
-#         "--neptune_config neptune.yml "
-#         "--seed {wildcards.seed} "
-#         "--all_tissue "
-#         "--weighted_loss "
-#         "--disable_optuna "
-#         "--correction split_signal "
-#         "--dataset sim"
 
 rule no_signal_sim_prediction:
     threads: 8
