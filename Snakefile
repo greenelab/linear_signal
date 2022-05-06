@@ -27,8 +27,6 @@ rule all:
     input:
         "data/sra_counts.tsv",
         "data/metadata_df.rda",
-        "data/recount_text.txt",
-        "data/recount_embeddings.hdf5",
         "data/recount_metadata.tsv",
         "data/no_scrna_counts.tsv",
         "data/gene_lengths.tsv",
@@ -158,14 +156,6 @@ rule download_manifest:
     shell:
         "bash saged/download_manifest.sh"
 
-rule download_tcga:
-    input:
-        "data/manifest.tsv"
-    output:
-        "data/tcga_expression.tsv"
-    shell:
-        "jupyter nbconvert --to notebook --execute saged/download_tcga.ipynb"
-
 rule remove_scrna:
     input:
         "data/sra_counts.tsv",
@@ -215,29 +205,6 @@ rule pickle_counts:
         "data/no_scrna_tpm.pkl"
     shell:
         "python saged/pickle_tsv.py data/no_scrna_tpm.tsv data/no_scrna_tpm.pkl"
-
-rule create_biobert_metadata_file:
-    input:
-        "data/recount_metadata.tsv"
-    output:
-        "data/recount_text.txt"
-    shell:
-        "python saged/extract_metadata_text.py "
-        "data/recount_metadata.tsv "
-        "data/recount_text.txt "
-
-rule create_biobert_embeddings:
-    input:
-        "data/recount_text.txt"
-    output:
-        "data/recount_embeddings.hdf5"
-    shell:
-        "python biobert-pytorch/embedding/run_embedding.py "
-        "--model_name_or_path dmis-lab/biobert-large-cased-v1.1 "
-        "--data_path data/recount_text.txt "
-        "--output_path data/recount_embeddings.hdf5 "
-        "--pooling=sum "
-        "--keep_text_order "
 
 rule tissue_prediction:
     threads: 4
@@ -637,23 +604,6 @@ rule pickle_gtex:
     shell:
         "python saged/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
 
-rule preprocess_tcga:
-    input:
-        "data/tcga_expression.tsv"
-    output:
-        "data/tcga_tpm.tsv"
-    shell:
-        "python saged/preprocess_tcga.py data/tcga_expression.tsv data/tcga_tpm.tsv"
-
-rule pickle_tcga:
-    input:
-        "data/tcga_tpm.tsv"
-    output:
-        "data/tcga_tpm.pkl"
-    shell:
-        "python saged/pickle_tsv.py data/tcga_tpm.tsv data/tcga_tpm.pkl"
-
-
 rule all_tissue_gtex:
     threads: 5
     input:
@@ -732,59 +682,6 @@ rule gtex_binary_prediction_signal_removed:
         "--weighted_loss "
         # "--disable_optuna "
         "--dataset gtex "
-        "--correction split_signal "
-
-rule tcga_binary_prediction:
-    threads: 4
-    input:
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/tcga.yml",
-    output:
-        "results/tcga-binary.{gene}.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/tcga-binary.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--mutation_gene {wildcards.gene} "
-        "--weighted_loss "
-        # "--disable_optuna "
-        "--dataset tcga "
-
-rule tcga_binary_prediction_signal_removed:
-    threads: 4
-    input:
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/tcga.yml",
-    output:
-        "results/tcga-binary-signal-removed.{gene}.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/tcga-binary-signal-removed.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--mutation_gene {wildcards.gene} "
-        "--weighted_loss "
-        # "--disable_optuna "
-        "--dataset tcga "
-        "--correction split_signal "
-
-rule tcga_binary_prediction_split_signal:
-    threads: 4
-    input:
-        supervised_model = "model_configs/supervised/{supervised}.yml",
-        dataset_config = "dataset_configs/tcga.yml",
-    output:
-        "results/tcga-binary-split-signal.{gene}.{supervised}_{seed}.tsv"
-    shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
-        "results/tcga-binary-split-signal.{wildcards.gene}.{wildcards.supervised}_{wildcards.seed}.tsv "
-        "--neptune_config neptune.yml "
-        "--seed {wildcards.seed} "
-        "--mutation_gene {wildcards.gene} "
-        "--weighted_loss "
-        # "--disable_optuna "
-        "--dataset tcga "
         "--correction split_signal "
 
 rule simulate_data:
