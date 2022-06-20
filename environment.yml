@@ -1,4 +1,4 @@
-name: saged
+name: linear_models
 channels:
   - pytorch
   - nvidia
