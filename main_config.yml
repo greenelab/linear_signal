@@ -1,8 +1,0 @@
-configs:
-    dataset_configs: 
-        - 'data/refinebio_config.yml'
-    supervised_model_configs:
-        - 'model_configs/logistic_regression.yml'
-    unsupervised_model_configs:
-        - 'model_configs/PCA.yml'
-seed: 42
