@@ -3,9 +3,6 @@ import itertools
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
 
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
-IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
-UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
-SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
 
 NUM_SEEDS = 3
 
@@ -23,112 +20,141 @@ wildcard_constraints:
     # Random seeds should be numbers
     seed="\d+"
 
+result_files = [
+    # Recount Binary classification
+    expand("results/{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=RECOUNT_TISSUE_STRING,
+            ),
+    # GTEx Binary classification
+    expand("results/gtex.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=GTEX_TISSUE_STRING,
+            ),
+    expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=GTEX_TISSUE_STRING,
+            ),
+    # Binary classification w/ corrections
+    expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=RECOUNT_TISSUE_STRING,
+            ),
+    # Multi-tissue prediction
+    expand("results/all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction sample split
+    expand("results/all-tissue_sample-split.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/all-tissue.{supervised}_{seed}_signal_removed.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # pretraining
+    expand("results/study-split.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # study_split sex prediction
+    expand("results/study-split-sex-prediction.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # sex prediction split-signal
+    expand("results/sex-prediction-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction
+    expand("results/gtex-all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction
+    expand("results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Sim results
+    expand("results/sim-data.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Sim results be corrected
+    expand("results/sim-data-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Linear sim results
+    expand("results/linear-sim-data.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/linear-sim-data-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # No signal sim
+    expand("results/no-signal-sim-data.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+]
+
+figures = [
+    'figures/full_signal_combined.svg',
+    'figures/simulated_data_combined.svg',
+    'figures/signal_removed_combined.svg',
+    'figures/recount_binary.svg',
+    'figures/no_signal_sim_signal_removed.svg',
+    'figures/recount_binary_combined.svg',
+    'figures/recount_multiclass_sample_split.svg',
+    'figures/recount_pretraining.svg',
+]
+
+data_files = [
+    "data/sra_counts.tsv",
+    "data/metadata_df.rda",
+    "data/recount_metadata.tsv",
+    "data/no_scrna_counts.tsv",
+    "data/gene_lengths.tsv",
+    "data/no_scrna_tpm.tsv",
+    "data/no_scrna_tpm.pkl",
+    "data/gtex_tpm.gct",
+    "data/gtex_sample_attributes.txt",
+    "data/gtex_normalized.tsv",
+    "data/gtex_normalized.pkl",
+    "data/batch_sim_data.tsv",
+    "data/linear_batch_sim_data.tsv",
+    "data/no_signal_batch_sim_data.tsv",
+]
+
 rule all:
     input:
-        "data/sra_counts.tsv",
-        "data/metadata_df.rda",
-        "data/recount_metadata.tsv",
-        "data/no_scrna_counts.tsv",
-        "data/gene_lengths.tsv",
-        "data/no_scrna_tpm.tsv",
-        "data/no_scrna_tpm.pkl",
-        "data/gtex_tpm.gct",
-        "data/gtex_sample_attributes.txt",
-        "data/gtex_normalized.tsv",
-        "data/gtex_normalized.pkl",
-        "data/batch_sim_data.tsv",
-        "data/linear_batch_sim_data.tsv",
-        "data/no_signal_batch_sim_data.tsv",
-        # Recount Binary classification
-        expand("results/{tissues}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        # GTEx Binary classification
-        expand("results/gtex.{tissues}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=GTEX_TISSUE_STRING,
-               ),
-        expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=GTEX_TISSUE_STRING,
-               ),
-        # Binary classification w/ corrections
-        expand("results/{tissues}.{supervised}_{seed}-signal_removed.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               tissues=RECOUNT_TISSUE_STRING,
-               ),
-        # Multi-tissue prediction
-        expand("results/all-tissue.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Multi-tissue prediction sample split
-        expand("results/all-tissue_sample-split.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        expand("results/all-tissue.{supervised}_{seed}_signal_removed.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # pretraining
-        expand("results/study-split.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # study_split sex prediction
-        expand("results/study-split-sex-prediction.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # sex prediction split-signal
-        expand("results/sex-prediction-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Multi-tissue prediction
-        expand("results/gtex-all-tissue.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Multi-tissue prediction
-        expand("results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Sim results
-        expand("results/sim-data.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Sim results be corrected
-        expand("results/sim-data-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # Linear sim results
-        expand("results/linear-sim-data.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        expand("results/linear-sim-data-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        # No signal sim
-        expand("results/no-signal-sim-data.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
-        expand("results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv",
-               supervised=SUPERVISED,
-               seed=range(0,NUM_SEEDS),
-               ),
+        result_files,
+        figures,
+        data_files
+
+rule generate_figures:
+    input:
+        result_files
+    output:
+        figures
+    shell:
+        "jupyter nbconvert --to notebook --execute notebook/analysis/visualize_results.ipynb"
+
 
 rule metadata_to_tsv:
     input:

@@ -1,4 +1,0 @@
-name: "RefineBioMixedDataset"
-compendium_path: "data/subset_compendium.pkl"
-metadata_path: "data/aggregated_metadata.json"
-label_path: "data/sample_classifications.pkl"

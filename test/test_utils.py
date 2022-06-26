@@ -7,7 +7,7 @@ import pytest
 import torch
 
 test_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(test_dir + '/../saged')
+sys.path.append(test_dir + '/../src')
 import utils
 
 

@@ -3,9 +3,6 @@ import itertools
 DATASETS, = glob_wildcards("dataset_configs/{dataset}.yml")
 
 SUPERVISED, = glob_wildcards("model_configs/supervised/{supervised}.yml")
-IMPUTE, = glob_wildcards("model_configs/imputation/{impute}.yml")
-UNSUPERVISED, = glob_wildcards("model_configs/unsupervised/{unsupervised}.yml")
-SEMISUPERVISED, = glob_wildcards("model_configs/semi-supervised/{semisupervised}.yml")
 
 NUM_SEEDS = 3
 
