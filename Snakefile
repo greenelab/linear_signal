@@ -854,8 +854,6 @@ rule sim_split_signal:
         "--dataset sim "
         "--correction split_signal "
 
-# Create subset of Recount3 data with only the GTEx training genes
-# Preprocess ^ (python src/normalize_recount_data.py )
 # Pickle results
 # Make dataset config
 # Write script for loading existing model, running it on new dataset
@@ -867,7 +865,15 @@ rule subset_recount_data:
     input:
         "data/no_scrna_counts.tsv"
     output:
-        "data/recount_diff_genes.tsv"
+        "data/recount_gtex_genes.tsv"
     shell:
         "python src/normalize_gtex_transfer.py data/no_scrna_counts.tsv data/gene_lengths.tsv "
-        "data/recount_diff_genes.tsv data/recount_metadata.tsv data/gtex_normalized.tsv"
+        "data/recount_gtex_genes.tsv data/recount_metadata.tsv data/gtex_normalized.tsv"
+
+rule pickle_recount_gtex:
+    input:
+        "data/recount_gtex_genes.tsv"
+    output:
+        "data/recount_gtex_genes.pkl"
+    shell:
+        "python src/pickle_tsv.py data/recount_gtex_genes.tsv data/recount_gtex_genes.pkl"
