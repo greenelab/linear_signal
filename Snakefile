@@ -853,3 +853,23 @@ rule sim_split_signal:
         "--disable_optuna "
         "--dataset sim "
         "--correction split_signal "
+
+# Create subset of Recount3 data with only the GTEx training genes
+# Preprocess ^ (python saged/normalize_recount_data.py )
+# Pickle results
+# Make dataset config
+# Write script for loading existing model, running it on new dataset
+# Run ^ Script using GTEx models on new recount subset
+# Make Viz notebook
+
+rule subset_recount_data:
+    threads: 1
+    input:
+        "data/no_scrna_counts.tsv"
+    output:
+        "data/recount_diff_genes.tsv"
+    shell:
+        "python src/normalize_gtex_transfer.py data/no_scrna_counts.tsv data/gene_lengths.tsv "
+        "data/recount_diff_genes.tsv data/recount_metadata.tsv data/gtex_normalized.tsv"
+        # TODO fixme
+        # TODO python saged/ -> python src/
