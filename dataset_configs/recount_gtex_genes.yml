@@ -1,0 +1,6 @@
+name: "RefineBioMixedDataset"
+compendium_path: "data/recount_gtex_genes.pkl"
+metadata_path: "data/recount_metadata.tsv"
+label_path: "data/recount_sample_to_label.pkl"
+embedding_path: "data/recount_embeddings.hdf5"
+sex_label_path: "data/combined_human_mouse_meta_v2.csv"
