@@ -14,6 +14,10 @@ gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
 combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
 GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
+transfer_top_five_tissues = ['Blood', 'Breast', 'Brain', 'Kidney', 'Lung']
+combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
+TRANSFER_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
+
 TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
 
 wildcard_constraints:
@@ -33,6 +37,28 @@ result_files = [
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
             ),
+    #TODO Recount Transfer Binary classification
+    expand("results/recount_transfer.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
+    # GTEx Transfer Binary classification
+    expand("results/gtex_transfer.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
+    expand("results/recount_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
+    expand("results/gtex_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
     expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
@@ -46,6 +72,25 @@ result_files = [
             ),
     # Multi-tissue prediction
     expand("results/all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction
+    expand("results/recount-transfer.all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction
+    expand("results/gtex-transfer.all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Signal removed multitissue be correction
+    expand("results/recount-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/gtex-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
@@ -139,6 +184,8 @@ data_files = [
     "data/batch_sim_data.tsv",
     "data/linear_batch_sim_data.tsv",
     "data/no_signal_batch_sim_data.tsv",
+    "data/recount_gtex_genes.tsv",
+    "data/recount_gtex_genes.pkl"
 ]
 
 rule all:
@@ -854,12 +901,7 @@ rule sim_split_signal:
         "--dataset sim "
         "--correction split_signal "
 
-# Pickle results
-# Make dataset config
-# Write script for loading existing model, running it on new dataset
-# Run ^ Script using GTEx models on new recount subset
-# Make Viz notebook
-
+# Reviewer requested rules:
 rule subset_recount_data:
     threads: 1
     input:
@@ -867,7 +909,7 @@ rule subset_recount_data:
     output:
         "data/recount_gtex_genes.tsv"
     shell:
-        "python src/normalize_gtex_transfer.py data/no_scrna_counts.tsv data/gene_lengths.tsv "
+        "python src/normalize_recount_gtex_genes.py data/no_scrna_counts.tsv data/gene_lengths.tsv "
         "data/recount_gtex_genes.tsv data/recount_metadata.tsv data/gtex_normalized.tsv"
 
 rule pickle_recount_gtex:
@@ -877,3 +919,207 @@ rule pickle_recount_gtex:
         "data/recount_gtex_genes.pkl"
     shell:
         "python src/pickle_tsv.py data/recount_gtex_genes.tsv data/recount_gtex_genes.pkl"
+
+rule recount_to_gtex_binary:
+    threads: 4
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml"
+    output:
+        "results/recount_transfer.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount_transfer.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+
+rule gtex_to_recount_binary:
+    threads: 4
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex_transfer.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex_transfer.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+
+rule recount_to_gtex_binary_signal_removed:
+    threads: 4
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml"
+    output:
+        "results/recount_transfer.split_signal.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount_transfer.split_signal.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+        "--correction split_signal "
+
+rule gtex_to_recount_binary_signal_removed:
+    threads: 4
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex_transfer.split_signal.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex_transfer.split_signal.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+        "--correction split_signal "
+
+rule recount_transfer_all:
+    threads: 8
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/recount-transfer.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount-transfer.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+
+rule gtex_transfer_all:
+    threads: 8
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex-transfer.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex-transfer.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+
+rule recount_transfer_all_signal_removed:
+    threads: 8
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/recount-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount-transfer.split-signal.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+        "--correction split_signal "
+
+rule gtex_transfer_all_signal_removed:
+    threads: 8
+    input:
+        "data/recount_gtex_genes.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex-transfer.split-signal.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+        "--correction split_signal "
