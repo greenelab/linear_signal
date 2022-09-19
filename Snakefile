@@ -15,7 +15,7 @@ combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
 GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
 transfer_top_five_tissues = ['Blood', 'Breast', 'Brain', 'Kidney', 'Lung']
-combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
+combo_iterator = itertools.combinations(transfer_top_five_tissues, 2)
 TRANSFER_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
 TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
