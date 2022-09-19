@@ -912,18 +912,29 @@ rule subset_recount_data:
         "python src/normalize_recount_gtex_genes.py data/no_scrna_counts.tsv data/gene_lengths.tsv "
         "data/recount_gtex_genes.tsv data/recount_metadata.tsv data/gtex_normalized.tsv"
 
+rule change_gene_order:
+    threads: 1
+    input:
+        "data/recount_gtex_genes.tsv",
+        "data/gtex_normalized.tsv"
+    output:
+        "data/reformatted_recount.tsv"
+    shell:
+        "python src/reorder_genes.py data/recount_gtex_genes.tsv "
+        "data/gtex_normalized.tsv data/reformatted_recount.tsv "
+
 rule pickle_recount_gtex:
     input:
-        "data/recount_gtex_genes.tsv"
+        "data/reformatted_recount.tsv"
     output:
-        "data/recount_gtex_genes.pkl"
+        "data/reformatted_recount.pkl"
     shell:
-        "python src/pickle_tsv.py data/recount_gtex_genes.tsv data/recount_gtex_genes.pkl"
+        "python src/pickle_tsv.py {input} data/reformatted_recount.pkl"
 
 rule recount_to_gtex_binary:
     threads: 4
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -950,7 +961,7 @@ rule recount_to_gtex_binary:
 rule gtex_to_recount_binary:
     threads: 4
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -977,7 +988,7 @@ rule gtex_to_recount_binary:
 rule recount_to_gtex_binary_signal_removed:
     threads: 4
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -1005,7 +1016,7 @@ rule recount_to_gtex_binary_signal_removed:
 rule gtex_to_recount_binary_signal_removed:
     threads: 4
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -1033,7 +1044,7 @@ rule gtex_to_recount_binary_signal_removed:
 rule recount_transfer_all:
     threads: 8
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -1056,7 +1067,7 @@ rule recount_transfer_all:
 rule gtex_transfer_all:
     threads: 8
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -1079,7 +1090,7 @@ rule gtex_transfer_all:
 rule recount_transfer_all_signal_removed:
     threads: 8
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
@@ -1103,7 +1114,7 @@ rule recount_transfer_all_signal_removed:
 rule gtex_transfer_all_signal_removed:
     threads: 8
     input:
-        "data/recount_gtex_genes.pkl",
+        "data/reformatted_recount.pkl",
         "data/recount_metadata.tsv",
         "data/recount_sample_to_label.pkl",
         "data/gtex_normalized.pkl",
