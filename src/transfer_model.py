@@ -382,8 +382,8 @@ if __name__ == '__main__':
                 else:
                     extra_info = '{}-{}'.format(args.tissue1, args.tissue2)
 
-                extra_info = '{}_{}_{}_{}_{}'.format(args.dataset, extra_info,
-                                                     args.correction, i, args.seed)
+                extra_info = 'transfer_{}_{}_{}_{}_{}'.format(args.dataset, extra_info,
+                                                              args.correction, i, args.seed)
 
                 save_path = os.path.join(save_path + '_predict_{}.pt'.format(extra_info))
 
