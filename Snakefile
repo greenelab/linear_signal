@@ -37,7 +37,7 @@ result_files = [
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
             ),
-    #TODO Recount Transfer Binary classification
+    # Recount Transfer Binary classification
     expand("results/recount_transfer.{tissues}.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
