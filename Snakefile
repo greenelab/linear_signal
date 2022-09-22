@@ -14,6 +14,10 @@ gtex_top_five_tissues = ['Blood', 'Brain', 'Skin', 'Esophagus', 'Blood_Vessel']
 combo_iterator = itertools.combinations(gtex_top_five_tissues, 2)
 GTEX_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
 
+transfer_top_five_tissues = ['Blood', 'Breast', 'Brain', 'Kidney', 'Lung']
+combo_iterator = itertools.combinations(transfer_top_five_tissues, 2)
+TRANSFER_TISSUE_STRING = ['.'.join(pair) for pair in combo_iterator]
+
 TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
 
 wildcard_constraints:
@@ -33,6 +37,28 @@ result_files = [
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
             ),
+    # Recount Transfer Binary classification
+    expand("results/recount_transfer.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
+    # GTEx Transfer Binary classification
+    expand("results/gtex_transfer.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
+    expand("results/recount_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
+    expand("results/gtex_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=TRANSFER_TISSUE_STRING,
+            ),
     expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
@@ -46,6 +72,25 @@ result_files = [
             ),
     # Multi-tissue prediction
     expand("results/all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction
+    expand("results/recount-transfer.all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Multi-tissue prediction
+    expand("results/gtex-transfer.all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    # Signal removed multitissue be correction
+    expand("results/recount-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/gtex-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
@@ -139,6 +184,8 @@ data_files = [
     "data/batch_sim_data.tsv",
     "data/linear_batch_sim_data.tsv",
     "data/no_signal_batch_sim_data.tsv",
+    "data/recount_gtex_genes.tsv",
+    "data/recount_gtex_genes.pkl"
 ]
 
 rule all:
@@ -184,7 +231,7 @@ rule remove_scrna:
     output:
         "data/no_scrna_counts.tsv"
     shell:
-        "python saged/remove_scrnaseq.py "
+        "python src/remove_scrnaseq.py "
         "data/sra_counts.tsv "
         "data/recount_metadata.tsv "
         "data/no_scrna_counts.tsv "
@@ -196,7 +243,7 @@ rule normalize_data:
     output:
         "data/no_scrna_tpm.tsv"
     shell:
-        "python saged/normalize_recount_data.py "
+        "python src/normalize_recount_data.py "
         "data/no_scrna_counts.tsv "
         "data/gene_lengths.tsv "
         "data/no_scrna_tpm.tsv "
@@ -216,7 +263,7 @@ rule get_tissue_labels:
         "data/recount_sample_to_label.pkl",
         "data/no_scrna_tissue_subset.pkl",
     shell:
-        "python saged/get_tissue_data.py data/no_scrna_tpm.pkl data/recount_metadata.tsv "
+        "python src/get_tissue_data.py data/no_scrna_tpm.pkl data/recount_metadata.tsv "
         "data/no_scrna_tissue_subset.pkl data/recount_sample_to_label.pkl"
 
 rule pickle_counts:
@@ -225,7 +272,7 @@ rule pickle_counts:
     output:
         "data/no_scrna_tpm.pkl"
     shell:
-        "python saged/pickle_tsv.py data/no_scrna_tpm.tsv data/no_scrna_tpm.pkl"
+        "python src/pickle_tsv.py data/no_scrna_tpm.tsv data/no_scrna_tpm.pkl"
 
 rule tissue_prediction:
     threads: 4
@@ -241,7 +288,7 @@ rule tissue_prediction:
         tissue1='[a-zA-Z]+_?[a-zA-Z]*',
         tissue2='[a-zA-Z]+_?[a-zA-Z]*'
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -261,7 +308,7 @@ rule all_tissue_prediction:
     output:
         "results/all-tissue.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -280,7 +327,7 @@ rule all_tissue_sample_split:
     output:
         "results/all-tissue_sample-split.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/all-tissue_sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -300,7 +347,7 @@ rule tissue_prediction_signal_removed:
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}-signal_removed.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-signal_removed.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -321,7 +368,7 @@ rule tissue_prediction_signal_removed_sample_split:
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}-signal_removed_sample_level.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-signal_removed_sample_level.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -343,7 +390,7 @@ rule tissue_prediction_study_corrected:
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}-study_corrected.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}-study_corrected.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -364,7 +411,7 @@ rule all_tissue_prediction_be_corrected:
     output:
         "results/all-tissue.{supervised}_{seed}_be_corrected.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/all-tissue.{wildcards.supervised}_{wildcards.seed}_be_corrected.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -384,7 +431,7 @@ rule all_tissue_prediction_signal_removed:
     output:
         "results/all-tissue.{supervised}_{seed}_signal_removed.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/all-tissue.{wildcards.supervised}_{wildcards.seed}_signal_removed.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -404,7 +451,7 @@ rule sample_level_control:
     output:
         "results/sample-split.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python src/sample_split_control.py {input.dataset_config} {input.supervised_model} "
         "results/sample-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -422,7 +469,7 @@ rule sample_level_control_signal_removed:
     output:
         "results/sample-split-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python src/sample_split_control.py {input.dataset_config} {input.supervised_model} "
         "results/sample-split-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -441,7 +488,7 @@ rule sample_level_be_corrected:
     output:
         "results/sample-split-study-corrected.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python src/sample_split_control.py {input.dataset_config} {input.supervised_model} "
         "results/sample-split-study-corrected.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -460,7 +507,7 @@ rule study_level_control:
     output:
         "results/study-split.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python src/sample_split_control.py {input.dataset_config} {input.supervised_model} "
         "results/study-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -478,7 +525,7 @@ rule study_level_sex_prediction:
     output:
         "results/study-split-sex-prediction.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/study-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -498,7 +545,7 @@ rule sex_prediction_signal_removed:
     output:
         "results/sex-prediction-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/sex-prediction-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -519,7 +566,7 @@ rule sample_level_control_sex_prediction:
     output:
         "results/sample-split-sex-prediction.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/sample-split-sex-prediction.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -539,7 +586,7 @@ rule study_level_signal_removed:
     output:
         "results/study-split-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python src/sample_split_control.py {input.dataset_config} {input.supervised_model} "
         "results/study-split-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -557,7 +604,7 @@ rule study_level_be_corrected:
     output:
         "results/study-split-study-corrected.{supervised}_{seed}.tsv"
     shell:
-        "python saged/sample_split_control.py {input.dataset_config} {input.supervised_model} "
+        "python src/sample_split_control.py {input.dataset_config} {input.supervised_model} "
         "results/study-split-study-corrected.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -575,7 +622,7 @@ rule tissue_split:
     output:
         "results/tissue-split.{supervised}_{seed}.tsv"
     shell:
-        "python saged/tissue_split.py {input.dataset_config} {input.supervised_model} "
+        "python src/tissue_split.py {input.dataset_config} {input.supervised_model} "
         "results/tissue-split.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -594,7 +641,7 @@ rule preprocess_gtex:
     output:
         "data/gtex_normalized.tsv"
     shell:
-        "python saged/normalize_gtex.py data/gtex_tpm.gct data/gtex_normalized.tsv"
+        "python src/normalize_gtex.py data/gtex_tpm.gct data/gtex_normalized.tsv"
 
 rule pickle_gtex:
     input:
@@ -602,7 +649,7 @@ rule pickle_gtex:
     output:
         "data/gtex_normalized.pkl"
     shell:
-        "python saged/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
+        "python src/pickle_tsv.py data/gtex_normalized.tsv data/gtex_normalized.pkl"
 
 rule all_tissue_gtex:
     threads: 5
@@ -614,7 +661,7 @@ rule all_tissue_gtex:
     output:
         "results/gtex-all-tissue.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/gtex-all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -633,7 +680,7 @@ rule all_tissue_signal_removed_gtex:
     output:
         "results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/gtex-all-tissue-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -653,7 +700,7 @@ rule gtex_binary_prediction:
     output:
         "results/gtex.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/gtex.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -673,7 +720,7 @@ rule gtex_binary_prediction_signal_removed:
     output:
         "results/gtex-signal-removed.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/gtex-signal-removed.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -689,21 +736,21 @@ rule simulate_data:
     output:
         "data/batch_sim_data.tsv"
     shell:
-        "python saged/simulate_be_data.py {output}"
+        "python src/simulate_be_data.py {output}"
 
 rule simulate_linear_data:
     threads: 8
     output:
         "data/linear_batch_sim_data.tsv"
     shell:
-        "python saged/simulate_be_data.py {output} --n_nonlinear 0"
+        "python src/simulate_be_data.py {output} --n_nonlinear 0"
 
 rule simulate_no_signal_data:
     threads: 8
     output:
         "data/no_signal_batch_sim_data.tsv"
     shell:
-        "python saged/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 2500"
+        "python src/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 2500"
 
 rule sim_prediction:
     threads: 8
@@ -714,7 +761,7 @@ rule sim_prediction:
     output:
         "results/sim-data.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/sim-data.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -732,7 +779,7 @@ rule sim_prediction_signal_removed:
     output:
         "results/sim-data-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/sim-data-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -751,7 +798,7 @@ rule linear_sim_prediction:
     output:
         "results/linear-sim-data.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/linear-sim-data.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -769,7 +816,7 @@ rule linear_sim_prediction_signal_removed:
     output:
         "results/linear-sim-data-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/linear-sim-data-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -788,7 +835,7 @@ rule no_signal_sim_prediction:
     output:
         "results/no-signal-sim-data.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/no-signal-sim-data.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -806,7 +853,7 @@ rule no_signal_sim_prediction_signal_removed:
     output:
         "results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/no-signal-sim-data-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -825,7 +872,7 @@ rule no_signal_sim_prediction_split:
     output:
         "results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/no-signal-sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -844,7 +891,7 @@ rule sim_split_signal:
     output:
         "results/sim-data-split-signal.{supervised}_{seed}.tsv"
     shell:
-        "python saged/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/sim-data-split-signal.{wildcards.supervised}_{wildcards.seed}.tsv "
         "--neptune_config neptune.yml "
         "--seed {wildcards.seed} "
@@ -852,4 +899,238 @@ rule sim_split_signal:
         "--weighted_loss "
         "--disable_optuna "
         "--dataset sim "
+        "--correction split_signal "
+
+# Reviewer requested rules:
+rule subset_recount_data:
+    threads: 1
+    input:
+        "data/no_scrna_counts.tsv"
+    output:
+        "data/recount_gtex_genes.tsv"
+    shell:
+        "python src/normalize_recount_gtex_genes.py data/no_scrna_counts.tsv data/gene_lengths.tsv "
+        "data/recount_gtex_genes.tsv data/recount_metadata.tsv data/gtex_normalized.tsv"
+
+rule change_gene_order:
+    threads: 1
+    input:
+        "data/recount_gtex_genes.tsv",
+        "data/gtex_normalized.tsv"
+    output:
+        "data/reformatted_recount.tsv"
+    shell:
+        "python src/reorder_genes.py data/recount_gtex_genes.tsv "
+        "data/gtex_normalized.tsv data/reformatted_recount.tsv "
+
+rule pickle_recount_gtex:
+    input:
+        "data/reformatted_recount.tsv"
+    output:
+        "data/reformatted_recount.pkl"
+    shell:
+        "python src/pickle_tsv.py {input} data/reformatted_recount.pkl"
+
+rule recount_to_gtex_binary:
+    threads: 4
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml"
+    output:
+        "results/recount_transfer.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount_transfer.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+
+rule gtex_to_recount_binary:
+    threads: 4
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex_transfer.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex_transfer.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+
+rule recount_to_gtex_binary_signal_removed:
+    threads: 4
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml"
+    output:
+        "results/recount_transfer.split_signal.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount_transfer.split_signal.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+        "--correction split_signal "
+
+rule gtex_to_recount_binary_signal_removed:
+    threads: 4
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex_transfer.split_signal.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
+        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex_transfer.split_signal.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+        "--correction split_signal "
+
+rule recount_transfer_all:
+    threads: 8
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/recount-transfer.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount-transfer.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+
+rule gtex_transfer_all:
+    threads: 8
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex-transfer.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex-transfer.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
+
+rule recount_transfer_all_signal_removed:
+    threads: 8
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/recount_gtex_genes.yml",
+        transfer_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/recount-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/recount-transfer.split-signal.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset recount "
+        "--disable_optuna "
+        "--correction split_signal "
+
+rule gtex_transfer_all_signal_removed:
+    threads: 8
+    input:
+        "data/reformatted_recount.pkl",
+        "data/recount_metadata.tsv",
+        "data/recount_sample_to_label.pkl",
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+        transfer_config = "dataset_configs/recount_gtex_genes.yml",
+    output:
+        "results/gtex-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv"
+    shell:
+        "python src/transfer_model.py {input.dataset_config} {input.transfer_config} {input.supervised_model} "
+        "results/gtex-transfer.split-signal.all-tissue.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--dataset gtex "
+        "--disable_optuna "
         "--correction split_signal "
