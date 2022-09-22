@@ -1,4 +1,10 @@
-"""This script normalizes the data from recount3"""
+"""
+This script normalizes the data from recount3 and keeps the same set of genes
+that were used to run GTEx.
+
+This script is similar to normalize_recount, except that we go into it with a set
+of genes we know we want to keep
+"""
 
 import argparse
 from typing import Dict

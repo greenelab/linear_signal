@@ -9,7 +9,6 @@ import os
 from typing import Tuple
 
 import optuna
-import pandas as pd
 import sklearn.metrics
 import torch
 import yaml
@@ -102,13 +101,6 @@ def prep_recount_data(config, args: argparse.Namespace) -> Tuple[datasets.Refine
                                                                  datasets.RefineBioLabeledDataset]:
     expression_df, sample_to_label, sample_to_study = utils.load_recount_data(config)
 
-    with open(config) as in_file:
-        dataset_config = yaml.safe_load(in_file)
-
-        if args.use_sex_labels:
-            label_path = dataset_config.pop('sex_label_path')
-            sample_to_label = utils.parse_flynn_labels(label_path)
-
     all_data = datasets.RefineBioMixedDataset(expression_df, sample_to_label, sample_to_study)
 
     labeled_data = all_data.get_labeled()
@@ -122,8 +114,7 @@ def prep_recount_data(config, args: argparse.Namespace) -> Tuple[datasets.Refine
         tissue_2 = args.tissue2.replace('_', ' ')
         labels_to_keep = [tissue_1, tissue_2]
 
-    if not args.use_sex_labels:
-        labeled_data.subset_samples_to_labels(labels_to_keep)
+    labeled_data.subset_samples_to_labels(labels_to_keep)
 
     return all_data, labeled_data
 
@@ -153,26 +144,6 @@ def prep_gtex_data(config, args: argparse.Namespace) -> Tuple[datasets.RefineBio
         labels_to_keep = [tissue_1, tissue_2]
 
     labeled_data.subset_samples_to_labels(labels_to_keep)
-
-    return all_data, labeled_data
-
-
-def prep_sim_data(args: argparse.Namespace) -> Tuple[datasets.RefineBioMixedDataset,
-                                                     datasets.RefineBioLabeledDataset]:
-    with open(args.dataset_config) as in_file:
-        dataset_config = yaml.safe_load(in_file)
-
-    data_df = pd.read_csv(dataset_config['compendium_path'], sep='\t', index_col=0)
-    sample_to_label = dict(zip(data_df.index, data_df['label']))
-
-    sample_to_study = {sample: sample + '_study' for sample in data_df.index}
-
-    data_df = data_df.drop(['label'], axis='columns')
-    data_df = data_df.T
-
-    all_data = datasets.RefineBioMixedDataset(data_df, sample_to_label, sample_to_study)
-
-    labeled_data = all_data.get_labeled()
 
     return all_data, labeled_data
 
@@ -232,12 +203,6 @@ if __name__ == '__main__':
                         default='Breast', choices=AVAILABLE_TISSUES)
     parser.add_argument('--all_tissue', help='Predict all common tissues in the dataset',
                         default=False, action='store_true')
-    # Recount only args
-    parser.add_argument('--biobert', help='Add biobert embeddings as features the model can use',
-                        default=False, action='store_true')
-    parser.add_argument('--use_sex_labels',
-                        help='If this flag is set, use Flynn sex labels instead of tissue labels',
-                        action='store_true')
 
     args = parser.parse_args()
 
@@ -371,14 +336,8 @@ if __name__ == '__main__':
                 # Remove extension
                 save_path = os.path.splitext(save_path)[0]
 
-                if args.all_tissue and args.biobert:
-                    extra_info = 'all_tissue_biobert'
-                elif args.use_sex_labels:
-                    extra_info = 'sex_prediction'
-                elif args.all_tissue:
+                if args.all_tissue:
                     extra_info = 'all_tissue'
-                elif args.biobert:
-                    extra_info = 'biobert'
                 else:
                     extra_info = '{}-{}'.format(args.tissue1, args.tissue2)
 
