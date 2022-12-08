@@ -653,6 +653,81 @@ class GeneralClassifier(nn.Module):
         return x
 
 
+class NineLayerClassifier(nn.Module):
+    """A nine layer neural network"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(NineLayerClassifier, self).__init__()
+
+        DROPOUT_PROB = .5
+
+        self.fc1 = nn.Linear(input_size, input_size // 2)
+        self.bn1 = nn.BatchNorm1d(input_size // 2)
+        self.fc2 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn2 = nn.BatchNorm1d(input_size // 2)
+        self.fc3 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn3 = nn.BatchNorm1d(input_size // 2)
+        self.fc4 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn4 = nn.BatchNorm1d(input_size // 2)
+        self.fc5 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn5 = nn.BatchNorm1d(input_size // 2)
+        self.fc6 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn6 = nn.BatchNorm1d(input_size // 2)
+        self.fc7 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn7 = nn.BatchNorm1d(input_size // 2)
+        self.fc8 = nn.Linear(input_size // 2, input_size // 4)
+        self.bn8 = nn.BatchNorm1d(input_size // 4)
+        self.fc9 = nn.Linear(input_size // 4, output_size)
+        self.dropout = nn.Dropout(p=DROPOUT_PROB)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = self.bn1(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc2(x))
+        x = self.bn2(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc3(x))
+        x = self.bn3(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc4(x))
+        x = self.bn4(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc5(x))
+        x = self.bn5(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc6(x))
+        x = self.bn6(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc7(x))
+        x = self.bn7(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc8(x))
+        x = self.bn8(x)
+        x = self.dropout(x)
+
+        x = self.fc9(x)
+
+        return x
+
+
 class DeepClassifier(nn.Module):
     """ A deep neural net for use in wrappers like PytorchSupervised"""
     def __init__(self,
