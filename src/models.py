@@ -427,6 +427,30 @@ class PytorchLR(nn.Module):
         return x
 
 
+class PytorchSVM(nn.Module):
+    """ A pytorch implementation of a linear support vector machine"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(PytorchSVM, self).__init__()
+
+        self.fc1 = nn.Linear(input_size, output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
+
+        return x
+
+
 class FiveLayerImputation(nn.Module):
     """An imputation model based off the DeepClassifier (five-layer) model"""
     def __init__(self,
@@ -1395,7 +1419,6 @@ class PytorchSupervised(ExpressionModel):
                                                                train_study_count=train_count,
                                                                seed=seed)
         # For very small training sets the tune dataset will be empty
-        # TODO figure out how to more elegantly handle this when implementing early stopping
         tune_is_empty = False
         if len(tune_dataset) == 0:
             sys.stderr.write('Warning: Tune dataset is empty')
@@ -1497,9 +1520,13 @@ class PytorchSupervised(ExpressionModel):
 
                         output = self.model(expression)
 
-                        tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
-                        tune_correct += utils.count_correct(output, labels)
-
+                        if type(self.loss_fn) == nn.MultiMarginLoss:
+                            labels = labels.squeeze(-1)
+                            tune_loss += self.loss_fn(output, labels).item()
+                            tune_correct += utils.count_correct(output, labels)
+                        else:
+                            tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
+                            tune_correct += utils.count_correct(output, labels)
             train_acc = train_correct / len(train_dataset)
             if not tune_is_empty:
                 tune_acc = tune_correct / len(tune_dataset)
