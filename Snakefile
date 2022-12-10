@@ -156,6 +156,10 @@ result_files = [
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
+    expand("results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
 ]
 
 figures = [
@@ -295,7 +299,7 @@ rule tissue_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule all_tissue_prediction:
     threads: 8
@@ -314,7 +318,7 @@ rule all_tissue_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule all_tissue_sample_split:
     threads: 8
@@ -334,7 +338,7 @@ rule all_tissue_sample_split:
         "--all_tissue "
         "--weighted_loss "
         "--sample_split "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule tissue_prediction_signal_removed:
     threads: 4
@@ -355,7 +359,7 @@ rule tissue_prediction_signal_removed:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction split_signal "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule tissue_prediction_signal_removed_sample_split:
     threads: 4
@@ -377,7 +381,7 @@ rule tissue_prediction_signal_removed_sample_split:
         "--weighted_loss "
         "--correction split_signal "
         "--sample_split "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule tissue_prediction_study_corrected:
     threads: 4
@@ -398,7 +402,7 @@ rule tissue_prediction_study_corrected:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction study "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
@@ -418,7 +422,7 @@ rule all_tissue_prediction_be_corrected:
         "--all_tissue "
         "--correction study "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule all_tissue_prediction_signal_removed:
     threads: 8
@@ -438,7 +442,7 @@ rule all_tissue_prediction_signal_removed:
         "--all_tissue "
         "--correction split_signal "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule sample_level_control:
     threads: 8
@@ -531,7 +535,7 @@ rule study_level_sex_prediction:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule sex_prediction_signal_removed:
     threads: 5
@@ -551,7 +555,7 @@ rule sex_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        # "--disable_optuna "
+        "--disable_optuna "
         "--correction split_signal "
 
 rule sample_level_control_sex_prediction:
@@ -573,7 +577,7 @@ rule sample_level_control_sex_prediction:
         "--sample_split "
         "--weighted_loss "
         "--use_sex_labels "
-        # "--disable_optuna "
+        "--disable_optuna "
 
 rule study_level_signal_removed:
     threads: 8
@@ -667,7 +671,7 @@ rule all_tissue_gtex:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
         "--dataset gtex"
 
 rule all_tissue_signal_removed_gtex:
@@ -686,7 +690,7 @@ rule all_tissue_signal_removed_gtex:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
         "--dataset gtex "
         "--correction split_signal "
 
@@ -707,7 +711,7 @@ rule gtex_binary_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
         "--dataset gtex "
 
 rule gtex_binary_prediction_signal_removed:
@@ -727,7 +731,7 @@ rule gtex_binary_prediction_signal_removed:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        # "--disable_optuna "
+        "--disable_optuna "
         "--dataset gtex "
         "--correction split_signal "
 
