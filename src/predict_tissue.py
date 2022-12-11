@@ -285,14 +285,11 @@ if __name__ == '__main__':
     parser.add_argument('--disable_optuna',
                         help="If this flag is set, don't to hyperparameter optimization",
                         action='store_true')
-    parser.add_argument('--range_bottom',
-                        help='A number 10x the desired fraction of data to use at the bottom '
-                        'of the subset range',
-                        default=1, type=float)
-    parser.add_argument('--range_top',
-                        help='A number 10x - 1 the desired fraction of data to use at the top '
-                        'of the subset range',
-                        default=11, type=float)
+    parser.add_argument('--range_size',
+                        help='A number to determine how large the data subset range is. '
+                        'For example, .1 gives data between 10 and 100 percent of the training set',
+                        default=.1, type=float)
+
     # Recount/GTEX args
     parser.add_argument('--tissue1',
                         help='The first tissue to be predicted from the data',
@@ -384,7 +381,7 @@ if __name__ == '__main__':
                     neptune_config = yaml.safe_load(neptune_file)
                     neptune_run = utils.initialize_neptune(neptune_config)
 
-            subset_percent = subset_number * .1
+            subset_percent = subset_number * args.range_size
 
             train_list = labeled_splits[:i] + labeled_splits[i+1:]
 
