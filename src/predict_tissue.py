@@ -285,6 +285,14 @@ if __name__ == '__main__':
     parser.add_argument('--disable_optuna',
                         help="If this flag is set, don't to hyperparameter optimization",
                         action='store_true')
+    parser.add_argument('--range_bottom',
+                        help='A number 10x the desired fraction of data to use at the bottom '
+                        'of the subset range',
+                        default=1, type=float)
+    parser.add_argument('--range_top',
+                        help='A number 10x - 1 the desired fraction of data to use at the top '
+                        'of the subset range',
+                        default=11, type=float)
     # Recount/GTEX args
     parser.add_argument('--tissue1',
                         help='The first tissue to be predicted from the data',
