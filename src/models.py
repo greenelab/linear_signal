@@ -16,7 +16,6 @@ import sklearn.metrics
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from performer_pytorch import SelfAttention
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -544,85 +543,6 @@ class ThreeLayerImputation(nn.Module):
     def set_final_layer(self, new_layer: nn.Module):
         """ Overwrite the final layer of the model with the layer passed in """
         self.fc3 = new_layer
-
-
-class PerformerBlock(nn.Module):
-    def __init__(self, dim: int, num_heads: int):
-        """
-        dim: The embedding dimension of the data. For gene expression this will be 1
-        num_heads: The number of heads to use in multi-headed attention
-        """
-        super(PerformerBlock, self).__init__()
-
-        self.attn = SelfAttention(dim=dim,
-                                  dim_head=64,
-                                  heads=num_heads,
-                                  causal=False)
-        self.layer_norm = nn.LayerNorm(dim)
-
-    def forward(self, x):
-        attn_out = self.attn(x)
-
-        # Include a residual connection by adding the input and the attention output
-        unnormalized_result = x + attn_out
-
-        # TODO decide whether normalization helps
-        # normalized_output = self.layer_norm(unnormalized_result)
-
-        return unnormalized_result
-
-
-class ImputePerformer(nn.Module):
-    def __init__(self,
-                 dim: int,
-                 layer_count: int,
-                 input_size: int,
-                 num_heads: int = 8,
-                 **kwargs):
-        """
-        Model initialization function
-
-        Arguments
-        ---------
-        dim: The number of times to copy the data. Dim % heads must be 0
-        layer_count: The number of blocks to include in the model
-        input_size: The number of genes in the dataset. Acts like seq_len would if this were nlp
-        num_heads: The number of heads to use in multi-headed attention
-        """
-        super(ImputePerformer, self).__init__()
-        attn_block = PerformerBlock(dim, num_heads)
-        self.dim = dim
-        self.num_heads = num_heads
-        self.layers = nn.ModuleList(self.clone(attn_block, layer_count))
-        self.dropout = nn.Dropout()
-        self.fc1 = nn.Linear(input_size, input_size)
-        self.fc2 = nn.Linear(input_size, input_size)
-
-    def clone(self, module: nn.Module, num_layers: int):
-        "Produce N identical layers. From https://nlp.seas.harvard.edu/2018/04/03/attention.html"
-        return nn.ModuleList([copy.deepcopy(module) for _ in range(num_layers)])
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Duplicate the data along the "embedding dimension"
-        x = x.unsqueeze(2).repeat(1, 1, self.dim)
-        for i in range(len(self.layers)):
-            x = self.layers[i](x)
-
-        attn_out = x
-        # Add heads together to combine to keep memory from exploding
-        flattened_attn = torch.sum(attn_out, 2, keepdim=False)
-
-        x = F.relu(self.fc1(flattened_attn))
-        x = self.fc2(x)
-        return x
-
-    def get_final_layer(self):
-        """ Return the last layer in the network for use by the PytorchImpute class """
-        return self.dec
-
-    def set_final_layer(self, new_layer: nn.Module):
-        """ Overwrite the final layer of the model with the layer passed in """
-        self.dec = new_layer
 
 
 class FCBlock(nn.Module):
