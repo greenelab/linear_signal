@@ -37,6 +37,11 @@ result_files = [
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
             ),
+    expand("results/gtex-small.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=GTEX_TISSUE_STRING,
+            ),
     # Recount Transfer Binary classification
     expand("results/recount_transfer.{tissues}.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
@@ -60,6 +65,11 @@ result_files = [
             tissues=TRANSFER_TISSUE_STRING,
             ),
     expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=GTEX_TISSUE_STRING,
+            ),
+    expand("results/gtex-signal-removed-small.{tissues}.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
@@ -123,8 +133,16 @@ result_files = [
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
+    expand("results/gtex-all-tissue-small.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
     # Multi-tissue prediction
     expand("results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/gtex-all-tissue-signal-removed-small.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
@@ -289,8 +307,8 @@ rule tissue_prediction:
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
     wildcard_constraints:
-        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
-        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+        tissue1='[A-Z][a-z]+_?[A-Z]?[a-z]*',
+        tissue2='[A-Z][a-z]+_?[A-Z]?[a-z]*',
     shell:
         "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
@@ -674,6 +692,26 @@ rule all_tissue_gtex:
         "--disable_optuna "
         "--dataset gtex"
 
+rule all_tissue_gtex_small:
+    threads: 5
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue-small.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue-small.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
+        "--range_size .01 "
+
 rule all_tissue_signal_removed_gtex:
     threads: 8
     input:
@@ -693,6 +731,27 @@ rule all_tissue_signal_removed_gtex:
         "--disable_optuna "
         "--dataset gtex "
         "--correction split_signal "
+
+rule all_tissue_signal_removed_gtex_small:
+    threads: 8
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue-signal-removed-small.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue-signal-removed-small.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
+        "--correction split_signal "
+        "--range_size .01 "
 
 rule gtex_binary_prediction:
     threads: 4
@@ -734,6 +793,49 @@ rule gtex_binary_prediction_signal_removed:
         "--disable_optuna "
         "--dataset gtex "
         "--correction split_signal "
+
+rule gtex_binary_prediction_small:
+    threads: 4
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-small.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-small.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
+        "--range_size .01 "
+
+rule gtex_binary_prediction_signal_removed_small:
+    threads: 4
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-signal-removed-small.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-signal-removed-small.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        "--disable_optuna "
+        "--dataset gtex "
+        "--correction split_signal "
+        "--range_size .01 "
 
 rule simulate_data:
     threads: 8
