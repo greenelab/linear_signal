@@ -38,7 +38,8 @@ TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
 
 
 def objective(trial, train_list, supervised_config,
-              label_encoder, weighted_loss=False, device='cpu'):
+              label_encoder, seed, weighted_loss=False, device='cpu',
+              data_fraction=1,):
     losses = []
 
     with open(supervised_config) as supervised_file:
@@ -58,6 +59,10 @@ def objective(trial, train_list, supervised_config,
         inner_val_data = train_list[i]
         inner_train_data.set_label_encoder(label_encoder)
         inner_val_data.set_label_encoder(label_encoder)
+        inner_train_data = inner_train_data.subset_samples(data_fraction,
+                                                           args.seed)
+        inner_train_data = inner_train_data.subset_samples(data_fraction,
+                                                           args.seed)
 
         # Sklearn logistic regression doesn't allow manually specifying classes
         # so we have to do this
@@ -362,11 +367,17 @@ if __name__ == '__main__':
             study = optuna.create_study()
             print('Tuning hyperparameters...')
 
+            subset_fraction = 1
+            if args.range_size < .1:
+                subset_fraction = args.range_size * 10
+
             study.optimize(lambda trial: objective(trial,
                                                    train_list,
                                                    args.supervised_config,
                                                    label_encoder,
+                                                   args.seed,
                                                    args.weighted_loss,
+                                                   data_fraction=subset_fraction
                                                    ),
                            n_trials=25,
                            show_progress_bar=True)
