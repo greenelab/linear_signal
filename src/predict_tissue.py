@@ -39,7 +39,7 @@ TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
 
 def objective(trial, train_list, supervised_config,
               label_encoder, seed, weighted_loss=False, device='cpu',
-              data_fraction=1,):
+              data_fraction=1, use_l2=True):
     losses = []
 
     with open(supervised_config) as supervised_file:
@@ -49,7 +49,8 @@ def objective(trial, train_list, supervised_config,
     # TODO there should be a better way to do this which allows future skl models
     if supervised_model_type != 'LogisticRegression':
         lr = trial.suggest_float('lr', 1e-6, 10, log=True)
-    l2_penalty = trial.suggest_float('l2_penalty', 1e-6, 10, log=True)
+    if use_l2:
+        l2_penalty = trial.suggest_float('l2_penalty', 1e-6, 10, log=True)
 
     for i in range(len(train_list)):
         inner_train_list = train_list[:i] + train_list[i+1:]
@@ -64,8 +65,6 @@ def objective(trial, train_list, supervised_config,
         inner_train_data = inner_train_data.subset_samples(data_fraction,
                                                            args.seed)
 
-        # Sklearn logistic regression doesn't allow manually specifying classes
-        # so we have to do this
         if len(inner_train_data.get_classes()) < len(inner_val_data.get_classes()):
             continue
 
@@ -77,7 +76,8 @@ def objective(trial, train_list, supervised_config,
             supervised_config['input_size'] = input_size
             supervised_config['output_size'] = output_size
             supervised_config['log_progress'] = False
-            supervised_config['l2_penalty'] = l2_penalty
+            if use_l2:
+                supervised_config['l2_penalty'] = l2_penalty
             if supervised_model_type != 'LogisticRegression':
                 supervised_config['lr'] = lr
             if weighted_loss:
@@ -101,6 +101,10 @@ def objective(trial, train_list, supervised_config,
         losses.append(loss)
 
         supervised_model.free_memory()
+
+    if len(losses) == 0:
+        print('Not all classes were present in the val set')
+        return float('inf')
 
     return sum(losses) / len(losses)
 
@@ -294,6 +298,9 @@ if __name__ == '__main__':
                         help='A number to determine how large the data subset range is. '
                         'For example, .1 gives data between 10 and 100 percent of the training set',
                         default=.1, type=float)
+    parser.add_argument('--no_l2',
+                        help='Do not use L2 for the model',
+                        default=False, action='store_true')
 
     # Recount/GTEX args
     parser.add_argument('--tissue1',
@@ -377,7 +384,8 @@ if __name__ == '__main__':
                                                    label_encoder,
                                                    args.seed,
                                                    args.weighted_loss,
-                                                   data_fraction=subset_fraction
+                                                   data_fraction=subset_fraction,
+                                                   use_l2=(not args.no_l2),
                                                    ),
                            n_trials=25,
                            show_progress_bar=True)
