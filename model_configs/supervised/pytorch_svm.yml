@@ -1,0 +1,19 @@
+name: "PytorchSupervised"
+optimizer_name: "Adam"
+loss_name: "MultiMarginLoss"
+model_name: "PytorchSVM"
+lr: .001
+l2_penalty : 0
+device: "cuda"
+seed: 42
+epochs: 50
+batch_size: 16
+experiment_name: "PytorchSVM"
+experiment_description: "Train a supervised pytorch model"
+log_progress: True
+train_fraction: .8
+save_path: "logs/models/pytorchSVM.pt"
+clip_grads: True
+final_layer_name: "fc1"
+
+# config.input_size and config.output_size should be set dynamically

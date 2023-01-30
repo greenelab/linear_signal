@@ -1,0 +1,17 @@
+name: "PytorchSupervised"
+optimizer_name: "Adam"
+loss_name: "CrossEntropyLoss"
+model_name: "NineLayerClassifier"
+lr: .00001
+l2_penalty: 0
+device: "cuda"
+seed: 42
+epochs: 50
+batch_size: 16
+experiment_name: "9 Layer classifier"
+experiment_description: "Train a supervised pytorch model"
+log_progress: True
+train_fraction: .8
+save_path: "logs/models/nine_layer_net.pt"
+clip_grads: True
+final_layer_name: "fc9"

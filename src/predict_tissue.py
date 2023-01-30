@@ -38,7 +38,8 @@ TCGA_GENES = ['EGFR', 'IDH1', 'KRAS', 'PIK3CA', 'SETD2', 'TP53']
 
 
 def objective(trial, train_list, supervised_config,
-              label_encoder, weighted_loss=False, device='cpu'):
+              label_encoder, seed, weighted_loss=False, device='cpu',
+              data_fraction=1, use_l2=True):
     losses = []
 
     with open(supervised_config) as supervised_file:
@@ -48,7 +49,8 @@ def objective(trial, train_list, supervised_config,
     # TODO there should be a better way to do this which allows future skl models
     if supervised_model_type != 'LogisticRegression':
         lr = trial.suggest_float('lr', 1e-6, 10, log=True)
-    l2_penalty = trial.suggest_float('l2_penalty', 1e-6, 10, log=True)
+    if use_l2:
+        l2_penalty = trial.suggest_float('l2_penalty', 1e-6, 10, log=True)
 
     for i in range(len(train_list)):
         inner_train_list = train_list[:i] + train_list[i+1:]
@@ -58,9 +60,11 @@ def objective(trial, train_list, supervised_config,
         inner_val_data = train_list[i]
         inner_train_data.set_label_encoder(label_encoder)
         inner_val_data.set_label_encoder(label_encoder)
+        inner_train_data = inner_train_data.subset_samples(data_fraction,
+                                                           args.seed)
+        inner_train_data = inner_train_data.subset_samples(data_fraction,
+                                                           args.seed)
 
-        # Sklearn logistic regression doesn't allow manually specifying classes
-        # so we have to do this
         if len(inner_train_data.get_classes()) < len(inner_val_data.get_classes()):
             continue
 
@@ -72,7 +76,8 @@ def objective(trial, train_list, supervised_config,
             supervised_config['input_size'] = input_size
             supervised_config['output_size'] = output_size
             supervised_config['log_progress'] = False
-            supervised_config['l2_penalty'] = l2_penalty
+            if use_l2:
+                supervised_config['l2_penalty'] = l2_penalty
             if supervised_model_type != 'LogisticRegression':
                 supervised_config['lr'] = lr
             if weighted_loss:
@@ -96,6 +101,10 @@ def objective(trial, train_list, supervised_config,
         losses.append(loss)
 
         supervised_model.free_memory()
+
+    if len(losses) == 0:
+        print('Not all classes were present in the val set')
+        return float('inf')
 
     return sum(losses) / len(losses)
 
@@ -285,6 +294,14 @@ if __name__ == '__main__':
     parser.add_argument('--disable_optuna',
                         help="If this flag is set, don't to hyperparameter optimization",
                         action='store_true')
+    parser.add_argument('--range_size',
+                        help='A number to determine how large the data subset range is. '
+                        'For example, .1 gives data between 10 and 100 percent of the training set',
+                        default=.1, type=float)
+    parser.add_argument('--no_l2',
+                        help='Do not use L2 for the model',
+                        default=False, action='store_true')
+
     # Recount/GTEX args
     parser.add_argument('--tissue1',
                         help='The first tissue to be predicted from the data',
@@ -357,11 +374,18 @@ if __name__ == '__main__':
             study = optuna.create_study()
             print('Tuning hyperparameters...')
 
+            subset_fraction = 1
+            if args.range_size < .1:
+                subset_fraction = args.range_size * 10
+
             study.optimize(lambda trial: objective(trial,
                                                    train_list,
                                                    args.supervised_config,
                                                    label_encoder,
+                                                   args.seed,
                                                    args.weighted_loss,
+                                                   data_fraction=subset_fraction,
+                                                   use_l2=(not args.no_l2),
                                                    ),
                            n_trials=25,
                            show_progress_bar=True)
@@ -376,7 +400,7 @@ if __name__ == '__main__':
                     neptune_config = yaml.safe_load(neptune_file)
                     neptune_run = utils.initialize_neptune(neptune_config)
 
-            subset_percent = subset_number * .1
+            subset_percent = subset_number * args.range_size
 
             train_list = labeled_splits[:i] + labeled_splits[i+1:]
 

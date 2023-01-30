@@ -16,7 +16,6 @@ import sklearn.metrics
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from performer_pytorch import SelfAttention
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -427,6 +426,30 @@ class PytorchLR(nn.Module):
         return x
 
 
+class PytorchSVM(nn.Module):
+    """ A pytorch implementation of a linear support vector machine"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(PytorchSVM, self).__init__()
+
+        self.fc1 = nn.Linear(input_size, output_size)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.fc1(x)
+
+        return x
+
+
 class FiveLayerImputation(nn.Module):
     """An imputation model based off the DeepClassifier (five-layer) model"""
     def __init__(self,
@@ -522,85 +545,6 @@ class ThreeLayerImputation(nn.Module):
         self.fc3 = new_layer
 
 
-class PerformerBlock(nn.Module):
-    def __init__(self, dim: int, num_heads: int):
-        """
-        dim: The embedding dimension of the data. For gene expression this will be 1
-        num_heads: The number of heads to use in multi-headed attention
-        """
-        super(PerformerBlock, self).__init__()
-
-        self.attn = SelfAttention(dim=dim,
-                                  dim_head=64,
-                                  heads=num_heads,
-                                  causal=False)
-        self.layer_norm = nn.LayerNorm(dim)
-
-    def forward(self, x):
-        attn_out = self.attn(x)
-
-        # Include a residual connection by adding the input and the attention output
-        unnormalized_result = x + attn_out
-
-        # TODO decide whether normalization helps
-        # normalized_output = self.layer_norm(unnormalized_result)
-
-        return unnormalized_result
-
-
-class ImputePerformer(nn.Module):
-    def __init__(self,
-                 dim: int,
-                 layer_count: int,
-                 input_size: int,
-                 num_heads: int = 8,
-                 **kwargs):
-        """
-        Model initialization function
-
-        Arguments
-        ---------
-        dim: The number of times to copy the data. Dim % heads must be 0
-        layer_count: The number of blocks to include in the model
-        input_size: The number of genes in the dataset. Acts like seq_len would if this were nlp
-        num_heads: The number of heads to use in multi-headed attention
-        """
-        super(ImputePerformer, self).__init__()
-        attn_block = PerformerBlock(dim, num_heads)
-        self.dim = dim
-        self.num_heads = num_heads
-        self.layers = nn.ModuleList(self.clone(attn_block, layer_count))
-        self.dropout = nn.Dropout()
-        self.fc1 = nn.Linear(input_size, input_size)
-        self.fc2 = nn.Linear(input_size, input_size)
-
-    def clone(self, module: nn.Module, num_layers: int):
-        "Produce N identical layers. From https://nlp.seas.harvard.edu/2018/04/03/attention.html"
-        return nn.ModuleList([copy.deepcopy(module) for _ in range(num_layers)])
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Duplicate the data along the "embedding dimension"
-        x = x.unsqueeze(2).repeat(1, 1, self.dim)
-        for i in range(len(self.layers)):
-            x = self.layers[i](x)
-
-        attn_out = x
-        # Add heads together to combine to keep memory from exploding
-        flattened_attn = torch.sum(attn_out, 2, keepdim=False)
-
-        x = F.relu(self.fc1(flattened_attn))
-        x = self.fc2(x)
-        return x
-
-    def get_final_layer(self):
-        """ Return the last layer in the network for use by the PytorchImpute class """
-        return self.dec
-
-    def set_final_layer(self, new_layer: nn.Module):
-        """ Overwrite the final layer of the model with the layer passed in """
-        self.dec = new_layer
-
-
 class FCBlock(nn.Module):
     def __init__(self, input_size: int, output_size: int):
         super(FCBlock, self).__init__()
@@ -649,6 +593,81 @@ class GeneralClassifier(nn.Module):
         for layer in self.intermediate:
             x = layer(x)
         x = self.output(x)
+
+        return x
+
+
+class NineLayerClassifier(nn.Module):
+    """A nine layer neural network"""
+    def __init__(self,
+                 input_size: int,
+                 output_size: int,
+                 **kwargs):
+        """
+        Model initialization function
+
+        Arguments
+        ---------
+        input_size: The number of features in the dataset
+        output_size: The number of classes to predict
+        """
+        super(NineLayerClassifier, self).__init__()
+
+        DROPOUT_PROB = .5
+
+        self.fc1 = nn.Linear(input_size, input_size // 2)
+        self.bn1 = nn.BatchNorm1d(input_size // 2)
+        self.fc2 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn2 = nn.BatchNorm1d(input_size // 2)
+        self.fc3 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn3 = nn.BatchNorm1d(input_size // 2)
+        self.fc4 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn4 = nn.BatchNorm1d(input_size // 2)
+        self.fc5 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn5 = nn.BatchNorm1d(input_size // 2)
+        self.fc6 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn6 = nn.BatchNorm1d(input_size // 2)
+        self.fc7 = nn.Linear(input_size // 2, input_size // 2)
+        self.bn7 = nn.BatchNorm1d(input_size // 2)
+        self.fc8 = nn.Linear(input_size // 2, input_size // 4)
+        self.bn8 = nn.BatchNorm1d(input_size // 4)
+        self.fc9 = nn.Linear(input_size // 4, output_size)
+        self.dropout = nn.Dropout(p=DROPOUT_PROB)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = self.bn1(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc2(x))
+        x = self.bn2(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc3(x))
+        x = self.bn3(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc4(x))
+        x = self.bn4(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc5(x))
+        x = self.bn5(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc6(x))
+        x = self.bn6(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc7(x))
+        x = self.bn7(x)
+        x = self.dropout(x)
+
+        x = F.relu(self.fc8(x))
+        x = self.bn8(x)
+        x = self.dropout(x)
+
+        x = self.fc9(x)
 
         return x
 
@@ -1320,7 +1339,6 @@ class PytorchSupervised(ExpressionModel):
                                                                train_study_count=train_count,
                                                                seed=seed)
         # For very small training sets the tune dataset will be empty
-        # TODO figure out how to more elegantly handle this when implementing early stopping
         tune_is_empty = False
         if len(tune_dataset) == 0:
             sys.stderr.write('Warning: Tune dataset is empty')
@@ -1422,9 +1440,13 @@ class PytorchSupervised(ExpressionModel):
 
                         output = self.model(expression)
 
-                        tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
-                        tune_correct += utils.count_correct(output, labels)
-
+                        if type(self.loss_fn) == nn.MultiMarginLoss:
+                            labels = labels.squeeze(-1)
+                            tune_loss += self.loss_fn(output, labels).item()
+                            tune_correct += utils.count_correct(output, labels)
+                        else:
+                            tune_loss += self.loss_fn(output.unsqueeze(-1), labels).item()
+                            tune_correct += utils.count_correct(output, labels)
             train_acc = train_correct / len(train_dataset)
             if not tune_is_empty:
                 tune_acc = tune_correct / len(tune_dataset)

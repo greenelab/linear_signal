@@ -37,29 +37,39 @@ result_files = [
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
             ),
+    expand("results/gtex-small.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=GTEX_TISSUE_STRING,
+            ),
     # Recount Transfer Binary classification
-    expand("results/recount_transfer.{tissues}.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            tissues=TRANSFER_TISSUE_STRING,
-            ),
-    # GTEx Transfer Binary classification
-    expand("results/gtex_transfer.{tissues}.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            tissues=TRANSFER_TISSUE_STRING,
-            ),
-    expand("results/recount_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            tissues=TRANSFER_TISSUE_STRING,
-            ),
-    expand("results/gtex_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            tissues=TRANSFER_TISSUE_STRING,
-            ),
+    # expand("results/recount_transfer.{tissues}.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         tissues=TRANSFER_TISSUE_STRING,
+    #         ),
+    # # GTEx Transfer Binary classification
+    # expand("results/gtex_transfer.{tissues}.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         tissues=TRANSFER_TISSUE_STRING,
+    #         ),
+    # expand("results/recount_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         tissues=TRANSFER_TISSUE_STRING,
+    #         ),
+    # expand("results/gtex_transfer.split_signal.{tissues}.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         tissues=TRANSFER_TISSUE_STRING,
+    #         ),
     expand("results/gtex-signal-removed.{tissues}.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            tissues=GTEX_TISSUE_STRING,
+            ),
+    expand("results/gtex-signal-removed-small.{tissues}.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             tissues=GTEX_TISSUE_STRING,
@@ -75,25 +85,25 @@ result_files = [
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
-    # Multi-tissue prediction
-    expand("results/recount-transfer.all-tissue.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            ),
-    # Multi-tissue prediction
-    expand("results/gtex-transfer.all-tissue.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            ),
+    # # Multi-tissue prediction
+    # expand("results/recount-transfer.all-tissue.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         ),
+    # # Multi-tissue prediction
+    # expand("results/gtex-transfer.all-tissue.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         ),
     # Signal removed multitissue be correction
-    expand("results/recount-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            ),
-    expand("results/gtex-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
-            supervised=SUPERVISED,
-            seed=range(0,NUM_SEEDS),
-            ),
+    # expand("results/recount-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         ),
+    # expand("results/gtex-transfer.split-signal.all-tissue.{supervised}_{seed}.tsv",
+    #         supervised=SUPERVISED,
+    #         seed=range(0,NUM_SEEDS),
+    #         ),
     # Multi-tissue prediction sample split
     expand("results/all-tissue_sample-split.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
@@ -123,8 +133,16 @@ result_files = [
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
+    expand("results/gtex-all-tissue-small.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
     # Multi-tissue prediction
     expand("results/gtex-all-tissue-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/gtex-all-tissue-signal-removed-small.{supervised}_{seed}.tsv",
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
@@ -153,6 +171,40 @@ result_files = [
             seed=range(0,NUM_SEEDS),
             ),
     expand("results/no-signal-sim-data-signal-removed.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/no-signal-sim-data-split-signal.{supervised}_{seed}.tsv",
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/{genes}-nonlinear-sim-results.{supervised}_{seed}.tsv",
+            genes=[4, 50, 500],
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/{genes}-linear-sim-results.{supervised}_{seed}.tsv",
+            genes=[5, 50, 500],
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/{genes}-random-sim-results.{supervised}_{seed}.tsv",
+            genes=[5, 50, 500],
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/{genes}-nonlinear-sim-results-signal-removed.{supervised}_{seed}.tsv",
+            genes=[4, 50, 500],
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/{genes}-linear-sim-results-signal-removed.{supervised}_{seed}.tsv",
+            genes=[5, 50, 500],
+            supervised=SUPERVISED,
+            seed=range(0,NUM_SEEDS),
+            ),
+    expand("results/{genes}-random-sim-results-signal-removed.{supervised}_{seed}.tsv",
+            genes=[5, 50, 500],
             supervised=SUPERVISED,
             seed=range(0,NUM_SEEDS),
             ),
@@ -185,7 +237,16 @@ data_files = [
     "data/linear_batch_sim_data.tsv",
     "data/no_signal_batch_sim_data.tsv",
     "data/recount_gtex_genes.tsv",
-    "data/recount_gtex_genes.pkl"
+    "data/recount_gtex_genes.pkl",
+    "data/4_nonlinear_sim_data.tsv",
+    "data/50_nonlinear_sim_data.tsv",
+    "data/500_nonlinear_sim_data.tsv",
+    "data/5_linear_sim_data.tsv",
+    "data/50_linear_sim_data.tsv",
+    "data/500_linear_sim_data.tsv",
+    "data/5_random_sim_data.tsv",
+    "data/50_random_sim_data.tsv",
+    "data/500_random_sim_data.tsv",
 ]
 
 rule all:
@@ -285,8 +346,8 @@ rule tissue_prediction:
     output:
         "results/{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
     wildcard_constraints:
-        tissue1='[a-zA-Z]+_?[a-zA-Z]*',
-        tissue2='[a-zA-Z]+_?[a-zA-Z]*'
+        tissue1='[A-Z][a-z]+_?[A-Z]?[a-z]*',
+        tissue2='[A-Z][a-z]+_?[A-Z]?[a-z]*',
     shell:
         "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
         "results/{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
@@ -295,7 +356,7 @@ rule tissue_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule all_tissue_prediction:
     threads: 8
@@ -314,7 +375,7 @@ rule all_tissue_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule all_tissue_sample_split:
     threads: 8
@@ -334,7 +395,7 @@ rule all_tissue_sample_split:
         "--all_tissue "
         "--weighted_loss "
         "--sample_split "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule tissue_prediction_signal_removed:
     threads: 4
@@ -355,7 +416,7 @@ rule tissue_prediction_signal_removed:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction split_signal "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule tissue_prediction_signal_removed_sample_split:
     threads: 4
@@ -377,7 +438,7 @@ rule tissue_prediction_signal_removed_sample_split:
         "--weighted_loss "
         "--correction split_signal "
         "--sample_split "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule tissue_prediction_study_corrected:
     threads: 4
@@ -398,7 +459,7 @@ rule tissue_prediction_study_corrected:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--correction study "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule all_tissue_prediction_be_corrected:
     threads: 8
@@ -418,7 +479,7 @@ rule all_tissue_prediction_be_corrected:
         "--all_tissue "
         "--correction study "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule all_tissue_prediction_signal_removed:
     threads: 8
@@ -438,7 +499,7 @@ rule all_tissue_prediction_signal_removed:
         "--all_tissue "
         "--correction split_signal "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule sample_level_control:
     threads: 8
@@ -531,7 +592,8 @@ rule study_level_sex_prediction:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        # "--disable_optuna "
+        "--no_l2 "
+        #"--disable_optuna "
 
 rule sex_prediction_signal_removed:
     threads: 5
@@ -551,7 +613,8 @@ rule sex_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--weighted_loss "
         "--use_sex_labels "
-        # "--disable_optuna "
+        #"--disable_optuna "
+        "--no_l2 "
         "--correction split_signal "
 
 rule sample_level_control_sex_prediction:
@@ -573,7 +636,7 @@ rule sample_level_control_sex_prediction:
         "--sample_split "
         "--weighted_loss "
         "--use_sex_labels "
-        # "--disable_optuna "
+        #"--disable_optuna "
 
 rule study_level_signal_removed:
     threads: 8
@@ -667,8 +730,28 @@ rule all_tissue_gtex:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
         "--dataset gtex"
+
+rule all_tissue_gtex_small:
+    threads: 5
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue-small.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue-small.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        #"--disable_optuna "
+        "--dataset gtex "
+        "--range_size .01 "
 
 rule all_tissue_signal_removed_gtex:
     threads: 8
@@ -686,9 +769,30 @@ rule all_tissue_signal_removed_gtex:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
         "--dataset gtex "
         "--correction split_signal "
+
+rule all_tissue_signal_removed_gtex_small:
+    threads: 8
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-all-tissue-signal-removed-small.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-all-tissue-signal-removed-small.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        #"--disable_optuna "
+        "--dataset gtex "
+        "--correction split_signal "
+        "--range_size .01 "
 
 rule gtex_binary_prediction:
     threads: 4
@@ -707,7 +811,7 @@ rule gtex_binary_prediction:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
         "--dataset gtex "
 
 rule gtex_binary_prediction_signal_removed:
@@ -727,9 +831,52 @@ rule gtex_binary_prediction_signal_removed:
         "--tissue1 {wildcards.tissue1} "
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
-        # "--disable_optuna "
+        #"--disable_optuna "
         "--dataset gtex "
         "--correction split_signal "
+
+rule gtex_binary_prediction_small:
+    threads: 4
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-small.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-small.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        #"--disable_optuna "
+        "--dataset gtex "
+        "--range_size .01 "
+
+rule gtex_binary_prediction_signal_removed_small:
+    threads: 4
+    input:
+        "data/gtex_normalized.pkl",
+        "data/gtex_sample_attributes.txt",
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/gtex_dataset.yml",
+    output:
+        "results/gtex-signal-removed-small.{tissue1}.{tissue2}.{supervised}_{seed}.tsv"
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/gtex-signal-removed-small.{wildcards.tissue1}.{wildcards.tissue2}.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--tissue1 {wildcards.tissue1} "
+        "--tissue2 {wildcards.tissue2} "
+        "--weighted_loss "
+        #"--disable_optuna "
+        "--dataset gtex "
+        "--correction split_signal "
+        "--range_size .01 "
 
 rule simulate_data:
     threads: 8
@@ -752,6 +899,110 @@ rule simulate_no_signal_data:
     shell:
         "python src/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 2500"
 
+rule simulate_mixed_4:
+    threads: 8
+    output:
+        "data/4_nonlinear_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 2 --n_nonlinear 2"
+
+rule simulate_mixed_50:
+    threads: 8
+    output:
+        "data/50_nonlinear_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 25 --n_nonlinear 25"
+
+rule simulate_mixed_500:
+    threads: 8
+    output:
+        "data/500_nonlinear_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 250 --n_nonlinear 250"
+
+rule simulate_linear_5:
+    threads: 8
+    output:
+        "data/5_linear_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 5 --n_nonlinear 0"
+
+rule simulate_linear_50:
+    threads: 8
+    output:
+        "data/50_linear_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 50 --n_nonlinear 0"
+
+rule simulate_linear_500:
+    threads: 8
+    output:
+        "data/500_linear_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 500 --n_nonlinear 0"
+
+rule simulate_random_5:
+    threads: 8
+    output:
+        "data/5_random_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 5"
+
+rule simulate_random_50:
+    threads: 8
+    output:
+        "data/50_random_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 50"
+
+rule simulate_random_500:
+    threads: 8
+    output:
+        "data/500_random_sim_data.tsv"
+    shell:
+        "python src/simulate_be_data.py {output} --n_linear 0 --n_nonlinear 0 --n_random 500"
+
+rule varying_genes_sim:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{genes}_{type}_sim.yml",
+        data="data/{genes}_{type}_sim_data.tsv"
+    output:
+        "results/{genes}-{type}-sim-results.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        genes="[0-9]+",
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.genes}-{wildcards.type}-sim-results.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        #"--disable_optuna "
+        "--dataset sim "
+
+rule varying_genes_sim_signal_removed:
+    threads: 4
+    input:
+        supervised_model = "model_configs/supervised/{supervised}.yml",
+        dataset_config = "dataset_configs/{genes}_{type}_sim.yml",
+        data="data/{genes}_{type}_sim_data.tsv"
+    output:
+        "results/{genes}-{type}-sim-results-signal-removed.{supervised}_{seed}.tsv"
+    wildcard_constraints:
+        genes="[0-9]+",
+    shell:
+        "python src/predict_tissue.py {input.dataset_config} {input.supervised_model} "
+        "results/{wildcards.genes}-{wildcards.type}-sim-results-signal-removed.{wildcards.supervised}_{wildcards.seed}.tsv "
+        "--neptune_config neptune.yml "
+        "--seed {wildcards.seed} "
+        "--all_tissue "
+        "--weighted_loss "
+        #"--disable_optuna "
+        "--correction split_signal "
+        "--dataset sim "
+
 rule sim_prediction:
     threads: 8
     input:
@@ -767,7 +1018,7 @@ rule sim_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--dataset sim "
 
 rule sim_prediction_signal_removed:
@@ -785,7 +1036,7 @@ rule sim_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
         "--dataset sim "
 
@@ -804,7 +1055,7 @@ rule linear_sim_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--dataset sim"
 
 rule linear_sim_prediction_signal_removed:
@@ -822,7 +1073,7 @@ rule linear_sim_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
         "--dataset sim"
 
@@ -841,7 +1092,7 @@ rule no_signal_sim_prediction:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--dataset sim "
 
 rule no_signal_sim_prediction_signal_removed:
@@ -859,7 +1110,7 @@ rule no_signal_sim_prediction_signal_removed:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction signal "
         "--dataset sim "
 
@@ -878,7 +1129,7 @@ rule no_signal_sim_prediction_split:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
         "--dataset sim "
 
@@ -897,7 +1148,7 @@ rule sim_split_signal:
         "--seed {wildcards.seed} "
         "--all_tissue "
         "--weighted_loss "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--dataset sim "
         "--correction split_signal "
 
@@ -956,7 +1207,7 @@ rule recount_to_gtex_binary:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--dataset recount "
-        "--disable_optuna "
+        #"--disable_optuna "
 
 rule gtex_to_recount_binary:
     threads: 4
@@ -983,7 +1234,7 @@ rule gtex_to_recount_binary:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--dataset gtex "
-        "--disable_optuna "
+        #"--disable_optuna "
 
 rule recount_to_gtex_binary_signal_removed:
     threads: 4
@@ -1010,7 +1261,7 @@ rule recount_to_gtex_binary_signal_removed:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--dataset recount "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
 
 rule gtex_to_recount_binary_signal_removed:
@@ -1038,7 +1289,7 @@ rule gtex_to_recount_binary_signal_removed:
         "--tissue2 {wildcards.tissue2} "
         "--weighted_loss "
         "--dataset gtex "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
 
 rule recount_transfer_all:
@@ -1062,7 +1313,7 @@ rule recount_transfer_all:
         "--all_tissue "
         "--weighted_loss "
         "--dataset recount "
-        "--disable_optuna "
+        #"--disable_optuna "
 
 rule gtex_transfer_all:
     threads: 8
@@ -1085,7 +1336,7 @@ rule gtex_transfer_all:
         "--all_tissue "
         "--weighted_loss "
         "--dataset gtex "
-        "--disable_optuna "
+        #"--disable_optuna "
 
 rule recount_transfer_all_signal_removed:
     threads: 8
@@ -1108,7 +1359,7 @@ rule recount_transfer_all_signal_removed:
         "--all_tissue "
         "--weighted_loss "
         "--dataset recount "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
 
 rule gtex_transfer_all_signal_removed:
@@ -1132,5 +1383,5 @@ rule gtex_transfer_all_signal_removed:
         "--all_tissue "
         "--weighted_loss "
         "--dataset gtex "
-        "--disable_optuna "
+        #"--disable_optuna "
         "--correction split_signal "
